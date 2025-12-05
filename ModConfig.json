@@ -1,0 +1,40 @@
+{
+  "ModId": "ff16.gameplay.truly_eikonic_spells",
+  "ModName": "Truly Eikonic Spells",
+  "ModAuthor": "SalvadorDalike",
+  "ModVersion": "0.1.0",
+  "ModDescription": "All the basic proyectiles spells reimagined to give them the final power fantasy they deserve",
+  "ModDll": "ff16.gameplay.truly_eikonic_spells.dll",
+  "ModIcon": "icon.png",
+  "ModR2RManagedDll32": "",
+  "ModR2RManagedDll64": "",
+  "ModNativeDll32": "",
+  "ModNativeDll64": "",
+  "Tags": [],
+  "CanUnload": null,
+  "HasExports": null,
+  "IsLibrary": false,
+  "ReleaseMetadataFileName": "ff16.gameplay.truly_eikonic_spells.ReleaseMetadata.json",
+  "IgnoreRegexes": [
+    ".*\\.json",
+    "ff16\\.gameplay\\.truly_eikonic_spells\\.nuspec"
+  ],
+  "IncludeRegexes": [
+    "\\.deps\\.json",
+    "\\.runtimeconfig\\.json",
+    "ModConfig\\.json"
+  ],
+  "PluginData": {},
+  "IsUniversalMod": false,
+  "ModDependencies": [
+    "ff16.utility.framework",
+    "ff16.utility.modloader",
+    "Reloaded.Memory.SigScan.ReloadedII",
+    "reloaded.sharedlib.hooks"
+  ],
+  "OptionalDependencies": [],
+  "SupportedAppId": [
+    "ffxvi.exe"
+  ],
+  "ProjectUrl": ""
+}
