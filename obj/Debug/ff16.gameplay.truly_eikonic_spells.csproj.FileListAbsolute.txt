@@ -2498,3 +2498,4 @@ E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.deps.json
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.dll
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.pdb
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.sourcelink.json
