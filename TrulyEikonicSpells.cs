@@ -112,6 +112,10 @@ public class TrulyEikonicSpellsMod : ModBase
     private IntPtr _projectileDataBuffer = IntPtr.Zero;
     private const int PROJECTILE_DATA_SIZE = 0x500; // 1280 bytes, should be enough
     
+    // === TIMELINE SPOOFING CACHE ===
+    private long _cachedMagicManager = 0;
+    private long _cachedValidTimeline = 0;
+    
     // Wings of Light context - store a1 from when it's called normally
     private long _wingsA1Context = 0;
     
@@ -335,8 +339,49 @@ public class TrulyEikonicSpellsMod : ModBase
         
         if (spellCount > 0)
         {
-            _pendingDiaProjectiles = spellCount;
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Queued {_pendingDiaProjectiles} bonus projectile(s) for next magic shot!", _logger.ColorGreen);
+            // NEW LOGIC: Try to fire INSTANTLY using cached context (Timeline Spoofing)
+            if (_cachedMagicManager != 0 && _cachedValidTimeline != 0 && _projectileDataBuffer != IntPtr.Zero)
+            {
+                 _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Attempting INSTANT fire via Timeline Spoofing!", _logger.ColorRed);
+                 SpawnInstantDiaProjectiles(spellCount);
+            }
+            else 
+            {
+                _pendingDiaProjectiles = spellCount;
+                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Queued {_pendingDiaProjectiles} bonus projectile(s) for next magic shot (No cache available)!", _logger.ColorGreen);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Spawns Dia projectiles instantly by spoofing the Timeline Context
+    /// </summary>
+    private unsafe void SpawnInstantDiaProjectiles(int count)
+    {
+        try
+        {
+            // 1. Backup current timeline (likely "Dodge" or invalid for magic)
+            long currentTimeline = *(long*)(_cachedMagicManager + 0x28);
+            
+            // 2. Inject VALID timeline (from previous normal shot)
+            *(long*)(_cachedMagicManager + 0x28) = _cachedValidTimeline;
+            
+            // 3. Fire projectiles using cached data
+            long safeProjectileData = (long)_projectileDataBuffer;
+            
+            for (int i = 0; i < count; i++)
+            {
+                _fireMagicProjectile.OriginalFunction(_cachedMagicManager, safeProjectileData);
+            }
+            
+            // 4. Restore original timeline
+            *(long*)(_cachedMagicManager + 0x28) = currentTimeline;
+            
+            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Instant fire success!", _logger.ColorGreen);
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Instant fire failed: {ex.Message}", _logger.ColorRed);
         }
     }
     
@@ -487,6 +532,25 @@ public class TrulyEikonicSpellsMod : ModBase
         // Call original function FIRST
         long result;
         unsafe { result = _fireMagicProjectile.OriginalFunction(magicManager, projectileData); }
+        
+        // === CACHE CONTEXT FOR SPOOFING ===
+        // If this was a successful shot (result != 0), capture the context
+        if (result != 0)
+        {
+            unsafe
+            {
+                _cachedMagicManager = magicManager;
+                _cachedValidTimeline = *(long*)(magicManager + 0x28);
+                
+                // Update snapshot buffer with latest valid data
+                Buffer.MemoryCopy((void*)projectileData, (void*)_projectileDataBuffer, PROJECTILE_DATA_SIZE, PROJECTILE_DATA_SIZE);
+                
+                if (DEBUG_FIRE_MAGIC)
+                {
+                    // _logger.WriteLine($"[{_modConfig.ModId}] [CACHE] Updated Magic Context! Timeline: 0x{_cachedValidTimeline:X}", _logger.ColorCyan);
+                }
+            }
+        }
         
         if (DEBUG_FIRE_MAGIC)
         {
