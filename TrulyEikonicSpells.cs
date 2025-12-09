@@ -6,7 +6,9 @@ using FF16Tools.Files.Nex.Entities;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
+using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
 namespace ff16.gameplay.truly_eikonic_spells;
@@ -16,13 +18,14 @@ public class TrulyEikonicSpellsMod : ModBase
     // ============================================================
     // DEBUG FLAGS - Set to false to disable reverse engineering logs
     // ============================================================
-    private const bool DEBUG_MAGIC_HIT = true;      // Log detailed magic hit info + R15 dump
-    private const bool DEBUG_BATTLE_TECHNIQUE = true; // Log BattleTechnique calls
+    private const bool DEBUG_MAGIC_HIT = false;      // Log detailed magic hit info + R15 dump
+    private const bool DEBUG_BATTLE_TECHNIQUE = false; // Log BattleTechnique calls
     private const bool DEBUG_PERFECT_DODGE = true;   // Log perfect dodge events
-    private const bool DEBUG_WINGS_DODGE = true;     // Log Wings of Light dodge handler
+    private const bool DEBUG_WINGS_DODGE = false;     // Log Wings of Light dodge handler
     private const bool DEBUG_PLAYER_MODE = false;    // Log player mode changes (spammy)
-    private const bool DEBUG_COPY_ATTACK_DATA = true; // Log CopyAttackData calls (projectile creation)
-    private const bool DEBUG_PREPARE_TEMPLATE = true; // Log PrepareAttackTemplate calls
+    private const bool DEBUG_COPY_ATTACK_DATA = false; // Log CopyAttackData calls (projectile creation)
+    private const bool DEBUG_PREPARE_TEMPLATE = false; // Log PrepareAttackTemplate calls
+    private const bool DEBUG_FIRE_MAGIC = true;      // Log FireMagicProjectile calls (KEY function!)
     // ============================================================
     
     private readonly IModLoader _modLoader;
@@ -66,6 +69,14 @@ public class TrulyEikonicSpellsMod : ModBase
     public unsafe delegate void PrepareAttackTemplateDelegate(long a1, long a2, long a3, long a4);
     private IHook<PrepareAttackTemplateDelegate> _prepareAttackTemplate;
     
+    // FireMagicProjectile - THE function that fires magic shots!
+    // Only called for magic shots (normal and charged), not melee or abilities
+    // Offset: 0x56E0F0 from base
+    // RCX = MagicManager pointer, RDX = ProjectileData pointer
+    public unsafe delegate long FireMagicProjectileDelegate(long magicManager, long projectileData);
+    private IHook<FireMagicProjectileDelegate> _fireMagicProjectile;
+    private FireMagicProjectileDelegate _fireMagicProjectileWrapper; // For calling manually
+    
     public delegate long GetOrCreateEntityDelegate(long entityManager, out long outEntityInfo, long entityIdPtr);
     private GetOrCreateEntityDelegate _getOrCreateEntity;
     
@@ -91,6 +102,14 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Magic template pointer - for spawning our own projectiles
     private long _lastMagicTemplatePtr = 0;
+    private long _lastDestStructPtr = 0;  // Destination attack struct (reused)
+    
+    // Pending projectiles to spawn on next magic shot
+    private int _pendingDiaProjectiles = 0;
+    
+    // Cache for projectile data to avoid crashes with delayed shots
+    private IntPtr _projectileDataBuffer = IntPtr.Zero;
+    private const int PROJECTILE_DATA_SIZE = 0x500; // 1280 bytes, should be enough
     
     // Wings of Light context - store a1 from when it's called normally
     private long _wingsA1Context = 0;
@@ -129,6 +148,9 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize systems
         _diaSystem = new DiaSystem();
         _diaraSystem = new DiaraSystem();
+        
+        // Allocate memory for projectile data cache
+        _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
         
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
@@ -249,6 +271,18 @@ public class TrulyEikonicSpellsMod : ModBase
             _copyAttackDataWrapper = _hooks!.CreateWrapper<CopyAttackDataDelegate>(address, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
+        
+        // FireMagicProjectile - THE key function for spawning magic projectiles!
+        // Only called for magic shots (normal shot, charged shot), not melee or Eikon abilities
+        // Offset: 0x56E0F0 (verified via CheatEngine breakpoint)
+        // Verified via CheatEngine: RCX = MagicManager, RDX = ProjectileData (valid pointers)
+        // R8 = 0 (not used), R9 = return address (not a parameter)
+        // NOTE: Signature scan was matching wrong function at 0x24A168, so using hardcoded offset
+        var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
+        var fireMagicAddr = baseAddr + 0x56E0F0;
+        _fireMagicProjectile = _hooks!.CreateHook<FireMagicProjectileDelegate>(FireMagicProjectileImpl, fireMagicAddr).Activate();
+        _fireMagicProjectileWrapper = _hooks!.CreateWrapper<FireMagicProjectileDelegate>(fireMagicAddr, out _);
+        _logger.WriteLine($"[{_modConfig.ModId}] Hooked FireMagicProjectile at 0x{fireMagicAddr:X} (base: 0x{baseAddr:X} + 0x56E0F0)", _logger.ColorGreen);
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
@@ -281,9 +315,28 @@ public class TrulyEikonicSpellsMod : ModBase
             
             // Try to trigger Wings of Light effect if we have context
             TryTriggerWingsEffect(a2);
+            
+            // Queue projectiles for the next magic shot (safe spawning)
+            TrySpawnMagicProjectile();
         }
         
         return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
+    }
+    
+    /// <summary>
+    /// Queue Dia projectiles to spawn on the next magic shot
+    /// The projectile type (Dia/Diara) depends on Clive's state when shooting
+    /// </summary>
+    private void TrySpawnMagicProjectile()
+    {
+        // Get the actual number of spells from Diara system
+        int spellCount = _diaraSystem.GetPendingSpellCount();
+        
+        if (spellCount > 0)
+        {
+            _pendingDiaProjectiles = spellCount;
+            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Queued {_pendingDiaProjectiles} bonus projectile(s) for next magic shot!", _logger.ColorGreen);
+        }
     }
     
     /// <summary>
@@ -347,15 +400,11 @@ public class TrulyEikonicSpellsMod : ModBase
     
     private void OnDiaraPerfectDodge(int spellCount)
     {
-        // TODO: Actually spawn the Dia spells
-        // This requires finding how to spawn projectiles in the game
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {spellCount} Dia spells triggered!", _logger.ColorGreen);
+        // Log the event
+        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Perfect Dodge Event: {spellCount} spells requested.", _logger.ColorGreen);
         
-        // EXPERIMENT: Try to trigger Dia spell using BattleTechnique
-        // We need to find the correct techId for Dia spell
-        // Common magic shot IDs from OnHit: 218 (air), 219 (ground), 227 (charged)
-        // BattleTechnique might use different IDs
-        TrySpawnDiaSpells(spellCount);
+        // Note: Actual spawning is handled by OnPerfectDodgeImpl calling TrySpawnMagicProjectile
+        // which queues them for the next magic shot to avoid crashes.
     }
     
     /// <summary>
@@ -388,6 +437,69 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Dia #{i+1} would fire at enemy", _logger.ColorYellow);
         }
+    }
+    
+    // === FireMagicProjectile Handler - THE KEY FUNCTION for magic shots! ===
+    private long FireMagicProjectileImpl(long magicManager, long projectileData)
+    {
+        if (DEBUG_FIRE_MAGIC)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [FIRE_MAGIC] Called! RCX=0x{magicManager:X}, RDX=0x{projectileData:X}", _logger.ColorGreen);
+        }
+        
+        // Call original function FIRST
+        long result;
+        unsafe { result = _fireMagicProjectile.OriginalFunction(magicManager, projectileData); }
+        
+        if (DEBUG_FIRE_MAGIC)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [FIRE_MAGIC] Result=0x{result:X}", _logger.ColorGreen);
+        }
+        
+        // === DIARA BONUS PROJECTILES ===
+        // If we have pending Dia projectiles from perfect dodge, spawn them NOW
+        // within the correct game context!
+        if (_pendingDiaProjectiles > 0)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {_pendingDiaProjectiles} bonus Dia projectiles with 100ms delay!", _logger.ColorGreen);
+            
+            // === SNAPSHOT PROJECTILE DATA ===
+            // The original projectileData (RDX) is likely transient and will be invalid
+            // by the time our delayed tasks run. We MUST copy it to our own memory.
+            unsafe
+            {
+                Buffer.MemoryCopy((void*)projectileData, (void*)_projectileDataBuffer, PROJECTILE_DATA_SIZE, PROJECTILE_DATA_SIZE);
+            }
+            long safeProjectileData = (long)_projectileDataBuffer;
+            
+            int toSpawn = _pendingDiaProjectiles;
+            _pendingDiaProjectiles = 0; // Reset before spawning to avoid infinite loop
+            
+            // Spawn asynchronously to allow delay without freezing the game
+            Task.Run(async () => 
+            {
+                for (int i = 0; i < toSpawn; i++)
+                {
+                    await Task.Delay(500); // 500ms interval
+                    
+                    try
+                    {
+                        // Call the original function again with the same parameters!
+                        // Note: Calling from background thread is risky but necessary for delay.
+                        // We use our SAFE COPY of the data (safeProjectileData)
+                        unsafe { _fireMagicProjectile.OriginalFunction(magicManager, safeProjectileData); }
+                        // _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bonus projectile #{i+1} spawned! Result=0x{bonusResult:X}", _logger.ColorGreen);
+                    }
+                    catch (Exception ex)
+                    {
+                        // _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bonus projectile #{i+1} failed: {ex.Message}", _logger.ColorRed);
+                        break; // Stop trying if one fails
+                    }
+                }
+            });
+        }
+        
+        return result;
     }
     
     // === BattleTechnique Handler (for logging special abilities only) ===
@@ -423,10 +535,19 @@ public class TrulyEikonicSpellsMod : ModBase
                 // So the ActionId is at srcAttackTemplate + 0x58
                 int actionId = *(int*)(srcAttackTemplate + 0x58);
                 
+                // Get return address from stack to find caller
+                // In x64, return address is at RSP when function starts
+                // After our hook's prolog, it's offset - let's try reading it
+                long* stackPtr = (long*)&destAttackStruct; // Approximate stack location
+                long returnAddr = *(stackPtr - 1); // Return address is typically above local vars
+                var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
+                var callerOffset = returnAddr - baseAddr;
+                
                 _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] === Attack Data Copy ===", _logger.ColorGreen);
                 _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Dest (attack struct): 0x{destAttackStruct:X}", _logger.ColorGreen);
                 _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Src (template): 0x{srcAttackTemplate:X}", _logger.ColorGreen);
                 _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] ActionId from template: {actionId}", _logger.ColorGreen);
+                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Return addr: 0x{returnAddr:X} (offset: 0x{callerOffset:X})", _logger.ColorGreen);
                 
                 // Check if this is a magic projectile (218, 219, 227)
                 if (actionId == 218 || actionId == 219 || actionId == 227)
@@ -435,7 +556,9 @@ public class TrulyEikonicSpellsMod : ModBase
                     
                     // Store the template pointer - this is the key to spawning our own projectiles!
                     _lastMagicTemplatePtr = srcAttackTemplate;
+                    _lastDestStructPtr = destAttackStruct; // Also store dest for potential reuse
                     _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Stored magic template: 0x{srcAttackTemplate:X}", _logger.ColorYellow);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Stored dest struct: 0x{destAttackStruct:X}", _logger.ColorYellow);
                     
                     // Dump the template structure
                     DumpMagicTemplate(srcAttackTemplate);
@@ -458,21 +581,21 @@ public class TrulyEikonicSpellsMod : ModBase
     // Dump destination structure to understand what's initialized before copy
     private unsafe void DumpDestStructure(long destStruct)
     {
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] === Destination Structure Before Copy ===", _logger.ColorCyan);
+        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] === Destination Structure Before Copy ===", _logger.ColorLightBlue);
         
         // Dump first 0x100 bytes to see what's already there
         for (int i = 0; i < 0x100; i += 0x10)
         {
             long val0 = *(long*)(destStruct + i);
             long val8 = *(long*)(destStruct + i + 8);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] +0x{i:X2}: 0x{val0:X16} | 0x{val8:X16}", _logger.ColorCyan);
+            _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] +0x{i:X2}: 0x{val0:X16} | 0x{val8:X16}", _logger.ColorLightBlue);
         }
         
         // Check important offsets
         long entityPtr = *(long*)destStruct;
         int destActionId = *(int*)(destStruct + 0x58);
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] Entity ptr at +0x00: 0x{entityPtr:X}", _logger.ColorCyan);
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] ActionId at +0x58 (before copy): {destActionId}", _logger.ColorCyan);
+        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] Entity ptr at +0x00: 0x{entityPtr:X}", _logger.ColorLightBlue);
+        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] ActionId at +0x58 (before copy): {destActionId}", _logger.ColorLightBlue);
     }
     
     private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)

@@ -1,7 +1,7 @@
 # FFXVI Modding Reference Manual
 ## Truly Eikonic Spells Mod - Technical Documentation
 
-> **Last Updated:** December 7, 2025  
+> **Last Updated:** December 8, 2025  
 > **Status Legend:**  
 > ✅ Confirmed - Tested and working  
 > 🔬 Testing - Under investigation  
@@ -197,6 +197,55 @@ Known behavior:
 Status: Not yet hooked - potential reference for buff application
 ```
 
+#### FireMagicProjectile - Magic Shot Spawning ✅ WORKING!
+```
+Offset: 0x56E0F0 (HARDCODED - signature scan finds wrong function!)
+
+Delegate: long FireMagicProjectileDelegate(long magicManager, long projectileData)
+
+Parameters:
+- magicManager (RCX): Magic system manager pointer
+- projectileData (RDX): Projectile data structure
+
+Return Value:
+- Returns projectile handle/ID (e.g., 0xC, 0xD, 0xE incrementing)
+- Each call returns next sequential ID
+
+CRITICAL FINDINGS (December 8, 2025):
+1. Function is called ONCE per magic shot (normal or charged)
+2. Can be called multiple times within the hook to spawn extra projectiles!
+3. Projectile TYPE (Dia vs Diara) depends on Clive's current animation state, NOT the data passed
+4. Cannot be called outside of magic context (crashes in perfect dodge handler)
+5. MUST use hardcoded offset - signature scan matches WRONG function!
+
+Signature that DOESN'T work (finds 0x24A168 instead of 0x56E0F0):
+  48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8D 6C 24
+
+ProjectileData Structure (verified via CheatEngine dump):
+  +0x00: vtable pointer
+  +0x08: floats (position/direction data) 
+  +0x28: int32 = 3
+  +0x38: int32 = 30 (0x1E)
+  +0x40-0x70: various pointers
+  +0x78: int32 = 1
+
+Usage for Bonus Projectiles:
+  // Inside FireMagicProjectileImpl, AFTER calling original:
+  if (_pendingBonusProjectiles > 0) {
+      for (int i = 0; i < _pendingBonusProjectiles; i++) {
+          _fireMagicProjectile.OriginalFunction(magicManager, projectileData);
+      }
+      _pendingBonusProjectiles = 0;
+  }
+
+Key Insight: The projectile type is determined by Clive's animation state:
+- Normal shot animation + Bahamut → Dia (ActionId 218/219)
+- Charged shot animation + Bahamut → Diara (ActionId 227)
+- Dodge animation → CRASH (no magic state exists)
+
+This means bonus projectiles inherit the type of the triggering shot!
+```
+
 #### CopyAttackData - Attack Data Copy ✅ Hooked
 ```
 Signature: 48 89 5C 24 ?? 57 48 83 EC 20 48 8D 59 58 48 8B FA
@@ -255,6 +304,15 @@ Solution: Use memory reading formula instead (see Memory Addresses section)
 ```
 Result: Returned garbage values
 Solution: Use IsSummonModeActive memory formula with iteration over known Eikon IDs
+```
+
+#### Spawning Projectiles Outside Magic Context ❌
+```
+Attempted: Calling FireMagicProjectile from OnPerfectDodge handler
+Result: Fatal error 0xC0000005 (Access Violation)
+Reason: The function requires Clive to be in a "magic shooting" animation state.
+        When called during dodge, no magic context exists → crash.
+Solution: Queue bonus projectiles and spawn them during next legitimate magic shot.
 ```
 
 ---
@@ -867,6 +925,62 @@ Si el timeline llama funciones para spawnear magia, deberíamos buscar:
 - Requiere modificar archivos del juego
 - Menos dinámico (siempre el mismo comportamiento)
 - Necesita aprender el sistema de timelines
+
+---
+
+## Session Log - December 8, 2025
+
+### FireMagicProjectile Discovery 🎯
+
+**Problem**: Needed to spawn Dia projectiles on Perfect Dodge with Diara buff active.
+
+**CheatEngine Investigation**:
+1. Set breakpoint at ffxvi.exe + 0x56E0F0
+2. Breakpoint hit on every magic shot (normal and charged)
+3. Captured registers:
+   - RCX = MagicManager (valid heap pointer)
+   - RDX = ProjectileData (valid heap pointer, reused buffer)
+   - R8 = 0 (unused)
+   - R9 = return address (not a parameter)
+
+**Signature Scan Problem**:
+- Signature `48 89 5C 24 10 48 89 74 24 18...` found function at 0x24A168
+- But CheatEngine confirmed real function is at 0x56E0F0
+- The signature matches MULTIPLE functions - wrong one was hooked!
+- **Solution**: Use hardcoded offset instead of signature scan
+
+**Crash Investigation**:
+1. First attempt: Call FireMagicProjectile from OnPerfectDodge → **CRASH**
+2. Second attempt: Copy ProjectileData to stack, then call → **CRASH**
+3. Third attempt: Reuse original ProjectileData pointer → **CRASH**
+4. Analysis: The function requires Clive to be in "magic shooting" state
+
+**Working Solution**:
+Queue bonus projectiles during Perfect Dodge, spawn them INSIDE FireMagicProjectileImpl:
+```csharp
+private int _pendingDiaProjectiles = 0;
+
+// In OnPerfectDodge:
+_pendingDiaProjectiles = 5;  // Queue projectiles
+
+// In FireMagicProjectileImpl:
+long result = _fireMagicProjectile.OriginalFunction(magicManager, projectileData);
+if (_pendingDiaProjectiles > 0) {
+    for (int i = 0; i < _pendingDiaProjectiles; i++) {
+        _fireMagicProjectile.OriginalFunction(magicManager, projectileData);
+    }
+    _pendingDiaProjectiles = 0;
+}
+```
+
+**Key Insight**:
+The projectile TYPE (Dia vs Diara) is determined by Clive's animation state at the moment
+of firing, NOT by the data in ProjectileData. This means:
+- Perfect Dodge → queue bonus → Normal Shot = spawns Dia bonus
+- Perfect Dodge → queue bonus → Charged Shot = spawns Diara bonus
+- The player controls what type of bonus projectile they get!
+
+**Result**: ✅ Successfully spawning 2+ projectiles per shot when Diara buff is active!
 
 ---
 

@@ -1,0 +1,66 @@
+// Offset: 0x56E0F0 (Steam v1.0.0)
+// Recommended Name: FireContextualMagicProjectile
+// Original Name (in code): FireMagicProjectile
+
+// 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F2 48 8B D9 48 8B 0D ?? ?? ?? ??
+FireContextualMagicProjectile(long magicManager, long projectileData)
+
+/*
+DESCRIPTION:
+Spawns a magic projectile (Normal Shot, Charged Shot) BUT relies on the active Animation Timeline.
+It appears to require a "Magic Create Element" event in the current timeline to function correctly.
+Calling this outside of a valid magic casting state (e.g. Idle, Dodge) causes a crash or fails to spawn.
+
+PARAMETERS:
+- magicManager (RCX): Pointer to the MagicManager singleton.
+- projectileData (RDX): Pointer to the projectile definition structure.
+  + 0xB0: ActionId (int) -> 218 (Air), 219 (Ground), 227 (Charged)
+  + 0x174: Damage (int)
+
+CRITICAL FINDINGS:
+1. Context Sensitivity: This function is not "stateless". It checks the player's current animation/timeline state.
+2. Data Volatility: The `projectileData` (RDX) pointer is transient. It is destroyed/invalidated shortly after the shot.
+   - If you want to reuse this data (e.g. for delayed shots), you MUST memcpy it to a safe buffer immediately.
+3. Queue Pattern: To use this for "Bonus Projectiles" (e.g. Diara), you cannot call it on demand.
+   - Instead, queue your request and call this function multiple times inside the *original* hook call, reusing the valid context.
+
+IMPLEMENTATION EXAMPLE (C#):
+*/
+
+public unsafe class MagicHook
+{
+    // Delegate
+    public delegate long FireContextualMagicProjectileDelegate(long magicManager, long projectileData);
+    private IHook<FireContextualMagicProjectileDelegate> _fireMagicHook;
+    
+    // Queue
+    private int _pendingProjectiles = 0;
+
+    // Setup
+    public void Setup(IReloadedHooks hooks, long baseAddress)
+    {
+        long offset = 0x56E0F0;
+        _fireMagicHook = hooks.CreateHook<FireContextualMagicProjectileDelegate>(FireMagicImpl, baseAddress + offset).Activate();
+    }
+
+    // Hook
+    private long FireMagicImpl(long magicManager, long projectileData)
+    {
+        // 1. Fire original shot
+        long result = _fireMagicHook.OriginalFunction(magicManager, projectileData);
+
+        // 2. Fire pending bonus shots (Context is valid here!)
+        if (_pendingProjectiles > 0)
+        {
+            int count = _pendingProjectiles;
+            _pendingProjectiles = 0;
+
+            for (int i = 0; i < count; i++)
+            {
+                _fireMagicHook.OriginalFunction(magicManager, projectileData);
+            }
+        }
+
+        return result;
+    }
+}

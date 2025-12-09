@@ -120,6 +120,14 @@ public class DiaraSystem
     }
     
     /// <summary>
+    /// Get number of Dia spells that would spawn per perfect dodge
+    /// </summary>
+    public int GetPendingSpellCount()
+    {
+        return IsBuffActive ? DIA_SPELLS_PER_DODGE : 0;
+    }
+    
+    /// <summary>
     /// Reset system state (e.g., on level load)
     /// </summary>
     public void Reset()
