@@ -1,66 +1,104 @@
-// Offset: 0x56E0F0 (Steam v1.0.0)
-// Recommended Name: FireContextualMagicProjectile
-// Original Name (in code): FireMagicProjectile
+```cpp
+// Offset: 0x56E0F0
 
 // 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8B F2 48 8B D9 48 8B 0D ?? ?? ?? ??
-FireContextualMagicProjectile(long magicManager, long projectileData)
-
-/*
-DESCRIPTION:
-Spawns a magic projectile (Normal Shot, Charged Shot) BUT relies on the active Animation Timeline.
-It appears to require a "Magic Create Element" event in the current timeline to function correctly.
-Calling this outside of a valid magic casting state (e.g. Idle, Dodge) causes a crash or fails to spawn.
-
-PARAMETERS:
-- magicManager (RCX): Pointer to the MagicManager singleton.
-- projectileData (RDX): Pointer to the projectile definition structure.
-  + 0xB0: ActionId (int) -> 218 (Air), 219 (Ground), 227 (Charged)
-  + 0x174: Damage (int)
-
-CRITICAL FINDINGS:
-1. Context Sensitivity: This function is not "stateless". It checks the player's current animation/timeline state.
-2. Data Volatility: The `projectileData` (RDX) pointer is transient. It is destroyed/invalidated shortly after the shot.
-   - If you want to reuse this data (e.g. for delayed shots), you MUST memcpy it to a safe buffer immediately.
-3. Queue Pattern: To use this for "Bonus Projectiles" (e.g. Diara), you cannot call it on demand.
-   - Instead, queue your request and call this function multiple times inside the *original* hook call, reusing the valid context.
-
-IMPLEMENTATION EXAMPLE (C#):
-*/
-
-public unsafe class MagicHook
+void FireContextualMagicProjectile(longlong magicManager /* RCX */, longlong projectileData /* RDX - UNUSED! */)
 {
-    // Delegate
-    public delegate long FireContextualMagicProjectileDelegate(long magicManager, long projectileData);
-    private IHook<FireContextualMagicProjectileDelegate> _fireMagicHook;
+  // =================================================================================
+  // ANALYSIS NOTES (Dec 2025)
+  // =================================================================================
+  // 1. The second parameter (RDX, projectileData) is IGNORED by this function.
+  //    The function derives all necessary data from RCX (MagicManager).
+  //
+  // 2. Magic Configuration Structure:
+  //    Located at: [RCX + 0x38]
+  //    Let's call this: MagicInputConfig* config = *(longlong*)(magicManager + 0x38);
+  //
+  // 3. Key Offsets in MagicInputConfig:
+  //    [+0x10] (int): Shot type
+  //           1 = Normal Shot
+  //           2 = Charged Shot
+  //           3 = Precision Counter Shot
+  //           4 = ??? (Proyectile will not launch, but the )
+  //1 = shot, 2 = charged shot, 3 = precision counter shot, 4 = proyectile not launching but interface thinks it does
+  //    [+0x18] (int): Magic Burst Action ID (e.g., 218/219)
+  //    [+0x1C] (int): Charged Shot Action ID (e.g., 227)
+  //
+  // 4. Control Mechanism:
+  //    - To force a specific shot type, write to [config + 0x10] BEFORE the switch statement.
+  //    - To suppress a shot, you might need to alter the flow or return early, 
+  //      but simply changing the ID allows swapping Normal <-> Charged.
+  // =================================================================================
+
+  // Pointers and Stack Variables
+  int *piVar1;
+  int iVar4; // Holds the Shot Type
+  longlong *plVar8;
+  // ... (stack setup omitted) ...
+
+  // ---------------------------------------------------------
+  // STEP 1: Read Magic Configuration
+  // ---------------------------------------------------------
+  // Reads the pointer at RCX + 0x38
+  longlong configPtr = *(longlong *)(magicManager + 0x38);
+  
+  // Reads the Shot Type from Offset 0x10
+  // This determines which logic branch to take.
+  // iVar4 = ShotType
+  int shotType = *(int *)(configPtr + 0x10);
+
+  // ---------------------------------------------------------
+  // STEP 2: Branch based on Shot Type
+  // ---------------------------------------------------------
+  
+  // CASE 1: Normal Shot?
+  if (shotType == 1) {
+    // Logic for standard magic projectile
+    plVar8 = (longlong *)GetPlayerState(...);
+    if (plVar8 == null) return;
+    // Execute Normal Shot Logic
+    (**(code **)(*plVar8 + 0x78))(plVar8);
+  }
+  
+  // CASE 2: Charged Shot? (Confirmed by experiment: Writing 2 here forces Charged Shot)
+  else if (shotType == 2) {
+    plVar8 = (longlong *)GetPlayerState(...);
+    // Check charge level or similar?
+    int check = CheckChargeLevel(...); 
+    if (plVar8 == null) return;
+    // Execute Charged Shot Logic
+    (**(code **)(*plVar8 + 0x80))(plVar8, 1 < check);
+  }
+  
+  // CASE 3: ?
+  else if (shotType == 3) {
+    plVar8 = (longlong *)GetPlayerState(...);
+    if (plVar8 == null) return;
+    (**(code **)(*plVar8 + 0x88))(plVar8);
+  }
+  
+  // CASE 4: Complex/Magic Burst Logic?
+  else {
+    if (shotType != 4) return; // Exit if unknown type
+
+    // ... Complex setup ...
     
-    // Queue
-    private int _pendingProjectiles = 0;
-
-    // Setup
-    public void Setup(IReloadedHooks hooks, long baseAddress)
-    {
-        long offset = 0x56E0F0;
-        _fireMagicHook = hooks.CreateHook<FireContextualMagicProjectileDelegate>(FireMagicImpl, baseAddress + offset).Activate();
+    // Logic to determine if this is a Magic Burst or Charged variation
+    // iVar5 = Result of some check
+    int checkResult = CheckMagicTiming(...);
+    
+    // If checkResult == 1, use the ID at +0x18 (Magic Burst?)
+    if (checkResult == 1) {
+      int burstActionId = *(int *)(configPtr + 0x18);
+      // Use burstActionId...
     }
-
-    // Hook
-    private long FireMagicImpl(long magicManager, long projectileData)
-    {
-        // 1. Fire original shot
-        long result = _fireMagicHook.OriginalFunction(magicManager, projectileData);
-
-        // 2. Fire pending bonus shots (Context is valid here!)
-        if (_pendingProjectiles > 0)
-        {
-            int count = _pendingProjectiles;
-            _pendingProjectiles = 0;
-
-            for (int i = 0; i < count; i++)
-            {
-                _fireMagicHook.OriginalFunction(magicManager, projectileData);
-            }
-        }
-
-        return result;
+    // If checkResult > 1, use the ID at +0x1C (Charged Shot?)
+    else if (1 < checkResult) {
+      int chargedActionId = *(int *)(configPtr + 0x1c);
+      // Use chargedActionId...
     }
+  }
+
+  // ... Cleanup and Return ...
 }
+```

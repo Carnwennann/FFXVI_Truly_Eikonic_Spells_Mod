@@ -103,6 +103,7 @@ public class TrulyEikonicSpellsMod : ModBase
     // Magic template pointer - for spawning our own projectiles
     private long _lastMagicTemplatePtr = 0;
     private long _lastDestStructPtr = 0;  // Destination attack struct (reused)
+    private int _lastMagicActionId = 0;   // Store the last created magic ID to identify it in FireMagic
     
     // Pending projectiles to spawn on next magic shot
     private int _pendingDiaProjectiles = 0;
@@ -446,6 +447,42 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [FIRE_MAGIC] Called! RCX=0x{magicManager:X}, RDX=0x{projectileData:X}", _logger.ColorGreen);
         }
+
+        // 1. CHECK FOR SUPPRESSION (Diara Activation)
+        // ANALYSIS: Based on Ghidra, ActionID is likely at [RCX + 0x38] + Offset
+        // param_1 = RCX (MagicManager)
+        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x10); (Normal?)
+        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x18); (Burst?)
+        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x1c); (Charged?)
+        
+        unsafe 
+        {
+            long ptr38 = *(long*)(magicManager + 0x38);
+            if (ptr38 != 0)
+            {
+                int id10 = *(int*)(ptr38 + 0x10);
+                int id18 = *(int*)(ptr38 + 0x18);
+                int id1C = *(int*)(ptr38 + 0x1c);
+                
+                if (DEBUG_FIRE_MAGIC)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [ANALYSIS] RCX+0x38: 0x{ptr38:X} | IDs: {id10}, {id18}, {id1C}", _logger.ColorBlue);
+                }
+                
+                // SUPPRESSION LOGIC
+                // If we see the Charged Shot ID (2) and we are Bahamut, we suppress it.
+                if (id10 == 2) // 2 = Charged Shot
+                {
+                     int activeEikon = GetActiveEikon();
+                     if (activeEikon == 8) // Bahamut
+                     {
+                         _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bahamut Charged Shot detected (ID=2)! Activating buff and SUPPRESSING projectile.", _logger.ColorGreen);
+                         _diaraSystem.OnChargedShotCast(activeEikon);
+                         return 0; // Suppress the original shot!
+                     }
+                }
+            }
+        }
         
         // Call original function FIRST
         long result;
@@ -457,46 +494,21 @@ public class TrulyEikonicSpellsMod : ModBase
         }
         
         // === DIARA BONUS PROJECTILES ===
-        // If we have pending Dia projectiles from perfect dodge, spawn them NOW
-        // within the correct game context!
+        // Reverted to SYNCHRONOUS spawning to prevent crashes.
+        // Async/Task.Run is not thread-safe for gameplay functions.
         if (_pendingDiaProjectiles > 0)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {_pendingDiaProjectiles} bonus Dia projectiles with 100ms delay!", _logger.ColorGreen);
-            
-            // === SNAPSHOT PROJECTILE DATA ===
-            // The original projectileData (RDX) is likely transient and will be invalid
-            // by the time our delayed tasks run. We MUST copy it to our own memory.
-            unsafe
-            {
-                Buffer.MemoryCopy((void*)projectileData, (void*)_projectileDataBuffer, PROJECTILE_DATA_SIZE, PROJECTILE_DATA_SIZE);
-            }
-            long safeProjectileData = (long)_projectileDataBuffer;
+            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {_pendingDiaProjectiles} bonus Dia projectiles (Instant)!", _logger.ColorGreen);
             
             int toSpawn = _pendingDiaProjectiles;
-            _pendingDiaProjectiles = 0; // Reset before spawning to avoid infinite loop
+            _pendingDiaProjectiles = 0; // Reset
             
-            // Spawn asynchronously to allow delay without freezing the game
-            Task.Run(async () => 
+            for (int i = 0; i < toSpawn; i++)
             {
-                for (int i = 0; i < toSpawn; i++)
-                {
-                    await Task.Delay(500); // 500ms interval
-                    
-                    try
-                    {
-                        // Call the original function again with the same parameters!
-                        // Note: Calling from background thread is risky but necessary for delay.
-                        // We use our SAFE COPY of the data (safeProjectileData)
-                        unsafe { _fireMagicProjectile.OriginalFunction(magicManager, safeProjectileData); }
-                        // _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bonus projectile #{i+1} spawned! Result=0x{bonusResult:X}", _logger.ColorGreen);
-                    }
-                    catch (Exception ex)
-                    {
-                        // _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bonus projectile #{i+1} failed: {ex.Message}", _logger.ColorRed);
-                        break; // Stop trying if one fails
-                    }
-                }
-            });
+                // Call original function synchronously
+                // This works but has no delay and no spread (yet)
+                unsafe { _fireMagicProjectile.OriginalFunction(magicManager, projectileData); }
+            }
         }
         
         return result;
@@ -554,6 +566,9 @@ public class TrulyEikonicSpellsMod : ModBase
                 {
                     _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] >>> MAGIC PROJECTILE DETECTED! <<<", _logger.ColorYellow);
                     
+                    // Store the ID for FireMagicProjectile to check
+                    _lastMagicActionId = actionId;
+
                     // Store the template pointer - this is the key to spawning our own projectiles!
                     _lastMagicTemplatePtr = srcAttackTemplate;
                     _lastDestStructPtr = destAttackStruct; // Also store dest for potential reuse
@@ -641,20 +656,6 @@ public class TrulyEikonicSpellsMod : ModBase
                     if (DEBUG_MAGIC_HIT)
                     {
                         LogMagicHitDebug(info, R15, bnpcRow, a3, a4);
-                    }
-                }
-                
-                // === DIARA SYSTEM: Charged Shot (227) with Bahamut activates buff ===
-                if (info.ActionId == DiaraSystem.CHARGED_SHOT_ACTION_ID && activeEikon == 8)
-                {
-                    // Activate Diara buff
-                    bool shouldSuppressProjectile = _diaraSystem.OnChargedShotCast(activeEikon);
-                    
-                    if (shouldSuppressProjectile)
-                    {
-                        // TODO: Actually suppress the projectile damage
-                        // For now, we still let it hit but the buff is activated
-                        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Charged Shot detected - buff activated! (projectile suppression TODO)", _logger.ColorGreen);
                     }
                 }
                 
@@ -815,6 +816,55 @@ public class TrulyEikonicSpellsMod : ModBase
         DumpR15Structure(R15);
     }
     
+    /// <summary>
+    /// Dump ProjectileData structure (RDX in FireMagicProjectile)
+    /// </summary>
+    private unsafe void DumpProjectileData(long ptr)
+    {
+        try
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] === Projectile Data Dump (RDX) ===", _logger.ColorYellow);
+            
+            // Dump first 0x80 bytes
+            for (int i = 0; i < 0x80; i += 0x10)
+            {
+                long v0 = *(long*)(ptr + i);
+                long v8 = *(long*)(ptr + i + 8);
+                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] +0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
+            }
+            
+            // Check pointers at 0x20 and 0x40
+            long ptr20 = *(long*)(ptr + 0x20);
+            long ptr40 = *(long*)(ptr + 0x40);
+            
+            if (ptr20 != 0)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Dereferencing Pointer at 0x20: {ptr20:X}", _logger.ColorYellow);
+                for (int i = 0; i < 0x40; i += 0x10)
+                {
+                    long v0 = *(long*)(ptr20 + i);
+                    long v8 = *(long*)(ptr20 + i + 8);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] [0x20]+0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
+                }
+            }
+            
+            if (ptr40 != 0)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Dereferencing Pointer at 0x40: {ptr40:X}", _logger.ColorYellow);
+                for (int i = 0; i < 0x40; i += 0x10)
+                {
+                    long v0 = *(long*)(ptr40 + i);
+                    long v8 = *(long*)(ptr40 + i + 8);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] [0x40]+0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Error: {ex.Message}", _logger.ColorRed);
+        }
+    }
+
     /// <summary>
     /// Dump R15 attack structure for reverse engineering
     /// Use these addresses in CheatEngine to investigate projectile creation
