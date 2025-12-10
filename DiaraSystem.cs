@@ -128,6 +128,15 @@ public class DiaraSystem
     }
     
     /// <summary>
+    /// Consume pending spells (used when spawn is disabled for debugging)
+    /// </summary>
+    public void ConsumeSpells()
+    {
+        // For now just log, the spells are "consumed" by not being spawned
+        Log?.Invoke("[DIARA] Spells consumed (debug mode)");
+    }
+    
+    /// <summary>
     /// Reset system state (e.g., on level load)
     /// </summary>
     public void Reset()
