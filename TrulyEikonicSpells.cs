@@ -18,6 +18,7 @@ public class TrulyEikonicSpellsMod : ModBase
     // ============================================================
     // DEBUG FLAGS - Set to false to disable reverse engineering logs
     // ============================================================
+    private const bool DEBUG_ON_HIT = true;          // Log OnHit Action ID
     private const bool DEBUG_MAGIC_HIT = false;      // Log detailed magic hit info + R15 dump
     private const bool DEBUG_BATTLE_TECHNIQUE = false; // Log BattleTechnique calls
     private const bool DEBUG_PERFECT_DODGE = true;   // Log perfect dodge events
@@ -169,6 +170,7 @@ public class TrulyEikonicSpellsMod : ModBase
     // Systems
     private DiaSystem _diaSystem;
     private DiaraSystem _diaraSystem;
+    private DarkraSystem _darkraSystem;
     
     // NEX
     private WeakReference<INextExcelDBApiManaged> _managedNexApi;
@@ -200,6 +202,7 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize systems
         _diaSystem = new DiaSystem();
         _diaraSystem = new DiaraSystem();
+        _darkraSystem = new DarkraSystem();
         
         // Allocate memory for projectile data cache
         _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
@@ -388,6 +391,7 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         _diaSystem.Reset();
         _diaraSystem.Reset();
+        _darkraSystem.Reset();
         _currentEikonMode = 0;
         
         // Reset new magic system cache
@@ -399,7 +403,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _magicExecute_a6 = 0;
         _magicExecute_a7 = 0;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset Dia/Diara systems, Eikon mode, and Magic context", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset Dia/Diara/Darkra systems, Eikon mode, and Magic context", _logger.ColorYellow);
         return _onLevelLoad.OriginalFunction(a1, a2, a3, a4);
     }
     
@@ -1218,10 +1222,10 @@ public class TrulyEikonicSpellsMod : ModBase
                 // Update Diara system timer
                 _diaraSystem.Update();
                 
-                // DEBUG: Log all magic-like hits to see what ActionId the spawned Dia have
-                if (info.ActionId >= 200 && info.ActionId <= 300)
+                // DEBUG: Log all the action IDs for Clive's attacks
+                if (DEBUG_ON_HIT)
                 {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [HIT] Magic hit detected! ActionId={info.ActionId}, Target=0x{info.TargetId:X}", _logger.ColorYellow);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [HIT] Hit detected! ActionId={info.ActionId}, Target=0x{info.TargetId:X}", _logger.ColorYellow);
                 }
                 
                 // Store last attacked enemy for Diara system (for magic shots only)
@@ -1253,6 +1257,19 @@ public class TrulyEikonicSpellsMod : ModBase
                 else if (result.WasSynergyHit)
                 {
                     _logger.WriteLine($"[{_modConfig.ModId}] [DIA] Synergy! Damage x{result.DamageMultiplier:F2} ({result.CurrentStacks} stacks)", _logger.ColorGreen);
+                }
+                
+                // === DARKRA SYSTEM: Shadow debuff from Odin ===
+                var darkraResult = _darkraSystem.ProcessHit(info.TargetId, info.ActionId, activeEikon, R15);
+                
+                if (darkraResult.AppliedDebuff)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow debuff applied!", _logger.ColorBlue);
+                }
+                
+                if (darkraResult.TriggeredShadowHit)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit! +{darkraResult.ShadowDamage} damage", _logger.ColorBlue);
                 }
             }
         }
