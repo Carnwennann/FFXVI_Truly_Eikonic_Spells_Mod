@@ -54,8 +54,8 @@ public class DiaraSystem
     /// </summary>
     public bool OnChargedShotCast(int activeEikon)
     {
-        // Only activate with Bahamut (ID 8)
-        if (activeEikon != 8)
+        // Only activate with Bahamut
+        if (activeEikon != EikonUtils.EIKON_BAHAMUT)
             return false;
         
         // Activate Diara buff

@@ -27,79 +27,80 @@ public class DiaSystem
     // === Bahamut abilities that ADD Dia stacks ===
     private static readonly HashSet<int> _bahamutStackBuildingAbilities = new()
     {
-        199,  // Magic Burst 1
-        200,  // Magic Burst 2
-        201,  // Magic Burst 3
-        202,  // Magic Burst Finish
-        218,  // Air magic shot
-        219,  // Ground magic shot
+        ActionIds.MAGIC_BURST_1,
+        ActionIds.MAGIC_BURST_2,
+        ActionIds.MAGIC_BURST_3,
+        ActionIds.MAGIC_BURST_FINISH,
+        ActionIds.NORMAL_SHOT_AIR,
+        ActionIds.NORMAL_SHOT_GROUND,
     };
 
     // === Universal abilities that ADD Dia stacks ===
     private static readonly HashSet<int> _universalStackBuildingAbilities = new()
     {
-        0,    // Satellites?? (need to confirm ID)
+        ActionIds.SATELLITES,  // Need to confirm ID
     };
     
     // === Abilities that CONSUME Dia stacks ===
     private static readonly HashSet<int> _stackConsumingAbilities = new()
     {
-        222,  // Precision Shot
-        227,  // Charged magic shot
+        ActionIds.PRECISION_SHOT,
+        ActionIds.CHARGED_SHOT,
     };
     
     // === Abilities that SYNERGIZE (benefit from stacks without consuming) ===
     private static readonly HashSet<int> _synergyAbilities = new()
     {
-        199,  // Magic Burst 1
-        200,  // Magic Burst 2
-        201,  // Magic Burst 3
-        202,  // Magic Burst Finish
-        218,  // Air magic shot
-        219,  // Ground magic shot
-        222,  // Precision Shot
-        227,  // Charged magic shot
+        // Universal magic
+        ActionIds.MAGIC_BURST_1,
+        ActionIds.MAGIC_BURST_2,
+        ActionIds.MAGIC_BURST_3,
+        ActionIds.MAGIC_BURST_FINISH,
+        ActionIds.NORMAL_SHOT_AIR,
+        ActionIds.NORMAL_SHOT_GROUND,
+        ActionIds.PRECISION_SHOT,
+        ActionIds.CHARGED_SHOT,
         
         // Bahamut abilities
-        0,    // Satellites?? (need to confirm ID)
-        776,  // Megaflare lvl1
-        777,  // Megaflare lvl2
-        800,  // Megaflare lvl3
-        801,  // Megaflare lvl4
-        824,  // Impulse
-        830,  // Flare Breath
-        845,  // Gigaflare
+        ActionIds.SATELLITES,
+        ActionIds.MEGAFLARE_LVL1,
+        ActionIds.MEGAFLARE_LVL2,
+        ActionIds.MEGAFLARE_LVL3,
+        ActionIds.MEGAFLARE_LVL4,
+        ActionIds.IMPULSE,
+        ActionIds.FLARE_BREATH,
+        ActionIds.GIGAFLARE,
         
         // Shiva abilities
-        747,  // Mesmerize
-        748,  // Aerial Mesmerize
+        ActionIds.MESMERIZE,
+        ActionIds.AERIAL_MESMERIZE,
         
         // Ramuh abilities
-        628,  // Blind Justice
+        ActionIds.BLIND_JUSTICE,
         
         // Phoenix abilities
-        376,  // Heatwave
+        ActionIds.HEATWAVE,
         
         // Leviathan abilities
-        1028, // Precision Tidal Torrent
-        1029, // Dodge Tidal Stream
-        1046, // Tidal Torrent
-        1053, // Charged Torrent
-        1065, // Tidal Stream
-        1069, // Charged Stream
-        1078, // Deluge
-        1091, // Cross Swell
-        1096, // Abyssal Tear
-        1097, // Charged Abyssal Tear
-        1098, // Aerial Abyssal Tear
-        1099, // Charged Aerial Abyssal Tear
-        1124, // Tsunami
+        ActionIds.PRECISION_TIDAL_TORRENT,
+        ActionIds.DODGE_TIDAL_STREAM,
+        ActionIds.TIDAL_TORRENT,
+        ActionIds.CHARGED_TORRENT,
+        ActionIds.TIDAL_STREAM,
+        ActionIds.CHARGED_STREAM,
+        ActionIds.DELUGE,
+        ActionIds.CROSS_SWELL,
+        ActionIds.ABYSSAL_TEAR,
+        ActionIds.CHARGED_ABYSSAL_TEAR,
+        ActionIds.AERIAL_ABYSSAL_TEAR,
+        ActionIds.CHARGED_AERIAL_ABYSSAL_TEAR,
+        ActionIds.TSUNAMI,
     };
     
     #endregion
     
-    // Bahamut Eikon ID
-    private const int EIKON_BAHAMUT = 8;
+    // Use shared Eikon constant
+    private const int EIKON_BAHAMUT = EikonUtils.EIKON_BAHAMUT;
     
     public DiaSystem()
     {

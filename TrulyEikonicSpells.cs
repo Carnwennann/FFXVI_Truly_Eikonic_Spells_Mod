@@ -1002,7 +1002,7 @@ public class TrulyEikonicSpellsMod : ModBase
                 if (id10 == 2) // 2 = Charged Shot
                 {
                      int activeEikon = GetActiveEikon();
-                     if (activeEikon == 8) // Bahamut
+                     if (activeEikon == EikonUtils.EIKON_BAHAMUT)
                      {
                          _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bahamut Charged Shot detected (ID=2)! Activating buff and SUPPRESSING projectile.", _logger.ColorGreen);
                          _diaraSystem.OnChargedShotCast(activeEikon);
@@ -1229,7 +1229,7 @@ public class TrulyEikonicSpellsMod : ModBase
                 }
                 
                 // Store last attacked enemy for Diara system (for magic shots only)
-                bool isMagicShot = info.ActionId == 218 || info.ActionId == 219 || info.ActionId == 227 || info.ActionId == 214;
+                bool isMagicShot = ActionIds.IsMagicShot(info.ActionId);
                 if (isMagicShot)
                 {
                     _lastAttackedEnemyPtr = (long)bnpcRow;
@@ -1309,86 +1309,16 @@ public class TrulyEikonicSpellsMod : ModBase
         };
     }
     
-    private struct AttackInfo
-    {
-        public int ActionId;
-        public int Damage;
-        public long TargetId;
-        public bool IsCliveAttack;
-        public bool IsCliveTarget;
-        public bool IsHealOrEffect;
-    }
+    // Use shared AttackInfo from EikonUtils.cs
     
-    // SummonModeIds (corrected from testing):
-    // 0=Phoenix/Leviathan/Ultima, 2=Garuda, 3=Titan, 4=Ramuh, 5=Shiva, 7=Odin, 8=Bahamut
-    private static readonly int[] KnownEikonIds = { 0, 2, 3, 4, 5, 7, 8 };
+    // Delegate to shared EikonUtils for Eikon detection
+    private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
     
-    // Spell element types for Dia system
-    private enum SpellElement { None, Fire, Dia, Dark, Aero, Ice, Thunder, Earth, Water, Ruin }
+    // Delegate to shared EikonUtils
+    private static string GetEikonName(int eikonId) => EikonUtils.GetEikonName(eikonId);
     
-    private unsafe int GetActiveEikon()
-    {
-        try
-        {
-            // Formula from another modder - reads memory directly to check active summon mode
-            // isSummonModeActive_a1 = [baseAddress + 0x1816608] + 0x4798 + 0x14650
-            long basePtr = *(long*)_globalPlayerStatePtr; // baseAddress + 0x1816608 already dereferenced
-            if (basePtr == 0) return -2;
-            
-            long isSummonModeActive_a1 = basePtr + 0x4798 + 0x14650;
-            
-            // Read the comparison value: [isSummonModeActive_a1 + 0x58 + [isSummonModeActive_a1 + 0x70] * 8]
-            long offset70 = *(long*)(isSummonModeActive_a1 + 0x70);
-            long compareValue = *(long*)(isSummonModeActive_a1 + 0x58 + offset70 * 8);
-            
-            // Check each Eikon: [isSummonModeActive_a1 + 8 * summonModeId] == compareValue
-            foreach (int eikonId in KnownEikonIds)
-            {
-                long eikonValue = *(long*)(isSummonModeActive_a1 + 8 * eikonId);
-                if (eikonValue == compareValue)
-                    return eikonId;
-            }
-            
-            return 0; // No Eikon active
-        }
-        catch
-        {
-            return -3; // Error reading memory
-        }
-    }
-    
-    private static string GetEikonName(int eikonId)
-    {
-        return eikonId switch
-        {
-            0 => "Phoenix",  // Also Leviathan/Ultima (DLC)
-            2 => "Garuda",
-            3 => "Titan",
-            4 => "Ramuh",
-            5 => "Shiva",
-            7 => "Odin",
-            8 => "Bahamut",
-            -1 => "No Function",
-            -2 => "No PlayerState",
-            -3 => "Error",
-            _ => $"Unknown({eikonId})"
-        };
-    }
-    
-    private static SpellElement GetSpellElement(int eikonId)
-    {
-        return eikonId switch
-        {
-            0 => SpellElement.Fire,    // Phoenix = Fire
-            8 => SpellElement.Dia,    // Bahamut = Dia
-            7 => SpellElement.Dark,   // Odin = Dark
-            2 => SpellElement.Aero,   // Garuda = Aero
-            5 => SpellElement.Ice,    // Shiva = Ice
-            4 => SpellElement.Thunder, // Ramuh = Thunder
-            3 => SpellElement.Earth,  // Titan = Earth
-            _ => SpellElement.None
-        };
-    }
+    // Delegate to shared EikonUtils
+    private static EikonUtils.SpellElement GetSpellElement(int eikonId) => EikonUtils.GetSpellElement(eikonId);
     
     // ============================================================
     // DEBUG FUNCTIONS - Reverse Engineering Helpers

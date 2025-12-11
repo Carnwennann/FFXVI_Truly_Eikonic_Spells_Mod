@@ -16,8 +16,8 @@ public class DarkraSystem
     // Track Shadow debuff per enemy (targetId -> expiration time)
     private readonly ConcurrentDictionary<long, DateTime> _shadowDebuffs = new();
 
-    // Odin Eikon ID
-    private const int EIKON_ODIN = 7;
+    // Use shared Eikon constant
+    private const int EIKON_ODIN = EikonUtils.EIKON_ODIN;
     
     // Configuration
     private const float SHADOW_HIT_MULTIPLIER = 0.5f;  // Shadow hit deals 50% of original damage
