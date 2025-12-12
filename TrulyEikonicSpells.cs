@@ -38,6 +38,12 @@ public class TrulyEikonicSpellsMod : ModBase
     public unsafe delegate long OnHitDelegate(long* bnpcRow, long R15, long a3, long a4);
     private IHook<OnHitDelegate> _onHit;
     
+    // OnReaction hook - applies knockback/stagger effects after damage
+    // FUN_140592e70: param_1 = battle context, param_2 = R15 (attack struct)
+    public unsafe delegate void OnReactionDelegate(long battleContext, long R15);
+    private IHook<OnReactionDelegate> _onReaction;
+    private long _battleContextForReaction = 0;  // Captured from OnReaction calls
+    
     public delegate long OnLevelLoad(long a1, double a2, double a3, double a4);
     private IHook<OnLevelLoad> _onLevelLoad;
     
@@ -288,6 +294,26 @@ public class TrulyEikonicSpellsMod : ModBase
         scans.AddScan("48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 8B 82", address =>
         {
             _onHit = _hooks!.CreateHook<OnHitDelegate>(OnHitImpl, address).Activate();
+            _logger.WriteLine($"[{_modConfig.ModId}] Hooked OnHit at 0x{address:X}", _logger.ColorGreen);
+            
+            // Also hook OnReaction using hardcoded offset (now that we know hooks work)
+            // FUN_140596f44 - processes hit reactions, assigns reaction data to target
+            var baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
+            var onReactionAddress = baseAddress + 0x596F44;
+            
+            try
+            {
+                _onReaction = _hooks!.CreateHook<OnReactionDelegate>(OnReactionImpl, onReactionAddress).Activate();
+                _logger.WriteLine($"[{_modConfig.ModId}] Hooked OnReaction at 0x{onReactionAddress:X} (offset 0x596F44)", _logger.ColorGreen);
+                
+                // Verify hook was applied by reading first bytes
+                byte firstByte = *(byte*)onReactionAddress;
+                _logger.WriteLine($"[{_modConfig.ModId}] OnReaction first byte after hook: 0x{firstByte:X2} (should be 0xE9 for JMP)", _logger.ColorYellow);
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] Failed to hook OnReaction: {ex.Message}", _logger.ColorRed);
+            }
         });
         
         // Level load hook - reset systems
@@ -1270,6 +1296,9 @@ public class TrulyEikonicSpellsMod : ModBase
                 if (darkraResult.TriggeredShadowHit)
                 {
                     _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit! +{darkraResult.ShadowDamage} damage", _logger.ColorBlue);
+                    
+                    // Schedule the shadow hit to call OnHit again after a delay
+                    ScheduleShadowHit(bnpcRow, R15, a3, a4, darkraResult.ShadowDamage);
                 }
             }
         }
@@ -1320,6 +1349,75 @@ public class TrulyEikonicSpellsMod : ModBase
     // Delegate to shared EikonUtils
     private static EikonUtils.SpellElement GetSpellElement(int eikonId) => EikonUtils.GetSpellElement(eikonId);
     
+    /// <summary>
+    /// Schedule a shadow hit to be triggered after a delay.
+    /// This calls OnHit again with the shadow damage and SHADOW_HIT action ID.
+    /// </summary>
+    private unsafe void ScheduleShadowHit(long* bnpcRow, long R15, long a3, long a4, int shadowDamage)
+    {
+        // Capture values for the delayed call
+        long bnpcRowValue = (long)bnpcRow;
+        long r15Value = R15;
+        long a3Value = a3;
+        long a4Value = a4;
+        
+        Task.Run(() =>
+        {
+            Thread.Sleep(DarkraSystem.SHADOW_HIT_DELAY_MS);
+            
+            // Call OnHit with the shadow damage
+            ExecuteShadowHit(bnpcRowValue, r15Value, a3Value, a4Value, shadowDamage);
+        });
+    }
+    
+    /// <summary>
+    /// Execute the shadow hit by modifying R15 and calling OnHit
+    /// </summary>
+    private unsafe void ExecuteShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
+    {
+        try
+        {
+            // Set the action ID to SHADOW_HIT to prevent recursion
+            int* actionIdPtr = (int*)(r15Value + 0xB0);
+            *actionIdPtr = ActionIds.SHADOW_HIT;
+            
+            // Set the damage to the shadow damage
+            int* dmgPtr = (int*)(r15Value + 0x174);
+            *dmgPtr = shadowDamage;
+            
+            // Call OnHit with the modified R15
+            long* bnpcRow = (long*)bnpcRowValue;
+            _onHit.OriginalFunction(bnpcRow, r15Value, a3, a4);
+            
+            // Call OnReaction to apply knockback/stagger effects
+            if (_battleContextForReaction != 0)
+            {
+                _onReaction.OriginalFunction(_battleContextForReaction, r15Value);
+                _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit executed with reaction! Damage: {shadowDamage}", _logger.ColorBlue);
+            }
+            else
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit executed (no reaction context)! Damage: {shadowDamage}", _logger.ColorBlue);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Error executing shadow hit: {ex.Message}", _logger.ColorRed);
+        }
+    }
+    
+    /// <summary>
+    /// OnReaction implementation - captures battle context and applies knockback/stagger
+    /// </summary>
+    private unsafe void OnReactionImpl(long battleContext, long R15)
+    {
+        // Capture the battle context for shadow hits
+        _battleContextForReaction = battleContext;
+        
+        // Call original function
+        _onReaction.OriginalFunction(battleContext, R15);
+    }
+
     // ============================================================
     // DEBUG FUNCTIONS - Reverse Engineering Helpers
     // Set DEBUG_* flags at top of file to enable/disable

@@ -8,7 +8,7 @@ namespace ff16.gameplay.truly_eikonic_spells;
 /// MECHANICS:
 /// - When an enemy is hit by Darkra (Odin's magic shot), they receive a Shadow debuff
 /// - While the Shadow debuff is active, ANY hit on that enemy triggers a second "shadow" hit
-/// - The shadow hit deals 50% of the original damage
+/// - The shadow hit deals 50% of the original damage (after a short delay)
 /// - Hitting with Darkra again resets the debuff duration
 /// </summary>
 public class DarkraSystem
@@ -20,8 +20,9 @@ public class DarkraSystem
     private const int EIKON_ODIN = EikonUtils.EIKON_ODIN;
     
     // Configuration
-    private const float SHADOW_HIT_MULTIPLIER = 0.5f;  // Shadow hit deals 50% of original damage
-    private const float DEBUFF_DURATION = 10.0f;       // Debuff lasts 10 seconds
+    public const float SHADOW_HIT_MULTIPLIER = 0.5f;  // Shadow hit deals 50% of original damage
+    public const float DEBUFF_DURATION = 120.0f;       // Debuff lasts 10 seconds
+    public const int SHADOW_HIT_DELAY_MS = 500;       // Delay before shadow hit (milliseconds)
     
     #region Action IDs
     
@@ -29,15 +30,22 @@ public class DarkraSystem
     private static readonly HashSet<int> _darkraAbilities = new()
     {
         // Magic shots with Odin active become Darkra
-        222,  // Precision Shot (becomes Darkra with Odin)
-        227,  // Charged magic shot (becomes Darkra with Odin)
-        228,  // Aerial Charged Shot (becomes Darkra with Odin)
+        ActionIds.PRECISION_SHOT,
+        ActionIds.CHARGED_SHOT,
+        ActionIds.AERIAL_CHARGED_SHOT,
     };
     
     // === Abilities that DON'T trigger shadow hit (to prevent infinite loops) ===
     private static readonly HashSet<int> _excludedFromShadowHit = new()
     {
-        // Add any action IDs that shouldn't trigger shadow damage
+        // Shadow hit itself (prevent recursion)
+        ActionIds.SHADOW_HIT,
+        
+        // Magic shots - the Darkra that applies the debuff shouldn't also trigger shadow damage
+        // This prevents double-dipping on the initial application
+        ActionIds.PRECISION_SHOT,
+        ActionIds.CHARGED_SHOT,
+        ActionIds.AERIAL_CHARGED_SHOT,
     };
     
     #endregion
@@ -48,7 +56,8 @@ public class DarkraSystem
     }
     
     /// <summary>
-    /// Process a hit and check for Darkra mechanics
+    /// Process a hit and check for Darkra mechanics.
+    /// Returns info about what shadow hit should be triggered (caller handles the actual hit).
     /// </summary>
     public unsafe DarkraResult ProcessHit(long targetId, int actionId, int activeEikon, long R15)
     {
@@ -74,9 +83,8 @@ public class DarkraSystem
             
             result.TriggeredShadowHit = true;
             result.ShadowDamage = shadowDamage;
-            
-            // Apply the shadow damage by adding to the original hit
-            *(int*)(R15 + 0x174) = originalDamage + shadowDamage;
+            result.OriginalDamage = originalDamage;
+            // Note: The caller (TrulyEikonicSpells) will handle scheduling the shadow hit
         }
         
         return result;
@@ -157,6 +165,7 @@ public class DarkraSystem
 public struct DarkraResult
 {
     public bool AppliedDebuff;      // True if this hit applied/reset Shadow debuff
-    public bool TriggeredShadowHit; // True if target had debuff and took shadow damage
-    public int ShadowDamage;        // Amount of shadow damage dealt
+    public bool TriggeredShadowHit; // True if target had debuff and should take shadow damage
+    public int ShadowDamage;        // Amount of shadow damage to deal
+    public int OriginalDamage;      // Original damage of the hit
 }
