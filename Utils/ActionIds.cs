@@ -12,10 +12,10 @@ public static class ActionIds
     public const int NORMAL_SHOT_GROUND = 219;
     public const int PRECISION_SHOT = 222;
     public const int CHARGED_SHOT = 227;
-    public const int AERIAL_CHARGED_SHOT = 228;
+    public const int AERIAL_CHARGED_SHOT = 228;  // Charged shot while airborne
     
     // Special internal action IDs for mod mechanics
-    public const int SHADOW_HIT = 9999;  // Used by Darkra system to mark shadow damage hits
+    public const int SHADOW_HIT = -999;  // Used by Darkra system to mark shadow damage hits
     
     #endregion
     

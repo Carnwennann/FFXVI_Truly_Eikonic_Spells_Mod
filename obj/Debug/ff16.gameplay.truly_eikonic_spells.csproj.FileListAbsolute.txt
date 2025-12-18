@@ -1,8 +1,3 @@
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.AssemblyReference.cache
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.GeneratedMSBuildEditorConfig.editorconfig
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfoInputs.cache
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfo.cs
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.CoreCompileInputs.cache
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\ability.layout
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\abyssboost.layout
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\abyssboostparam.layout
@@ -833,11 +828,6 @@ E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\icon.png
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.deps.json
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.dll
 E:\Descargas\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.pdb
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gam.8AF928A2.Up2Date
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.dll
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\refint\ff16.gameplay.truly_eikonic_spells.dll
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.pdb
-E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ref\ff16.gameplay.truly_eikonic_spells.dll
 E:\SteamLibrary\steamapps\common\FINAL FANTASY XVI\reloaded-mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\ability.layout
 E:\SteamLibrary\steamapps\common\FINAL FANTASY XVI\reloaded-mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\abyssboost.layout
 E:\SteamLibrary\steamapps\common\FINAL FANTASY XVI\reloaded-mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\abyssboostparam.layout
@@ -2498,4 +2488,14 @@ E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.deps.json
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.dll
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\ff16.gameplay.truly_eikonic_spells.pdb
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.AssemblyReference.cache
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.GeneratedMSBuildEditorConfig.editorconfig
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfoInputs.cache
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfo.cs
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.CoreCompileInputs.cache
 E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.sourcelink.json
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gam.8AF928A2.Up2Date
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.dll
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\refint\ff16.gameplay.truly_eikonic_spells.dll
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.pdb
+E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ref\ff16.gameplay.truly_eikonic_spells.dll

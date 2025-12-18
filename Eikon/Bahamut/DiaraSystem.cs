@@ -21,9 +21,9 @@ public class DiaraSystem
     private bool _isBuffActive = false;
     private readonly Stopwatch _buffTimer = new();
     
-    // Configuration
-    private const float BUFF_DURATION_SECONDS = 120.0f;  // Buff lasts 120 seconds
-    private const int DIA_SPELLS_PER_DODGE = 5;
+    // Configuration (settable for hot-reload)
+    public float BuffDurationSeconds { get; set; }
+    public int DiaSpellsPerDodge { get; set; }
     
     // Action IDs
     public const int CHARGED_SHOT_ACTION_ID = 227;
@@ -36,16 +36,22 @@ public class DiaraSystem
     // Logging delegate (set by main mod) - simple string only
     public Action<string>? Log;
     
+    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5)
+    {
+        BuffDurationSeconds = buffDurationSeconds;
+        DiaSpellsPerDodge = diaSpellsPerDodge;
+    }
+    
     /// <summary>
     /// Check if Diara buff is currently active
     /// </summary>
-    public bool IsBuffActive => _isBuffActive && _buffTimer.Elapsed.TotalSeconds < BUFF_DURATION_SECONDS;
+    public bool IsBuffActive => _isBuffActive && _buffTimer.Elapsed.TotalSeconds < BuffDurationSeconds;
     
     /// <summary>
     /// Get remaining buff time in seconds
     /// </summary>
     public float RemainingBuffTime => _isBuffActive 
-        ? Math.Max(0, BUFF_DURATION_SECONDS - (float)_buffTimer.Elapsed.TotalSeconds) 
+        ? Math.Max(0, BuffDurationSeconds - (float)_buffTimer.Elapsed.TotalSeconds) 
         : 0;
     
     /// <summary>
@@ -74,10 +80,10 @@ public class DiaraSystem
         if (!IsBuffActive)
             return 0;
         
-        Log?.Invoke($"[DIARA] Perfect Dodge! Spawning {DIA_SPELLS_PER_DODGE} Dia spells!");
-        OnPerfectDodgeWithBuff?.Invoke(DIA_SPELLS_PER_DODGE);
+        Log?.Invoke($"[DIARA] Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
+        OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
         
-        return DIA_SPELLS_PER_DODGE;
+        return DiaSpellsPerDodge;
     }
     
     /// <summary>
@@ -88,7 +94,7 @@ public class DiaraSystem
         _isBuffActive = true;
         _buffTimer.Restart();
         
-        Log?.Invoke($"[DIARA] Buff activated! ({BUFF_DURATION_SECONDS}s duration)");
+        Log?.Invoke($"[DIARA] Buff activated! ({BuffDurationSeconds}s duration)");
         OnBuffActivated?.Invoke();
     }
     
@@ -113,7 +119,7 @@ public class DiaraSystem
     /// </summary>
     public void Update()
     {
-        if (_isBuffActive && _buffTimer.Elapsed.TotalSeconds >= BUFF_DURATION_SECONDS)
+        if (_isBuffActive && _buffTimer.Elapsed.TotalSeconds >= BuffDurationSeconds)
         {
             DeactivateBuff();
         }
@@ -124,7 +130,7 @@ public class DiaraSystem
     /// </summary>
     public int GetPendingSpellCount()
     {
-        return IsBuffActive ? DIA_SPELLS_PER_DODGE : 0;
+        return IsBuffActive ? DiaSpellsPerDodge : 0;
     }
     
     /// <summary>

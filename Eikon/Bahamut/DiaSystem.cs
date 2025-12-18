@@ -18,9 +18,9 @@ public class DiaSystem
     // Track Dia stacks per enemy (using target pointer as ID)
     private readonly ConcurrentDictionary<long, int> _diaStacks = new();
     
-    // Configuration
-    private const int MAX_DIA_STACKS = 50;
-    private const float DAMAGE_PER_STACK = 0.01f; // 1% per stack
+    // Configuration (settable for hot-reload)
+    public int MaxStacks { get; set; }
+    public float DamagePerStack { get; set; }
     
     #region Action IDs
     
@@ -102,8 +102,10 @@ public class DiaSystem
     // Use shared Eikon constant
     private const int EIKON_BAHAMUT = EikonUtils.EIKON_BAHAMUT;
     
-    public DiaSystem()
+    public DiaSystem(int maxStacks = 50, float damagePerStack = 0.01f)
     {
+        MaxStacks = maxStacks;
+        DamagePerStack = damagePerStack;
     }
     
     /// <summary>
@@ -134,7 +136,7 @@ public class DiaSystem
             int stacks = GetDiaStacks(targetId);
             if (stacks > 0)
             {
-                result.DamageMultiplier = 1.0f + (stacks * DAMAGE_PER_STACK);
+                result.DamageMultiplier = 1.0f + (stacks * DamagePerStack);
                 result.WasSynergyHit = true;
                 result.CurrentStacks = stacks;
                 ApplyDamageBonus(R15, result.DamageMultiplier);
@@ -168,7 +170,7 @@ public class DiaSystem
         _diaStacks.AddOrUpdate(
             targetId,
             1,
-            (_, currentStacks) => Math.Min(currentStacks + 1, MAX_DIA_STACKS)
+            (_, currentStacks) => Math.Min(currentStacks + 1, MaxStacks)
         );
     }
     

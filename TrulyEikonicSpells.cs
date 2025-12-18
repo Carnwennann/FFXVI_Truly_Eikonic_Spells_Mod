@@ -27,6 +27,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private const bool DEBUG_COPY_ATTACK_DATA = false; // Log CopyAttackData calls (projectile creation)
     private const bool DEBUG_PREPARE_TEMPLATE = false; // Log PrepareAttackTemplate calls
     private const bool DEBUG_FIRE_MAGIC = true;      // Log FireMagicProjectile calls (KEY function!)
+    private const bool DEBUG_ON_REACTION = true;     // Log OnReaction calls (knockback/stagger)
     // ============================================================
     
     private readonly IModLoader _modLoader;
@@ -43,6 +44,9 @@ public class TrulyEikonicSpellsMod : ModBase
     public unsafe delegate void OnReactionDelegate(long battleContext, long R15);
     private IHook<OnReactionDelegate> _onReaction;
     private long _battleContextForReaction = 0;  // Captured from OnReaction calls
+    
+    // PhysicsUpdate - now handled by PhysicsSystem class
+    // See PhysicsSystem.cs for physics manipulation logic
     
     public delegate long OnLevelLoad(long a1, double a2, double a3, double a4);
     private IHook<OnLevelLoad> _onLevelLoad;
@@ -177,6 +181,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaSystem _diaSystem;
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
+    private PhysicsSystem _physicsSystem;
     
     // NEX
     private WeakReference<INextExcelDBApiManaged> _managedNexApi;
@@ -185,6 +190,9 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Clive IDs (from combo meter)
     private readonly HashSet<uint> _cliveIds = new() { 1, 2, 3, 4, 6, 8, 9, 10 };
+    
+    // Configuration
+    private Config _configuration;
     
     // Constructor sin parámetros requerido por Startup
     public TrulyEikonicSpellsMod() { }
@@ -195,6 +203,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _hooks = context.Hooks;
         _logger = context.Logger;
         _modConfig = context.ModConfig;
+        _configuration = context.Configuration;
         
 #if DEBUG
         Debugger.Launch();
@@ -205,10 +214,30 @@ public class TrulyEikonicSpellsMod : ModBase
         // Load NEX layouts (kept for potential future use)
         _attackParamLayout = TableMappingReader.ReadTableLayout("attackparam", new Version(1, 0, 3));
         
-        // Initialize systems
-        _diaSystem = new DiaSystem();
-        _diaraSystem = new DiaraSystem();
-        _darkraSystem = new DarkraSystem();
+        // Initialize systems with configuration
+        _diaSystem = new DiaSystem(
+            maxStacks: _configuration.MaxDiaStacks,
+            damagePerStack: _configuration.DiaDamagePerStack
+        );
+        _diaraSystem = new DiaraSystem(
+            buffDurationSeconds: _configuration.DiaraBuffDuration,
+            diaSpellsPerDodge: _configuration.DiaSpellsPerDodge
+        );
+        _darkraSystem = new DarkraSystem(
+            shadowHitMultiplier: _configuration.ShadowHitMultiplier,
+            debuffDuration: _configuration.ShadowDebuffDuration,
+            shadowHitDelayMs: _configuration.ShadowHitDelayMs,
+            reactionAnimationType: _configuration.ShadowHitReactionType,
+            reactionPushDirection: _configuration.ShadowHitReactionIntensity,
+            juggleEnabled: _configuration.ShadowHitJuggleEnabled,
+            juggleAnimId: _configuration.ShadowHitJuggleAnimId,
+            juggleVerticalPush: _configuration.ShadowHitJuggleVerticalPush,
+            juggleForwardPush: _configuration.ShadowHitJuggleForwardPush,
+            juggleForwardDuration: _configuration.ShadowHitJuggleForwardDuration,
+            juggleVerticalInterpolation: _configuration.ShadowHitJuggleVerticalInterpolation
+        );
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] Config loaded - Dia: {_configuration.MaxDiaStacks} stacks, Diara: {_configuration.DiaraBuffDuration}s, Darkra: {_configuration.ShadowHitMultiplier * 100}%", _logger.ColorGreen);
         
         // Allocate memory for projectile data cache
         _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
@@ -297,7 +326,7 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked OnHit at 0x{address:X}", _logger.ColorGreen);
             
             // Also hook OnReaction using hardcoded offset (now that we know hooks work)
-            // FUN_140596f44 - processes hit reactions, assigns reaction data to target
+            // FUN_140596f44 - processes hit reactions variables, assigns reaction data to target
             var baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
             var onReactionAddress = baseAddress + 0x596F44;
             
@@ -313,6 +342,18 @@ public class TrulyEikonicSpellsMod : ModBase
             catch (Exception ex)
             {
                 _logger.WriteLine($"[{_modConfig.ModId}] Failed to hook OnReaction: {ex.Message}", _logger.ColorRed);
+            }
+            
+            // Initialize PhysicsSystem - handles knockback physics manipulation
+            try
+            {
+                _physicsSystem = new PhysicsSystem(_logger, _modConfig, _configuration);
+                _physicsSystem.Initialize(_hooks!, baseAddress);
+                _logger.WriteLine($"[{_modConfig.ModId}] PhysicsSystem initialized", _logger.ColorGreen);
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] Failed to initialize PhysicsSystem: {ex.Message}", _logger.ColorRed);
             }
         });
         
@@ -1363,7 +1404,7 @@ public class TrulyEikonicSpellsMod : ModBase
         
         Task.Run(() =>
         {
-            Thread.Sleep(DarkraSystem.SHADOW_HIT_DELAY_MS);
+            Thread.Sleep(_darkraSystem.ShadowHitDelayMs);
             
             // Call OnHit with the shadow damage
             ExecuteShadowHit(bnpcRowValue, r15Value, a3Value, a4Value, shadowDamage);
@@ -1377,13 +1418,14 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         try
         {
-            // Set the action ID to SHADOW_HIT to prevent recursion
-            int* actionIdPtr = (int*)(r15Value + 0xB0);
-            *actionIdPtr = ActionIds.SHADOW_HIT;
+            // Use DarkraSystem to prepare R15 with all shadow hit values
+            _darkraSystem.PrepareR15ForShadowHit(r15Value, shadowDamage);
             
-            // Set the damage to the shadow damage
-            int* dmgPtr = (int*)(r15Value + 0x174);
-            *dmgPtr = shadowDamage;
+            // Apply juggle physics if enabled
+            if (_darkraSystem.GetJugglePhysics(out float fwdPush, out float fwdDur, out float vertPush, out float vertInterp))
+            {
+                _physicsSystem.ApplyShadowHitPhysics(fwdPush, fwdDur, vertPush, vertInterp);
+            }
             
             // Call OnHit with the modified R15
             long* bnpcRow = (long*)bnpcRowValue;
@@ -1408,15 +1450,260 @@ public class TrulyEikonicSpellsMod : ModBase
     
     /// <summary>
     /// OnReaction implementation - captures battle context and applies knockback/stagger
+    /// FUN_140596f44 in Ghidra
+    /// 
+    /// param_1 (RCX) = Entity/Target pointer structure
+    ///   - param_1[0] = Unknown (VTable?)
+    ///   - param_1[1] = Entity data pointer (lVar5), has +0x7298 offset for battle data
+    ///   - param_1[3] = Previous reaction data (set at end of function)
+    ///   - param_1[4] = Some handler with virtual functions
+    ///   - param_1[0x1d] & 1 = Skip flag
+    /// 
+    /// param_2 (RDX) = Attack/Reaction data structure (same as R15 in OnHit)
+    ///   - +0x88 = Some ID used for lookups
+    ///   - +0x15c = Reaction type ID (uVar12)
+    ///   - +0x160 = Secondary reaction value
+    ///   - +0x174 = Damage (same as OnHit)
+    ///   - +0x184 = Some value reset to 0
+    ///   - +0x194 = Flags (bit 12 = special flag, bit 4 = another flag)
+    ///   - +0x196 = More flags
+    ///   - +0xB0 = Action ID (same as OnHit)
     /// </summary>
-    private unsafe void OnReactionImpl(long battleContext, long R15)
+    private unsafe void OnReactionImpl(long param1, long param2)
     {
         // Capture the battle context for shadow hits
-        _battleContextForReaction = battleContext;
+        _battleContextForReaction = param1;
+        
+        // === PHYSICS EXPERIMENT: Force PushDirection and Reaction Flags ===
+        if (_configuration.EnablePhysicsModification)
+        {
+            try
+            {
+                // Read current flags at +0x194
+                int flags = *(int*)(param2 + 0x194);
+                int originalFlags = flags;
+                
+                // Check current flag states
+                bool has0x2800 = (flags & 0x2800) != 0;
+                bool hasBit4 = (flags & 0x10) != 0;
+                bool hasBit12 = (flags & 0x1000) != 0;
+                
+                // Apply flag modifications using TriState enum
+                // 0x2800 flag
+                if (_configuration.PhysicsFlag0x2800 == TriState.On) flags |= 0x2800;
+                else if (_configuration.PhysicsFlag0x2800 == TriState.Off) flags &= ~0x2800;
+                
+                // bit4 (0x10) flag
+                if (_configuration.PhysicsFlagBit4 == TriState.On) flags |= 0x10;
+                else if (_configuration.PhysicsFlagBit4 == TriState.Off) flags &= ~0x10;
+                
+                // bit12 (0x1000) flag
+                if (_configuration.PhysicsFlagBit12 == TriState.On) flags |= 0x1000;
+                else if (_configuration.PhysicsFlagBit12 == TriState.Off) flags &= ~0x1000;
+                
+                // Write modified flags if changed
+                if (flags != originalFlags)
+                {
+                    *(int*)(param2 + 0x194) = flags;
+                    _logger.WriteLine($"[{_modConfig.ModId}] [PHYSICS] Flags modified: 0x{originalFlags:X8} -> 0x{flags:X8}", _logger.ColorGreen);
+                }
+                
+                _logger.WriteLine($"[{_modConfig.ModId}] [PHYSICS-DEBUG] Flags=0x{flags:X8}, bit4={hasBit4}, bit12={hasBit12}, 0x2800={has0x2800}", _logger.ColorYellow);
+                
+                // Force PushDirection if specified
+                if (_configuration.PhysicsForcePushDirection >= 0)
+                {
+                    int originalPushDir = *(int*)(param2 + 0x160);
+                    *(int*)(param2 + 0x160) = _configuration.PhysicsForcePushDirection;
+                    _logger.WriteLine($"[{_modConfig.ModId}] [PHYSICS] Forced PushDirection: {originalPushDir} -> {_configuration.PhysicsForcePushDirection}", _logger.ColorGreen);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [PHYSICS] Error modifying physics: {ex.Message}", _logger.ColorRed);
+            }
+        }
+        
+        if (DEBUG_ON_REACTION)
+        {
+            try
+            {
+                DumpOnReactionData(param1, param2);
+            }
+            catch (Exception ex)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Error dumping: {ex.Message}", _logger.ColorRed);
+            }
+        }
         
         // Call original function
-        _onReaction.OriginalFunction(battleContext, R15);
+        _onReaction.OriginalFunction(param1, param2);
     }
+    
+    /// <summary>
+    /// Dump OnReaction parameters for reverse engineering
+    /// Based on TriggerReactionHit (FUN_140596f44)
+    /// </summary>
+    private unsafe void DumpOnReactionData(long param1, long param2)
+    {
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] ========== TriggerReactionHit ==========", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1 (entity): 0x{param1:X}", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param2 (attack): 0x{param2:X}", _logger.ColorYellow);
+        
+        // === PARAM1 (Entity/Target structure) ===
+        long* p1 = (long*)param1;
+        
+        // Skip flag is at byte offset 0x1d (NOT param_1[0x1d])
+        byte skipFlag = *(byte*)(param1 + 0x1d);
+        string skipText = (skipFlag & 1) != 0 ? "WOULD SKIP!" : "";
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1+0x1d (skip flag): 0x{skipFlag:X2} (& 1 = {skipFlag & 1}) {skipText}", _logger.ColorLightBlue);
+        
+        // Array access: param_1[n] = offset n*8
+        long p1_0 = p1[0];  // +0x00 - VTable or ID
+        long p1_1 = p1[1];  // +0x08 - Entity data ptr (lVar5)
+        long p1_3 = p1[3];  // +0x18 - Previous reaction (set at end)
+        long p1_4 = p1[4];  // +0x20 - Handler with vtable
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[0] +0x00: 0x{p1_0:X}", _logger.ColorLightBlue);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[1] +0x08 (entity data): 0x{p1_1:X}", _logger.ColorLightBlue);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[3] +0x18 (prev reaction): 0x{p1_3:X}", _logger.ColorLightBlue);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[4] +0x20 (handler): 0x{p1_4:X}", _logger.ColorLightBlue);
+        
+        // Check entity data at param1[1] for potential "immune to physics" flags
+        if (p1_1 != 0)
+        {
+            long battleData = *(long*)(p1_1 + 0x7298);
+            long ptr9c70 = *(long*)(p1_1 + 0x9c70);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x7298 (battle data): 0x{battleData:X}", _logger.ColorLightBlue);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x9c70: 0x{ptr9c70:X}", _logger.ColorLightBlue);
+            
+            // Dump more entity flags to find physics immunity
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- Entity Flags (searching for physics immunity) ---", _logger.ColorYellow);
+            
+            // Check various potential flag locations
+            for (int offset = 0x10; offset <= 0x40; offset += 4)
+            {
+                uint flagVal = *(uint*)(p1_1 + offset);
+                if (flagVal != 0)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x{offset:X}: 0x{flagVal:X8}", _logger.ColorLightBlue);
+                }
+            }
+            
+            // Check around common flag areas
+            uint flags100 = *(uint*)(p1_1 + 0x100);
+            uint flags104 = *(uint*)(p1_1 + 0x104);
+            uint flags108 = *(uint*)(p1_1 + 0x108);
+            uint flags1a0 = *(uint*)(p1_1 + 0x1a0);
+            uint flags1a4 = *(uint*)(p1_1 + 0x1a4);
+            byte flags1c = *(byte*)(p1_1 + 0x1c);
+            byte flags1d = *(byte*)(p1_1 + 0x1d);
+            byte flags1e = *(byte*)(p1_1 + 0x1e);
+            
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x100: 0x{flags100:X8}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x104: 0x{flags104:X8}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x108: 0x{flags108:X8}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1a0: 0x{flags1a0:X8}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1a4: 0x{flags1a4:X8}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1c/1d/1e: 0x{flags1c:X2} 0x{flags1d:X2} 0x{flags1e:X2}", _logger.ColorYellow);
+        }
+        
+        // If there's a previous reaction, show its type
+        if (p1_3 != 0)
+        {
+            int prevReactionType = *(int*)(p1_3 + 0x15c);
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] >>> Previous reaction type: {prevReactionType}", _logger.ColorRed);
+        }
+        
+        // === PARAM2 (Attack/Reaction data) ===
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- param2 (Attack/Reaction Data) ---", _logger.ColorGreen);
+        
+        // Key fields from pseudocode
+        int actionId = *(int*)(param2 + 0xB0);
+        int damage = *(int*)(param2 + 0x174);
+        int reactionType = *(int*)(param2 + 0x15c);    // uVar12 - THE KEY VALUE!
+        int reactionVal2 = *(int*)(param2 + 0x160);
+        int someId88 = *(int*)(param2 + 0x88);
+        int val184 = *(int*)(param2 + 0x184);
+        uint flags194 = *(uint*)(param2 + 0x194);
+        byte flags196 = *(byte*)(param2 + 0x196);
+        
+        // Decode flags
+        bool flag194_bit4 = ((flags194 >> 4) & 1) != 0;
+        bool flag194_bit12 = ((flags194 >> 12) & 1) != 0;
+        bool flag194_0x2800 = (flags194 & 0x2800) != 0;
+        bool flag196_bit0 = (flags196 & 1) != 0;
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0xB0 ActionId: {actionId}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x174 Damage: {damage}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x15c ReactionType: {reactionType} {GetReactionTypeName(reactionType)}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x160 PushDirection: {reactionVal2} {ReactionTypes.GetPushDirectionName(reactionVal2)}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x88 LookupID: {someId88}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x184 Modifier: {val184} (reset to 0 in FORCED mode - duration/intensity?)", _logger.ColorGreen);
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x194 Flags: 0x{flags194:X8}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   bit4={flag194_bit4}, bit12={flag194_bit12}, 0x2800={flag194_0x2800}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x196 Flags: 0x{flags196:X2} (bit0={flag196_bit0})", _logger.ColorGreen);
+        
+        // Check if reaction would be skipped (reactionType < 2)
+        if (reactionType < 2)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] >>> ReactionType < 2, would normally skip!", _logger.ColorRed);
+        }
+        
+        // Check +0x58 area (used for entity lookup)
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- +0x58 area (entity ref) ---", _logger.ColorYellow);
+        long ptr58 = *(long*)(param2 + 0x58);
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x58: 0x{ptr58:X}", _logger.ColorYellow);
+        
+        // === DUMP VTABLE of param1[4] (Handler) ===
+        // This handler contains virtual functions that process the reaction
+        // The physics function is likely in one of these offsets
+        if (p1_4 != 0)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- Handler VTable (param1[4]) ---", _logger.ColorRed);
+            long vtable = *(long*)p1_4;
+            if (vtable != 0)
+            {
+                long baseAddr = (long)System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
+                // Log key vtable offsets used in TriggerReactionHit
+                long vfunc_0x40 = *(long*)(vtable + 0x40);  // GetCurrentReactionType?
+                long vfunc_0x48 = *(long*)(vtable + 0x48);  // GetSomething?
+                long vfunc_0x68 = *(long*)(vtable + 0x68);  // CanReact check?
+                long vfunc_0x70 = *(long*)(vtable + 0x70);  // Skip check?
+                long vfunc_0x88 = *(long*)(vtable + 0x88);  // GetPriority?
+                
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] VTable base: 0x{vtable:X}", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x40: 0x{vfunc_0x40:X} (offset: 0x{vfunc_0x40 - baseAddr:X})", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x48: 0x{vfunc_0x48:X} (offset: 0x{vfunc_0x48 - baseAddr:X})", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x68: 0x{vfunc_0x68:X} (offset: 0x{vfunc_0x68 - baseAddr:X})", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x70: 0x{vfunc_0x70:X} (offset: 0x{vfunc_0x70 - baseAddr:X})", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x88: 0x{vfunc_0x88:X} (offset: 0x{vfunc_0x88 - baseAddr:X})", _logger.ColorRed);
+                
+                // Also check for physics-related functions (likely higher offsets)
+                for (int i = 0; i <= 0x100; i += 8)
+                {
+                    long vfunc = *(long*)(vtable + i);
+                    if (vfunc != 0 && vfunc > baseAddr && vfunc < baseAddr + 0x2000000)
+                    {
+                        // Only log first few and key ones to avoid spam
+                        if (i <= 0x20 || i == 0x90 || i == 0x98 || i == 0xA0 || i == 0xA8 || i == 0xB0)
+                        {
+                            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x{i:X2}: 0x{vfunc:X} (offset: 0x{vfunc - baseAddr:X})", _logger.ColorYellow);
+                        }
+                    }
+                }
+            }
+        }
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] ==========================================", _logger.ColorYellow);
+    }
+    
+    /// <summary>
+    /// Get human-readable name for reaction animation types
+    /// Delegates to centralized ReactionTypes class
+    /// </summary>
+    private string GetReactionTypeName(int reactionType) => ReactionTypes.GetAnimationName(reactionType);
 
     // ============================================================
     // DEBUG FUNCTIONS - Reverse Engineering Helpers
@@ -1583,6 +1870,53 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] Error: {ex.Message}", _logger.ColorRed);
         }
+    }
+    
+    #endregion
+    
+    #region Standard Overrides
+    
+    /// <summary>
+    /// Called when the mod configuration is updated at runtime.
+    /// This allows hot-reloading of settings without restarting the game.
+    /// </summary>
+    public override void ConfigurationUpdated(Config configuration)
+    {
+        _configuration = configuration;
+        
+        // Update DiaSystem settings
+        if (_diaSystem != null)
+        {
+            _diaSystem.MaxStacks = configuration.MaxDiaStacks;
+            _diaSystem.DamagePerStack = configuration.DiaDamagePerStack;
+        }
+        
+        // Update DiaraSystem settings
+        if (_diaraSystem != null)
+        {
+            _diaraSystem.BuffDurationSeconds = configuration.DiaraBuffDuration;
+            _diaraSystem.DiaSpellsPerDodge = configuration.DiaSpellsPerDodge;
+        }
+        
+        // Update DarkraSystem settings
+        if (_darkraSystem != null)
+        {
+            _darkraSystem.ShadowHitMultiplier = configuration.ShadowHitMultiplier;
+            _darkraSystem.DebuffDuration = configuration.ShadowDebuffDuration;
+            _darkraSystem.ShadowHitDelayMs = configuration.ShadowHitDelayMs;
+        }
+        
+        // Update PhysicsSystem settings
+        if (_physicsSystem != null)
+        {
+            _physicsSystem.UpdateConfiguration(configuration);
+        }
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}]   Dia: MaxStacks={configuration.MaxDiaStacks}, DmgPerStack={configuration.DiaDamagePerStack}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}]   Diara: Duration={configuration.DiaraBuffDuration}s, SpellsPerDodge={configuration.DiaSpellsPerDodge}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}]   Darkra: Multiplier={configuration.ShadowHitMultiplier}, Delay={configuration.ShadowHitDelayMs}ms, ReactionType={configuration.ShadowHitReactionType}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}]   Physics: Enabled={configuration.EnablePhysicsModification}, Forward={configuration.PhysicsForwardPushOverride}, Vertical={configuration.PhysicsVerticalPushOverride}", _logger.ColorGreen);
     }
     
     #endregion

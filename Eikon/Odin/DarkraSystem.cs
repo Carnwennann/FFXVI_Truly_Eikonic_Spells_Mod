@@ -8,8 +8,9 @@ namespace ff16.gameplay.truly_eikonic_spells;
 /// MECHANICS:
 /// - When an enemy is hit by Darkra (Odin's magic shot), they receive a Shadow debuff
 /// - While the Shadow debuff is active, ANY hit on that enemy triggers a second "shadow" hit
-/// - The shadow hit deals 50% of the original damage (after a short delay)
+/// - The shadow hit deals a percentage of the original damage (after a short delay)
 /// - Hitting with Darkra again resets the debuff duration
+/// - Shadow hits can juggle enemies in the air with custom physics
 /// </summary>
 public class DarkraSystem
 {
@@ -19,10 +20,22 @@ public class DarkraSystem
     // Use shared Eikon constant
     private const int EIKON_ODIN = EikonUtils.EIKON_ODIN;
     
-    // Configuration
-    public const float SHADOW_HIT_MULTIPLIER = 0.5f;  // Shadow hit deals 50% of original damage
-    public const float DEBUFF_DURATION = 120.0f;       // Debuff lasts 10 seconds
-    public const int SHADOW_HIT_DELAY_MS = 500;       // Delay before shadow hit (milliseconds)
+    // === Core Configuration ===
+    public float ShadowHitMultiplier { get; set; }
+    public float DebuffDuration { get; set; }
+    public int ShadowHitDelayMs { get; set; }
+    
+    // === Reaction Configuration ===
+    public int ReactionAnimationType { get; set; }
+    public int ReactionPushDirection { get; set; }
+    
+    // === Juggle Physics Configuration ===
+    public bool JuggleEnabled { get; set; }
+    public int JuggleAnimId { get; set; }
+    public float JuggleVerticalPush { get; set; }
+    public float JuggleForwardPush { get; set; }
+    public float JuggleForwardDuration { get; set; }
+    public float JuggleVerticalInterpolation { get; set; }
     
     #region Action IDs
     
@@ -51,8 +64,30 @@ public class DarkraSystem
     #endregion
 
     
-    public DarkraSystem()
+    public DarkraSystem(
+        float shadowHitMultiplier = 0.1f, 
+        float debuffDuration = 120.0f, 
+        int shadowHitDelayMs = 1000,
+        int reactionAnimationType = 2,
+        int reactionPushDirection = 2,
+        bool juggleEnabled = true,
+        int juggleAnimId = 6,
+        float juggleVerticalPush = 1.0f,
+        float juggleForwardPush = -0.1f,
+        float juggleForwardDuration = 0.5f,
+        float juggleVerticalInterpolation = 0.3f)
     {
+        ShadowHitMultiplier = shadowHitMultiplier;
+        DebuffDuration = debuffDuration;
+        ShadowHitDelayMs = shadowHitDelayMs;
+        ReactionAnimationType = reactionAnimationType;
+        ReactionPushDirection = reactionPushDirection;
+        JuggleEnabled = juggleEnabled;
+        JuggleAnimId = juggleAnimId;
+        JuggleVerticalPush = juggleVerticalPush;
+        JuggleForwardPush = juggleForwardPush;
+        JuggleForwardDuration = juggleForwardDuration;
+        JuggleVerticalInterpolation = juggleVerticalInterpolation;
     }
     
     /// <summary>
@@ -77,17 +112,67 @@ public class DarkraSystem
         // Step 2: Check if target has Shadow debuff and should take extra hit
         if (HasShadowDebuff(targetId) && !_excludedFromShadowHit.Contains(actionId))
         {
-            // Calculate shadow damage (flat 50%)
+            // Calculate shadow damage
             int originalDamage = *(int*)(R15 + 0x174);
-            int shadowDamage = (int)(originalDamage * SHADOW_HIT_MULTIPLIER);
+            int shadowDamage = (int)(originalDamage * ShadowHitMultiplier);
             
             result.TriggeredShadowHit = true;
             result.ShadowDamage = shadowDamage;
             result.OriginalDamage = originalDamage;
-            // Note: The caller (TrulyEikonicSpells) will handle scheduling the shadow hit
         }
         
         return result;
+    }
+    
+    /// <summary>
+    /// Prepare R15 structure for a shadow hit execution.
+    /// Sets action ID, damage, and reaction values.
+    /// </summary>
+    public unsafe void PrepareR15ForShadowHit(long r15Value, int shadowDamage)
+    {
+        // Set the action ID to SHADOW_HIT to prevent recursion
+        int* actionIdPtr = (int*)(r15Value + 0xB0);
+        *actionIdPtr = ActionIds.SHADOW_HIT;
+        
+        // Set the damage
+        int* dmgPtr = (int*)(r15Value + 0x174);
+        *dmgPtr = shadowDamage;
+        
+        // Set reaction animation and push direction
+        int* reactionTypePtr = (int*)(r15Value + 0x15c);
+        int* reactionPushPtr = (int*)(r15Value + 0x160);
+        
+        if (JuggleEnabled)
+        {
+            // Use juggle animation ID
+            *reactionTypePtr = JuggleAnimId;
+            *reactionPushPtr = ReactionPushDirection;
+        }
+        else
+        {
+            // Use standard reaction values
+            *reactionTypePtr = ReactionAnimationType;
+            *reactionPushPtr = ReactionPushDirection;
+        }
+    }
+    
+    /// <summary>
+    /// Get the physics values to apply for a shadow hit juggle.
+    /// Returns true if juggle physics should be applied.
+    /// </summary>
+    public bool GetJugglePhysics(out float forwardPush, out float forwardDuration, out float verticalPush, out float verticalInterpolation)
+    {
+        if (JuggleEnabled)
+        {
+            forwardPush = JuggleForwardPush;
+            forwardDuration = JuggleForwardDuration;
+            verticalPush = JuggleVerticalPush;
+            verticalInterpolation = JuggleVerticalInterpolation;
+            return true;
+        }
+        
+        forwardPush = forwardDuration = verticalPush = verticalInterpolation = 0;
+        return false;
     }
     
     /// <summary>
@@ -95,7 +180,7 @@ public class DarkraSystem
     /// </summary>
     private void ApplyDebuff(long targetId)
     {
-        var expirationTime = DateTime.UtcNow.AddSeconds(DEBUFF_DURATION);
+        var expirationTime = DateTime.UtcNow.AddSeconds(DebuffDuration);
         _shadowDebuffs[targetId] = expirationTime;
     }
     
