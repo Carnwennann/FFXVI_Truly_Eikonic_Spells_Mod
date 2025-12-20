@@ -1,4 +1,5 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.Utils;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
 using FF16Tools.Files.Nex;
@@ -28,6 +29,16 @@ public class TrulyEikonicSpellsMod : ModBase
     private const bool DEBUG_PREPARE_TEMPLATE = false; // Log PrepareAttackTemplate calls
     private const bool DEBUG_FIRE_MAGIC = true;      // Log FireMagicProjectile calls (KEY function!)
     private const bool DEBUG_ON_REACTION = true;     // Log OnReaction calls (knockback/stagger)
+    
+    // STRUCT DUMP FLAGS - Control detailed structure dumps
+    private const bool DEBUG_DUMP_TABLE_LAYOUT = false;    // Dump NEX table layouts on load
+    private const bool DEBUG_DUMP_TIMELINE = false;        // Dump Timeline object details
+    private const bool DEBUG_DUMP_MAGIC_TEMPLATE = false;  // Dump magic attack template structure
+    private const bool DEBUG_DUMP_DEST_STRUCTURE = false;  // Dump destination attack structure
+    private const bool DEBUG_DUMP_REACTION_DATA = false;   // Dump OnReaction param structures
+    private const bool DEBUG_DUMP_MAGIC_HIT = false;       // Dump detailed magic hit info + R15
+    private const bool DEBUG_DUMP_PROJECTILE_DATA = false; // Dump projectile data structure
+    private const bool DEBUG_DUMP_R15_STRUCTURE = false;   // Dump R15 attack structure
     // ============================================================
     
     private readonly IModLoader _modLoader;
@@ -80,31 +91,10 @@ public class TrulyEikonicSpellsMod : ModBase
     public unsafe delegate void PrepareAttackTemplateDelegate(long a1, long a2, long a3, long a4);
     private IHook<PrepareAttackTemplateDelegate> _prepareAttackTemplate;
     
-    // FireMagicProjectile - THE function that fires magic shots!
-    // Only called for magic shots (normal and charged), not melee or abilities
-    // Offset: 0x56E0F0 from base
-    // RCX = MagicManager pointer, RDX = ProjectileData pointer
-    public unsafe delegate long FireMagicProjectileDelegate(long magicManager, long projectileData);
-    private IHook<FireMagicProjectileDelegate> _fireMagicProjectile;
-    private FireMagicProjectileDelegate _fireMagicProjectileWrapper; // For calling manually
-    
-    // GetTimeline - Retrieves the Timeline/Animation object
+    // GetTimeline - Retrieves the Timeline/Animation object (kept for debugging)
     // Offset: 0x4692A4
     public unsafe delegate long GetTimelineDelegate(long param_1);
     private IHook<GetTimelineDelegate> _getTimeline;
-    
-    // === NEW MAGIC SYSTEM (from Discord community) ===
-    // MagicExecute - Prepares the magic spell to be cast, setups the magic struct
-    // Signature: 48 8B C4 48 89 58 08 48 89 70 10 57 48 83 EC 60 8B FA 66 C7 40 E8 01 00 48 8B F1 C6 40 EA 00 C5 F9 EF C0 49 8B D1 48 8D 48 D8 C5 FA 7F 40 D8 49 8B D8
-    public unsafe delegate long MagicExecuteDelegate(long unkMagicStructPtr, int magicId, long a3, long a4, int a5, int a6, int a7);
-    private IHook<MagicExecuteDelegate> _magicExecute;
-    private MagicExecuteDelegate _magicExecuteWrapper;
-    
-    // CastMagic - Actually spawns the magic spell using the already set-up magic struct
-    // Signature: 48 89 5C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 41 10 48 8B F2 48 8B 0D ?? ?? ?? ?? 48 8D 54 24 30 44 8B 40 08 E8 ?? ?? ?? ?? 33 FF
-    public unsafe delegate char CastMagicDelegate(long a1, long unkMagicStructPtr);
-    private IHook<CastMagicDelegate> _castMagic;
-    private CastMagicDelegate _castMagicWrapper;
     
     public delegate long GetOrCreateEntityDelegate(long entityManager, out long outEntityInfo, long entityIdPtr);
     private GetOrCreateEntityDelegate _getOrCreateEntity;
@@ -125,63 +115,30 @@ public class TrulyEikonicSpellsMod : ModBase
     private uint _currentEikonMode = 0;
     private long _modeA1 = 0;  // Player mode structure pointer
     
-    // Last attacked enemy for Diara system
-    private long _lastAttackedEnemyPtr = 0;
-    private long _lastAttackR15 = 0;  // Store R15 structure for reference
-    
     // Magic template pointer - for spawning our own projectiles
     private long _lastMagicTemplatePtr = 0;
     private long _lastDestStructPtr = 0;  // Destination attack struct (reused)
     private int _lastMagicActionId = 0;   // Store the last created magic ID to identify it in FireMagic
     
-    // Pending projectiles to spawn on next magic shot
-    private int _pendingDiaProjectiles = 0;
-    
-    // Cache for projectile data to avoid crashes with delayed shots
+    // Legacy buffers (kept for debugging, may be removed later)
     private IntPtr _projectileDataBuffer = IntPtr.Zero;
-    private const int PROJECTILE_DATA_SIZE = 0x500; // 1280 bytes, should be enough
+    private const int PROJECTILE_DATA_SIZE = 0x500;
+    private IntPtr _shadowVTableBuffer = IntPtr.Zero;
+    private const int VTABLE_SIZE = 0x800;
     
-    // === DEEP COPY CACHE (Opción 3) ===
-    // Instead of caching just the pointer (which becomes stale), we deep-copy the entire structure
-    private IntPtr _magicManagerCopy = IntPtr.Zero;     // Deep copy of MagicManager
-    private IntPtr _magicInputConfigCopy = IntPtr.Zero; // Deep copy of MagicInputConfig (at +0x38)
-    private const int MAGIC_MANAGER_SIZE = 0x200;       // 512 bytes for MagicManager
-    private const int MAGIC_INPUT_CONFIG_SIZE = 0x100;  // 256 bytes for MagicInputConfig
-    private bool _hasCachedMagicContext = false;        // Flag: do we have valid cached data?
-    
-    // === LEGACY CACHE (for comparison/debugging) ===
-    private long _cachedMagicManager = 0;
-    private long _cachedValidVTable = 0; // Store ONLY the VTable
-    private long _modifiedTimelinePtr = 0; // Track which timeline we modified
-    private long _originalVTableBackup = 0; // Backup of the original VTable
-    private IntPtr _shadowVTableBuffer = IntPtr.Zero; // Buffer for our constructed VTable
-    private const int VTABLE_SIZE = 0x800; // 2048 bytes (256 functions), plenty for a VTable
-    private bool _isForceFiringDiara = false; // Flag to activate the hook override
-    
-    // Cache the param_1 from GetTimeline during normal shots for comparison
+    // Cache the param_1 from GetTimeline during normal shots for comparison (debugging)
     private long _cachedTimelineParam1 = 0;
     private long _cachedTimelinePtr = 0;
     
     // Wings of Light context - store a1 from when it's called normally
     private long _wingsA1Context = 0;
     
-    // === NEW MAGIC SYSTEM CACHE ===
-    // Cached parameters from MagicExecute and CastMagic for spawning spells on demand
-    private IntPtr _magicStructBuffer = IntPtr.Zero;  // Buffer for UnkMagicStruct (ptr1 + 32 longs = 264 bytes)
-    private const int MAGIC_STRUCT_SIZE = 0x108;      // 264 bytes (8 + 32*8)
-    private long _magicExecute_a3 = 0;
-    private long _magicExecute_a4 = 0;
-    private int _magicExecute_a5 = 0;
-    private int _magicExecute_a6 = 0;
-    private int _magicExecute_a7 = 0;
-    private long _castMagic_a1 = 0;
-    private bool _hasMagicContext = false;  // True after both MagicExecute and CastMagic have run
-    
     // Systems
     private DiaSystem _diaSystem;
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
     private PhysicsSystem _physicsSystem;
+    private MagicCastSystem _magicCastSystem;
     
     // NEX
     private WeakReference<INextExcelDBApiManaged> _managedNexApi;
@@ -217,12 +174,19 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize systems with configuration
         _diaSystem = new DiaSystem(
             maxStacks: _configuration.MaxDiaStacks,
-            damagePerStack: _configuration.DiaDamagePerStack
+            damagePerStack: _configuration.DiaDamagePerStack,
+            logger: _logger,
+            modId: _modConfig.ModId
         );
+        _diaSystem.DebugLogging = _configuration.DebugLogging;
         _diaraSystem = new DiaraSystem(
             buffDurationSeconds: _configuration.DiaraBuffDuration,
-            diaSpellsPerDodge: _configuration.DiaSpellsPerDodge
+            diaSpellsPerDodge: _configuration.DiaSpellsPerDodge,
+            magicID: _configuration.DiaMagicID,
+            logger: _logger,
+            modId: _modConfig.ModId
         );
+        _diaraSystem.DebugLogging = _configuration.DebugLogging;
         _darkraSystem = new DarkraSystem(
             shadowHitMultiplier: _configuration.ShadowHitMultiplier,
             debuffDuration: _configuration.ShadowDebuffDuration,
@@ -234,29 +198,31 @@ public class TrulyEikonicSpellsMod : ModBase
             juggleVerticalPush: _configuration.ShadowHitJuggleVerticalPush,
             juggleForwardPush: _configuration.ShadowHitJuggleForwardPush,
             juggleForwardDuration: _configuration.ShadowHitJuggleForwardDuration,
-            juggleVerticalInterpolation: _configuration.ShadowHitJuggleVerticalInterpolation
+            juggleVerticalInterpolation: _configuration.ShadowHitJuggleVerticalInterpolation,
+            logger: _logger,
+            modId: _modConfig.ModId
         );
+        _darkraSystem.DebugLogging = _configuration.DebugLogging;
         
         _logger.WriteLine($"[{_modConfig.ModId}] Config loaded - Dia: {_configuration.MaxDiaStacks} stacks, Diara: {_configuration.DiaraBuffDuration}s, Darkra: {_configuration.ShadowHitMultiplier * 100}%", _logger.ColorGreen);
         
-        // Allocate memory for projectile data cache
+        // Initialize MagicCastSystem (handles all magic projectile spawning)
+        _magicCastSystem = new MagicCastSystem(_logger, _modConfig, _configuration);
+        
+        // Connect MagicCastSystem to DiaraSystem for direct projectile spawning
+        _diaraSystem.SetMagicCastSystem(_magicCastSystem);
+        
+        // Setup MagicCastSystem callbacks
+        _magicCastSystem.GetActiveEikon = GetActiveEikon;
+        _magicCastSystem.OnChargedShotDetected = (eikon, mgr, proj) => 
+        {
+            // Delegate to DiaraSystem for Bahamut charged shot handling
+            return _diaraSystem.OnChargedShotCast(eikon);
+        };
+        
+        // Allocate memory for legacy buffers (some may be removed later)
         _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
         _shadowVTableBuffer = Marshal.AllocHGlobal(VTABLE_SIZE);
-        
-        // Allocate memory for deep copy buffers (Opción 3)
-        _magicManagerCopy = Marshal.AllocHGlobal(MAGIC_MANAGER_SIZE);
-        _magicInputConfigCopy = Marshal.AllocHGlobal(MAGIC_INPUT_CONFIG_SIZE);
-        
-        // Allocate buffer for new magic system
-        _magicStructBuffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
-        
-        // Zero out the buffers
-        unsafe
-        {
-            for (int i = 0; i < MAGIC_MANAGER_SIZE; i++) ((byte*)_magicManagerCopy)[i] = 0;
-            for (int i = 0; i < MAGIC_INPUT_CONFIG_SIZE; i++) ((byte*)_magicInputConfigCopy)[i] = 0;
-            for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) ((byte*)_magicStructBuffer)[i] = 0;
-        }
         
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
@@ -294,26 +260,10 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         _logger.WriteLine($"[{_modConfig.ModId}] NEX loaded, setting up tables...", _logger.ColorGreen);
         // Dump layouts to discover fields
-        DumpTableLayout("charatimeline");
-        DumpTableLayout("charatimelinevariation");
-    }
-    
-    // Dump table columns to find element-related fields
-    private void DumpTableLayout(string tableName)
-    {
-        try 
+        if (DEBUG_DUMP_TABLE_LAYOUT)
         {
-            var layout = TableMappingReader.ReadTableLayout(tableName, new Version(1, 0, 3));
-            _logger.WriteLine($"[{_modConfig.ModId}] === {tableName.ToUpper()} LAYOUT ===", _logger.ColorYellow);
-            foreach (var col in layout.Columns)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] Column: {col.Key}, Offset: {col.Value.Offset}, Type: {col.Value.Type}", _logger.ColorYellow);
-            }
-            _logger.WriteLine($"[{_modConfig.ModId}] === END LAYOUT ===", _logger.ColorYellow);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error dumping {tableName}: {ex.Message}", _logger.ColorRed);
+            LogDumpStructs.DumpTableLayout(_logger, _modConfig.ModId, "charatimeline");
+            LogDumpStructs.DumpTableLayout(_logger, _modConfig.ModId, "charatimelinevariation");
         }
     }
     
@@ -350,6 +300,15 @@ public class TrulyEikonicSpellsMod : ModBase
                 _physicsSystem = new PhysicsSystem(_logger, _modConfig, _configuration);
                 _physicsSystem.Initialize(_hooks!, baseAddress);
                 _logger.WriteLine($"[{_modConfig.ModId}] PhysicsSystem initialized", _logger.ColorGreen);
+                
+                // Set up DarkraSystem hooks now that all hooks are ready
+                _darkraSystem.SetHooks(
+                    (bnpcRow, R15, a3, a4) => { unsafe { return _onHit.OriginalFunction((long*)bnpcRow, R15, a3, a4); } },
+                    (ctx, R15) => _onReaction.OriginalFunction(ctx, R15),
+                    () => _battleContextForReaction,
+                    _physicsSystem.ApplyShadowHitPhysics
+                );
+                _logger.WriteLine($"[{_modConfig.ModId}] DarkraSystem hooks configured", _logger.ColorGreen);
             }
             catch (Exception ex)
             {
@@ -419,39 +378,17 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
         
-        // FireMagicProjectile - THE key function for spawning magic projectiles!
-        // Only called for magic shots (normal shot, charged shot), not melee or Eikon abilities
-        // Offset: 0x56E0F0 (verified via CheatEngine breakpoint)
-        // Verified via CheatEngine: RCX = MagicManager, RDX = ProjectileData (valid pointers)
-        // R8 = 0 (not used), R9 = return address (not a parameter)
-        // NOTE: Signature scan was matching wrong function at 0x24A168, so using hardcoded offset
-        var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
-        var fireMagicAddr = baseAddr + 0x56E0F0;
-        _fireMagicProjectile = _hooks!.CreateHook<FireMagicProjectileDelegate>(FireMagicProjectileImpl, fireMagicAddr).Activate();
-        _fireMagicProjectileWrapper = _hooks!.CreateWrapper<FireMagicProjectileDelegate>(fireMagicAddr, out _);
-        _logger.WriteLine($"[{_modConfig.ModId}] Hooked FireMagicProjectile at 0x{fireMagicAddr:X} (base: 0x{baseAddr:X} + 0x56E0F0)", _logger.ColorGreen);
+        // Initialize MagicCastSystem hooks (MagicExecute, CastMagic)
+        _magicCastSystem.SetupScans(scans, _hooks!);
         
-        // GetTimeline Hook (0x4692A4)
+        // Initialize FireMagicProjectile (uses hardcoded offset)
+        var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
+        _magicCastSystem.InitializeFireMagicProjectile(_hooks!, baseAddr);
+        
+        // GetTimeline Hook (0x4692A4) - kept for debugging/logging
         var getTimelineAddr = baseAddr + 0x4692A4;
         _getTimeline = _hooks!.CreateHook<GetTimelineDelegate>(GetTimelineImpl, getTimelineAddr).Activate();
         _logger.WriteLine($"[{_modConfig.ModId}] Hooked GetTimeline at 0x{getTimelineAddr:X}", _logger.ColorGreen);
-        
-        // === NEW MAGIC SYSTEM HOOKS ===
-        // MagicExecute - Prepares the magic spell to be cast
-        scans.AddScan("48 8B C4 48 89 58 08 48 89 70 10 57 48 83 EC 60 8B FA 66 C7 40 E8 01 00 48 8B F1 C6 40 EA 00 C5 F9 EF C0 49 8B D1 48 8D 48 D8 C5 FA 7F 40 D8 49 8B D8", address =>
-        {
-            _magicExecute = _hooks!.CreateHook<MagicExecuteDelegate>(MagicExecuteImpl, address).Activate();
-            _magicExecuteWrapper = _hooks!.CreateWrapper<MagicExecuteDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Hooked MagicExecute at 0x{address:X}", _logger.ColorGreen);
-        });
-        
-        // CastMagic - Actually spawns the magic spell
-        scans.AddScan("48 89 5C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 41 10 48 8B F2 48 8B 0D", address =>
-        {
-            _castMagic = _hooks!.CreateHook<CastMagicDelegate>(CastMagicImpl, address).Activate();
-            _castMagicWrapper = _hooks!.CreateWrapper<CastMagicDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
-        });
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
@@ -459,18 +396,10 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaSystem.Reset();
         _diaraSystem.Reset();
         _darkraSystem.Reset();
+        _magicCastSystem.Reset();
         _currentEikonMode = 0;
         
-        // Reset new magic system cache
-        _hasMagicContext = false;
-        _castMagic_a1 = 0;
-        _magicExecute_a3 = 0;
-        _magicExecute_a4 = 0;
-        _magicExecute_a5 = 0;
-        _magicExecute_a6 = 0;
-        _magicExecute_a7 = 0;
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset Dia/Diara/Darkra systems, Eikon mode, and Magic context", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
         return _onLevelLoad.OriginalFunction(a1, a2, a3, a4);
     }
     
@@ -487,32 +416,8 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaraSystem.Update();
         
         // Process perfect dodge through Diara system
-        int diaSpellsToSpawn = _diaraSystem.OnPerfectDodge();
-        
-        if (diaSpellsToSpawn > 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Should spawn {diaSpellsToSpawn} Dia spells!", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Magic context ready: {_hasMagicContext}", _logger.ColorYellow);
-            
-            if (_hasMagicContext)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {diaSpellsToSpawn} Dia spells using new magic system!", _logger.ColorGreen);
-                
-                // Spawn the Dia spells!
-                // Based on logs: magicId=214 was captured, a6=218 seems to be the ActionId
-                // Let's try with the captured magicId first (214)
-                for (int i = 0; i < diaSpellsToSpawn; i++)
-                {
-                    TrySpawnMagicSpell(214); // Try with captured magicId
-                }
-            }
-            else
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] No magic context yet - fire a normal shot first!", _logger.ColorRed);
-            }
-            
-            _diaraSystem.ConsumeSpells();
-        }
+        // DiaraSystem now handles projectile spawning directly via MagicCastSystem
+        _diaraSystem.OnPerfectDodge();
         
         return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
     }
@@ -547,7 +452,10 @@ public class TrulyEikonicSpellsMod : ModBase
                 if (timelineResult != 0)
                 {
                     // Manually log the Timeline since we called the original directly
-                    LogTimelineObject(_cachedTimelineParam1, timelineResult, context);
+                    if (DEBUG_DUMP_TIMELINE)
+                    {
+                        LogDumpStructs.LogTimelineObject(_logger, _modConfig.ModId, _cachedTimelineParam1, timelineResult, context);
+                    }
                 }
                 else
                 {
@@ -579,157 +487,6 @@ public class TrulyEikonicSpellsMod : ModBase
         }
     }
     
-    /// <summary>
-    /// Spawn Dia projectiles during Perfect Dodge using DEEP COPIED context (Opción 3)
-    /// 
-    /// Problem: The original MagicManager pointer becomes invalid when the player is not in "shooting" state.
-    /// Solution: Deep copy the entire MagicManager + MagicInputConfig structures to our own memory.
-    /// 
-    /// According to reverse engineering:
-    /// - FireMagicProjectile IGNORES the second parameter (RDX)
-    /// - All data comes from MagicManager (RCX)
-    /// - [RCX + 0x38] = MagicInputConfig pointer
-    /// - [config + 0x10] = Shot Type: 1=Normal, 2=Charged, 3=Precision Counter
-    /// </summary>
-    private unsafe void TrySpawnMagicProjectile()
-    {
-        int spellCount = _diaraSystem.GetPendingSpellCount();
-        
-        if (spellCount <= 0)
-        {
-            return;
-        }
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Attempting to spawn {spellCount} Normal Shots (Dia) using DEEP COPY...", _logger.ColorGreen);
-        
-        // Check if we have valid deep-copied data
-        if (!_hasCachedMagicContext)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] No cached MagicManager copy! Fire a normal shot first.", _logger.ColorRed);
-            _diaraSystem.ConsumeSpells();
-            return;
-        }
-        
-        // Verify our buffers are allocated
-        if (_magicManagerCopy == IntPtr.Zero || _magicInputConfigCopy == IntPtr.Zero)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Deep copy buffers not allocated!", _logger.ColorRed);
-            _diaraSystem.ConsumeSpells();
-            return;
-        }
-        
-        try
-        {
-            // IMPORTANT: Fix the internal pointer!
-            // The copied MagicManager has [+0x38] pointing to the ORIGINAL config (which is now invalid).
-            // We need to patch it to point to OUR copied config.
-            long* configPtrLocation = (long*)((long)_magicManagerCopy + 0x38);
-            long originalConfigPtr = *configPtrLocation; // Save for logging
-            *configPtrLocation = (long)_magicInputConfigCopy; // Point to our copy!
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Patched MagicManager+0x38: 0x{originalConfigPtr:X} -> 0x{(long)_magicInputConfigCopy:X}", _logger.ColorYellow);
-            
-            // Set Shot Type to 1 (Normal Shot = Dia) in our copied config
-            int* shotTypePtr = (int*)((long)_magicInputConfigCopy + 0x10);
-            int originalShotType = *shotTypePtr;
-            *shotTypePtr = 1; // Force Normal Shot
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Set ShotType: {originalShotType} -> 1 (Normal/Dia)", _logger.ColorYellow);
-            
-            // Fire the projectiles using our deep-copied MagicManager!
-            for (int i = 0; i < spellCount; i++)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Firing Normal Shot {i + 1}/{spellCount}...", _logger.ColorYellow);
-                
-                // Call FireMagicProjectile with our COPIED MagicManager
-                long result = _fireMagicProjectile.OriginalFunction((long)_magicManagerCopy, 0);
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Shot {i + 1} result: 0x{result:X}", 
-                    result != 0 ? _logger.ColorGreen : _logger.ColorRed);
-            }
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Deep copy fire complete!", _logger.ColorGreen);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] CRASH during deep copy fire: {ex.Message}", _logger.ColorRed);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Stack: {ex.StackTrace}", _logger.ColorRed);
-        }
-        
-        // Consume the spells
-        _diaraSystem.ConsumeSpells();
-    }
-    
-    /// <summary>
-    /// Spawns Dia projectiles instantly by spoofing the Timeline VTable via Hook
-    /// </summary>
-    private unsafe void SpawnInstantDiaProjectiles(int count)
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Starting Instant Fire Sequence ({count} shots)...", _logger.ColorBlue);
-        
-        if (_cachedMagicManager == 0 || _cachedValidVTable == 0 || _projectileDataBuffer == IntPtr.Zero)
-        {
-             _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Invalid cache, aborting.", _logger.ColorRed);
-             return;
-        }
-        
-        // Debug: Log cached values
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Cache: MagicMgr=0x{_cachedMagicManager:X}, VTable=0x{_cachedValidVTable:X}, ProjData=0x{(long)_projectileDataBuffer:X}", _logger.ColorYellow);
-        
-        // Verify MagicManager is still valid by checking its structure
-        try
-        {
-            long configPtr = *(long*)(_cachedMagicManager + 0x38);
-            if (configPtr == 0)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] MagicManager config ptr is NULL! Cache is stale.", _logger.ColorRed);
-                return;
-            }
-            int shotType = *(int*)(configPtr + 0x10);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Current ShotType at config: {shotType}", _logger.ColorYellow);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Failed to validate MagicManager: {ex.Message}", _logger.ColorRed);
-            return;
-        }
-
-        try
-        {
-            // 1. Activate the Hook Override
-            _isForceFiringDiara = true;
-            _modifiedTimelinePtr = 0; // Reset tracking
-            
-            // 2. Fire projectiles using cached data
-            long safeProjectileData = (long)_projectileDataBuffer;
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Calling FireMagicProjectile {count} times...", _logger.ColorYellow);
-            
-            for (int i = 0; i < count; i++)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Shot {i+1}/{count}...", _logger.ColorYellow);
-                _fireMagicProjectile.OriginalFunction(_cachedMagicManager, safeProjectileData);
-            }
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Instant fire success!", _logger.ColorGreen);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] CRITICAL FAILURE during instant fire: {ex.Message}", _logger.ColorRed);
-        }
-        finally
-        {
-            // 3. Always disable the override
-            // NOTE: We do NOT restore the VTable because:
-            // 1. The timeline object is temporary and may be destroyed after this call
-            // 2. Trying to write to freed memory causes crashes
-            // 3. The Shadow VTable is in our own buffer so it's safe even if the object is reused
-            _isForceFiringDiara = false;
-            _modifiedTimelinePtr = 0;
-            _originalVTableBackup = 0;
-        }
-    }
-    
     // Flag to enable timeline logging only during FireMagicProjectile
     private bool _shouldLogTimeline = false;
     private string _currentActionContext = "";
@@ -750,176 +507,14 @@ public class TrulyEikonicSpellsMod : ModBase
         // Only log if we're in a magic projectile context
         if (_shouldLogTimeline)
         {
-            LogTimelineObject(param_1, result, _currentActionContext);
+            if (DEBUG_DUMP_TIMELINE)
+            {
+                LogDumpStructs.LogTimelineObject(_logger, _modConfig.ModId, param_1, result, _currentActionContext);
+            }
             _shouldLogTimeline = false; // Only log once per action
         }
         
         return result;
-    }
-    
-    /// <summary>
-    /// Log Timeline object structure to understand what differs between actions
-    /// </summary>
-    private unsafe void LogTimelineObject(long param_1, long timelineResult, string context)
-    {
-        try
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] ===========================================", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Context: {context}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] GetTimeline called! param_1=0x{param_1:X}", _logger.ColorYellow);
-            
-            // Read [param_1 + 0x10] which is the timeline pointer
-            long timelinePtr = *(long*)(param_1 + 0x10);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] [param_1+0x10] (raw timeline ptr) = 0x{timelinePtr:X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Result from GetTimeline = 0x{timelineResult:X}", _logger.ColorYellow);
-            
-            if (timelinePtr != 0)
-            {
-                // Read the VTable pointer
-                long vtablePtr = *(long*)timelinePtr;
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] VTable ptr = 0x{vtablePtr:X}", _logger.ColorGreen);
-                
-                // Log key VTable function pointers
-                long func48 = *(long*)(vtablePtr + 0x48);
-                long func58 = *(long*)(vtablePtr + 0x58);
-                long func98 = *(long*)(vtablePtr + 0x98);
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] VTable[0x48] (IsMagicBlocked?) = 0x{func48:X}", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] VTable[0x58] (GetMagicType?)   = 0x{func58:X}", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] VTable[0x98] (IsMagicAllowed?) = 0x{func98:X}", _logger.ColorGreen);
-                
-                // Dump first 0x100 bytes of timeline object (NOT vtable, the actual object)
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] --- Timeline Object Data (first 0x100 bytes) ---", _logger.ColorYellow);
-                for (int i = 0; i < 0x100; i += 0x20)
-                {
-                    long v0 = *(long*)(timelinePtr + i);
-                    long v8 = *(long*)(timelinePtr + i + 0x8);
-                    long v10 = *(long*)(timelinePtr + i + 0x10);
-                    long v18 = *(long*)(timelinePtr + i + 0x18);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] +0x{i:X2}: {v0:X16} {v8:X16} {v10:X16} {v18:X16}", _logger.ColorYellow);
-                }
-            }
-            else
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Timeline ptr is NULL!", _logger.ColorRed);
-            }
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] ===========================================", _logger.ColorYellow);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Error logging: {ex.Message}", _logger.ColorRed);
-        }
-    }
-    
-    // === NEW MAGIC SYSTEM HOOKS ===
-    
-    /// <summary>
-    /// MagicExecute hook - captures magic spell setup parameters
-    /// Called when preparing a magic spell to be cast
-    /// </summary>
-    private unsafe long MagicExecuteImpl(long unkMagicStructPtr, int magicId, long a3, long a4, int a5, int a6, int a7)
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_EXECUTE] Called! structPtr=0x{unkMagicStructPtr:X}, magicId={magicId}, a3=0x{a3:X}, a4=0x{a4:X}, a5={a5}, a6={a6}, a7={a7}", _logger.ColorGreen);
-        
-        // Deep copy the magic struct to our buffer
-        if (_magicStructBuffer != IntPtr.Zero && unkMagicStructPtr != 0)
-        {
-            try
-            {
-                // Copy ptr1 (first 8 bytes - this is a pointer that we need to dereference)
-                long ptr1Value = *(long*)unkMagicStructPtr;
-                *(long*)_magicStructBuffer = ptr1Value;
-                
-                // Copy the array of 32 longs (256 bytes starting at offset 0x8)
-                for (int i = 0; i < 32; i++)
-                {
-                    long value = *(long*)(unkMagicStructPtr + 0x8 + 0x8 * i);
-                    *(long*)((long)_magicStructBuffer + 0x8 + 0x8 * i) = value;
-                }
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_EXECUTE] Copied magic struct! ptr1=0x{ptr1Value:X}", _logger.ColorBlue);
-            }
-            catch (Exception ex)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_EXECUTE] Failed to copy struct: {ex.Message}", _logger.ColorRed);
-            }
-        }
-        
-        // Store the other parameters
-        _magicExecute_a3 = a3;
-        _magicExecute_a4 = a4;
-        _magicExecute_a5 = a5;
-        _magicExecute_a6 = a6;
-        _magicExecute_a7 = a7;
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_EXECUTE] Cached params: a3=0x{a3:X}, a4=0x{a4:X}, a5={a5}, a6={a6}, a7={a7}", _logger.ColorBlue);
-        
-        return _magicExecute.OriginalFunction(unkMagicStructPtr, magicId, a3, a4, a5, a6, a7);
-    }
-    
-    /// <summary>
-    /// CastMagic hook - captures the a1 parameter needed for spawning
-    /// Called when actually spawning the magic spell
-    /// </summary>
-    private unsafe char CastMagicImpl(long a1, long unkMagicStructPtr)
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] [CAST_MAGIC] Called! a1=0x{a1:X}, structPtr=0x{unkMagicStructPtr:X}", _logger.ColorGreen);
-        
-        // Store a1 for later use
-        _castMagic_a1 = a1;
-        
-        // Now we have all the context we need!
-        _hasMagicContext = true;
-        _logger.WriteLine($"[{_modConfig.ModId}] [CAST_MAGIC] === MAGIC CONTEXT READY! Can now spawn spells on demand. ===", _logger.ColorGreen);
-        
-        return _castMagic.OriginalFunction(a1, unkMagicStructPtr);
-    }
-    
-    /// <summary>
-    /// Spawn a magic spell using the new MagicExecute/CastMagic system
-    /// WARNING: Only call this after both hooks have executed at least once!
-    /// </summary>
-    private unsafe void TrySpawnMagicSpell(int magicId)
-    {
-        if (!_hasMagicContext)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Cannot spawn - no magic context! Fire a normal shot first.", _logger.ColorRed);
-            return;
-        }
-        
-        if (_magicStructBuffer == IntPtr.Zero || _castMagic_a1 == 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Cannot spawn - missing buffers or a1!", _logger.ColorRed);
-            return;
-        }
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Attempting to spawn magicId={magicId}...", _logger.ColorGreen);
-        
-        try
-        {
-            // Call MagicExecute with our cached struct and new magicId
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Calling MagicExecute...", _logger.ColorYellow);
-            _magicExecute.OriginalFunction(
-                (long)_magicStructBuffer, 
-                magicId, 
-                _magicExecute_a3, 
-                _magicExecute_a4, 
-                _magicExecute_a5, 
-                _magicExecute_a6, 
-                _magicExecute_a7
-            );
-            
-            // Call CastMagic to actually spawn the spell
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Calling CastMagic...", _logger.ColorYellow);
-            _castMagic.OriginalFunction(_castMagic_a1, (long)_magicStructBuffer);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] SUCCESS! Magic spell {magicId} spawned!", _logger.ColorGreen);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] CRASH: {ex.Message}", _logger.ColorRed);
-            _logger.WriteLine($"[{_modConfig.ModId}] [SPAWN_MAGIC] Stack: {ex.StackTrace}", _logger.ColorRed);
-        }
     }
     
     /// <summary>
@@ -996,13 +591,15 @@ public class TrulyEikonicSpellsMod : ModBase
     /// </summary>
     private unsafe void TrySpawnDiaSpells(int count)
     {
-        if (_lastAttackedEnemyPtr == 0)
+        long lastTarget = _diaraSystem.LastAttackedEnemyPtr;
+        
+        if (lastTarget == 0)
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Cannot spawn - no recent enemy target!", _logger.ColorRed);
             return;
         }
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Applying {count} Dia spell damage to last target (0x{_lastAttackedEnemyPtr:X})", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Applying {count} Dia spell damage to last target (0x{lastTarget:X})", _logger.ColorGreen);
         
         // For now, we can only log - actual damage application requires:
         // 1. Finding a function to spawn projectiles/apply damage directly
@@ -1020,142 +617,6 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Dia #{i+1} would fire at enemy", _logger.ColorYellow);
         }
-    }
-    
-    // === FireMagicProjectile Handler - THE KEY FUNCTION for magic shots! ===
-    private long FireMagicProjectileImpl(long magicManager, long projectileData)
-    {
-        if (DEBUG_FIRE_MAGIC)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [FIRE_MAGIC] Called! RCX=0x{magicManager:X}, RDX=0x{projectileData:X}", _logger.ColorGreen);
-        }
-
-        // 1. CHECK FOR SUPPRESSION (Diara Activation)
-        // ANALYSIS: Based on Ghidra, ActionID is likely at [RCX + 0x38] + Offset
-        // param_1 = RCX (MagicManager)
-        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x10); (Normal?)
-        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x18); (Burst?)
-        // iVar4 = *(int *)(*(longlong *)(param_1 + 0x38) + 0x1c); (Charged?)
-        
-        int id10 = 0;
-        unsafe 
-        {
-            long ptr38 = *(long*)(magicManager + 0x38);
-            if (ptr38 != 0)
-            {
-                id10 = *(int*)(ptr38 + 0x10);
-                int id18 = *(int*)(ptr38 + 0x18);
-                int id1C = *(int*)(ptr38 + 0x1c);
-                
-                if (DEBUG_FIRE_MAGIC)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [ANALYSIS] RCX+0x38: 0x{ptr38:X} | IDs: {id10}, {id18}, {id1C}", _logger.ColorBlue);
-                }
-                
-                // ENABLE TIMELINE LOGGING for this shot
-                string shotTypeStr = id10 switch
-                {
-                    1 => "NORMAL_SHOT",
-                    2 => "CHARGED_SHOT",
-                    3 => "TYPE_3",
-                    4 => "MAGIC_BURST",
-                    _ => $"UNKNOWN({id10})"
-                };
-                _shouldLogTimeline = true;
-                _currentActionContext = shotTypeStr;
-                
-                // SUPPRESSION LOGIC
-                // If we see the Charged Shot ID (2) and we are Bahamut, we suppress it.
-                if (id10 == 2) // 2 = Charged Shot
-                {
-                     int activeEikon = GetActiveEikon();
-                     if (activeEikon == EikonUtils.EIKON_BAHAMUT)
-                     {
-                         _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Bahamut Charged Shot detected (ID=2)! Activating buff and SUPPRESSING projectile.", _logger.ColorGreen);
-                         _diaraSystem.OnChargedShotCast(activeEikon);
-                         _shouldLogTimeline = false; // Don't log since we're suppressing
-                         return 0; // Suppress the original shot!
-                     }
-                }
-            }
-        }
-        
-        // Call original function FIRST
-        long result;
-        unsafe { result = _fireMagicProjectile.OriginalFunction(magicManager, projectileData); }
-        
-        // === DEEP COPY CACHE (Opción 3) ===
-        // If this was a successful shot (result != 0) AND it was a NORMAL shot (id10 == 1), 
-        // deep copy the entire MagicManager + MagicInputConfig structures.
-        if (result != 0 && id10 == 1)
-        {
-            unsafe
-            {
-                // LEGACY: Keep pointer cache for debugging comparison
-                _cachedMagicManager = magicManager;
-                
-                // === DEEP COPY MagicManager ===
-                if (_magicManagerCopy != IntPtr.Zero)
-                {
-                    Buffer.MemoryCopy((void*)magicManager, (void*)_magicManagerCopy, MAGIC_MANAGER_SIZE, MAGIC_MANAGER_SIZE);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [CACHE] Deep copied MagicManager ({MAGIC_MANAGER_SIZE} bytes) from 0x{magicManager:X}", _logger.ColorBlue);
-                }
-                
-                // === DEEP COPY MagicInputConfig (at +0x38) ===
-                long configPtr = *(long*)(magicManager + 0x38);
-                if (configPtr != 0 && _magicInputConfigCopy != IntPtr.Zero)
-                {
-                    Buffer.MemoryCopy((void*)configPtr, (void*)_magicInputConfigCopy, MAGIC_INPUT_CONFIG_SIZE, MAGIC_INPUT_CONFIG_SIZE);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [CACHE] Deep copied MagicInputConfig ({MAGIC_INPUT_CONFIG_SIZE} bytes) from 0x{configPtr:X}", _logger.ColorBlue);
-                    
-                    // Log the shot type we captured
-                    int capturedShotType = *(int*)((long)_magicInputConfigCopy + 0x10);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [CACHE] Captured ShotType = {capturedShotType}", _logger.ColorBlue);
-                }
-                
-                // Mark that we have valid cached data
-                _hasCachedMagicContext = true;
-                _logger.WriteLine($"[{_modConfig.ModId}] [CACHE] === DEEP COPY COMPLETE - Ready for Diara! ===", _logger.ColorGreen);
-                
-                // LEGACY: Keep VTable cache for potential future use
-                long originalTimelinePtr = *(long*)(magicManager + 0x28);
-                if (originalTimelinePtr != 0)
-                {
-                    _cachedValidVTable = *(long*)originalTimelinePtr;
-                }
-                
-                // Update snapshot buffer with latest valid projectile data
-                if (_projectileDataBuffer != IntPtr.Zero && projectileData != 0)
-                {
-                    Buffer.MemoryCopy((void*)projectileData, (void*)_projectileDataBuffer, PROJECTILE_DATA_SIZE, PROJECTILE_DATA_SIZE);
-                }
-            }
-        }
-        
-        if (DEBUG_FIRE_MAGIC)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [FIRE_MAGIC] Result=0x{result:X}", _logger.ColorGreen);
-        }
-        
-        // === DIARA BONUS PROJECTILES ===
-        // Reverted to SYNCHRONOUS spawning to prevent crashes.
-        // Async/Task.Run is not thread-safe for gameplay functions.
-        if (_pendingDiaProjectiles > 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Spawning {_pendingDiaProjectiles} bonus Dia projectiles (Instant)!", _logger.ColorGreen);
-            
-            int toSpawn = _pendingDiaProjectiles;
-            _pendingDiaProjectiles = 0; // Reset
-            
-            for (int i = 0; i < toSpawn; i++)
-            {
-                // Call original function synchronously
-                // This works but has no delay and no spread (yet)
-                unsafe { _fireMagicProjectile.OriginalFunction(magicManager, projectileData); }
-            }
-        }
-        
-        return result;
     }
     
     // === BattleTechnique Handler (for logging special abilities only) ===
@@ -1220,11 +681,17 @@ public class TrulyEikonicSpellsMod : ModBase
                     _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Stored dest struct: 0x{destAttackStruct:X}", _logger.ColorYellow);
                     
                     // Dump the template structure
-                    DumpMagicTemplate(srcAttackTemplate);
+                    if (DEBUG_DUMP_MAGIC_TEMPLATE)
+                    {
+                        LogDumpStructs.DumpMagicTemplate(_logger, _modConfig.ModId, srcAttackTemplate);
+                    }
                     
                     // === NEW: Dump the destination structure BEFORE copy ===
                     // This tells us what's already initialized in destAttackStruct
-                    DumpDestStructure(destAttackStruct);
+                    if (DEBUG_DUMP_DEST_STRUCTURE)
+                    {
+                        LogDumpStructs.DumpDestStructure(_logger, _modConfig.ModId, destAttackStruct);
+                    }
                 }
             }
             catch (Exception ex)
@@ -1235,26 +702,6 @@ public class TrulyEikonicSpellsMod : ModBase
         
         // Call original function
         _copyAttackData.OriginalFunction(destAttackStruct, srcAttackTemplate);
-    }
-    
-    // Dump destination structure to understand what's initialized before copy
-    private unsafe void DumpDestStructure(long destStruct)
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] === Destination Structure Before Copy ===", _logger.ColorLightBlue);
-        
-        // Dump first 0x100 bytes to see what's already there
-        for (int i = 0; i < 0x100; i += 0x10)
-        {
-            long val0 = *(long*)(destStruct + i);
-            long val8 = *(long*)(destStruct + i + 8);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] +0x{i:X2}: 0x{val0:X16} | 0x{val8:X16}", _logger.ColorLightBlue);
-        }
-        
-        // Check important offsets
-        long entityPtr = *(long*)destStruct;
-        int destActionId = *(int*)(destStruct + 0x58);
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] Entity ptr at +0x00: 0x{entityPtr:X}", _logger.ColorLightBlue);
-        _logger.WriteLine($"[{_modConfig.ModId}] [DEST_STRUCT] ActionId at +0x58 (before copy): {destActionId}", _logger.ColorLightBlue);
     }
     
     private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)
@@ -1283,64 +730,16 @@ public class TrulyEikonicSpellsMod : ModBase
             // Only process Clive's attacks against enemies
             if (info.IsCliveAttack && !info.IsCliveTarget && !info.IsHealOrEffect)
             {
-                // Get current active Eikon
                 int activeEikon = GetActiveEikon();
                 
-                // Update Diara system timer
-                _diaraSystem.Update();
+                // === DIA SYSTEM ===
+                _diaSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDiaSystem);
                 
-                // DEBUG: Log all the action IDs for Clive's attacks
-                if (DEBUG_ON_HIT)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [HIT] Hit detected! ActionId={info.ActionId}, Target=0x{info.TargetId:X}", _logger.ColorYellow);
-                }
+                // === DIARA SYSTEM ===
+                _diaraSystem.OnHit(info.TargetId, info.ActionId, R15, _configuration.EnableDiaraSystem);
                 
-                // Store last attacked enemy for Diara system (for magic shots only)
-                bool isMagicShot = ActionIds.IsMagicShot(info.ActionId);
-                if (isMagicShot)
-                {
-                    _lastAttackedEnemyPtr = (long)bnpcRow;
-                    _lastAttackR15 = R15;
-                    
-                    // === DEBUG: Reverse Engineering - Magic Hit Details ===
-                    if (DEBUG_MAGIC_HIT)
-                    {
-                        LogMagicHitDebug(info, R15, bnpcRow, a3, a4);
-                    }
-                }
-                
-                // === DIA SYSTEM: Stacking and synergies ===
-                var result = _diaSystem.ProcessHit(info.TargetId, info.ActionId, activeEikon, R15);
-                
-                if (result.WasStackingHit)
-                {
-                    string bonusText = result.DamageMultiplier > 1.0f ? $" (Damage x{result.DamageMultiplier:F2})" : "";
-                    _logger.WriteLine($"[{_modConfig.ModId}] [DIA] +1 stack! Total: {result.CurrentStacks}/50{bonusText}", _logger.ColorGreen);
-                }
-                else if (result.StacksConsumed > 0)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [DIA] Consumed {result.StacksConsumed} stacks! Damage x{result.DamageMultiplier:F2}", _logger.ColorGreen);
-                }
-                else if (result.WasSynergyHit)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [DIA] Synergy! Damage x{result.DamageMultiplier:F2} ({result.CurrentStacks} stacks)", _logger.ColorGreen);
-                }
-                
-                // === DARKRA SYSTEM: Shadow debuff from Odin ===
-                var darkraResult = _darkraSystem.ProcessHit(info.TargetId, info.ActionId, activeEikon, R15);
-                
-                if (darkraResult.AppliedDebuff)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow debuff applied!", _logger.ColorBlue);
-                }
-                
-                if (darkraResult.TriggeredShadowHit)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit! +{darkraResult.ShadowDamage} damage", _logger.ColorBlue);
-                    
-                    // Schedule the shadow hit to call OnHit again after a delay
-                    ScheduleShadowHit(bnpcRow, R15, a3, a4, darkraResult.ShadowDamage);
-                }
+                // === DARKRA SYSTEM (handles shadow hit scheduling internally) ===
+                _darkraSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDarkraSystem, bnpcRow, a3, a4);
             }
         }
         catch (Exception ex)
@@ -1389,64 +788,6 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Delegate to shared EikonUtils
     private static EikonUtils.SpellElement GetSpellElement(int eikonId) => EikonUtils.GetSpellElement(eikonId);
-    
-    /// <summary>
-    /// Schedule a shadow hit to be triggered after a delay.
-    /// This calls OnHit again with the shadow damage and SHADOW_HIT action ID.
-    /// </summary>
-    private unsafe void ScheduleShadowHit(long* bnpcRow, long R15, long a3, long a4, int shadowDamage)
-    {
-        // Capture values for the delayed call
-        long bnpcRowValue = (long)bnpcRow;
-        long r15Value = R15;
-        long a3Value = a3;
-        long a4Value = a4;
-        
-        Task.Run(() =>
-        {
-            Thread.Sleep(_darkraSystem.ShadowHitDelayMs);
-            
-            // Call OnHit with the shadow damage
-            ExecuteShadowHit(bnpcRowValue, r15Value, a3Value, a4Value, shadowDamage);
-        });
-    }
-    
-    /// <summary>
-    /// Execute the shadow hit by modifying R15 and calling OnHit
-    /// </summary>
-    private unsafe void ExecuteShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
-    {
-        try
-        {
-            // Use DarkraSystem to prepare R15 with all shadow hit values
-            _darkraSystem.PrepareR15ForShadowHit(r15Value, shadowDamage);
-            
-            // Apply juggle physics if enabled
-            if (_darkraSystem.GetJugglePhysics(out float fwdPush, out float fwdDur, out float vertPush, out float vertInterp))
-            {
-                _physicsSystem.ApplyShadowHitPhysics(fwdPush, fwdDur, vertPush, vertInterp);
-            }
-            
-            // Call OnHit with the modified R15
-            long* bnpcRow = (long*)bnpcRowValue;
-            _onHit.OriginalFunction(bnpcRow, r15Value, a3, a4);
-            
-            // Call OnReaction to apply knockback/stagger effects
-            if (_battleContextForReaction != 0)
-            {
-                _onReaction.OriginalFunction(_battleContextForReaction, r15Value);
-                _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit executed with reaction! Damage: {shadowDamage}", _logger.ColorBlue);
-            }
-            else
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Shadow hit executed (no reaction context)! Damage: {shadowDamage}", _logger.ColorBlue);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DARKRA] Error executing shadow hit: {ex.Message}", _logger.ColorRed);
-        }
-    }
     
     /// <summary>
     /// OnReaction implementation - captures battle context and applies knockback/stagger
@@ -1524,11 +865,11 @@ public class TrulyEikonicSpellsMod : ModBase
             }
         }
         
-        if (DEBUG_ON_REACTION)
+        if (DEBUG_ON_REACTION && DEBUG_DUMP_REACTION_DATA)
         {
             try
             {
-                DumpOnReactionData(param1, param2);
+                LogDumpStructs.DumpOnReactionData(_logger, _modConfig.ModId, param1, param2);
             }
             catch (Exception ex)
             {
@@ -1538,165 +879,6 @@ public class TrulyEikonicSpellsMod : ModBase
         
         // Call original function
         _onReaction.OriginalFunction(param1, param2);
-    }
-    
-    /// <summary>
-    /// Dump OnReaction parameters for reverse engineering
-    /// Based on TriggerReactionHit (FUN_140596f44)
-    /// </summary>
-    private unsafe void DumpOnReactionData(long param1, long param2)
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] ========== TriggerReactionHit ==========", _logger.ColorYellow);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1 (entity): 0x{param1:X}", _logger.ColorYellow);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param2 (attack): 0x{param2:X}", _logger.ColorYellow);
-        
-        // === PARAM1 (Entity/Target structure) ===
-        long* p1 = (long*)param1;
-        
-        // Skip flag is at byte offset 0x1d (NOT param_1[0x1d])
-        byte skipFlag = *(byte*)(param1 + 0x1d);
-        string skipText = (skipFlag & 1) != 0 ? "WOULD SKIP!" : "";
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1+0x1d (skip flag): 0x{skipFlag:X2} (& 1 = {skipFlag & 1}) {skipText}", _logger.ColorLightBlue);
-        
-        // Array access: param_1[n] = offset n*8
-        long p1_0 = p1[0];  // +0x00 - VTable or ID
-        long p1_1 = p1[1];  // +0x08 - Entity data ptr (lVar5)
-        long p1_3 = p1[3];  // +0x18 - Previous reaction (set at end)
-        long p1_4 = p1[4];  // +0x20 - Handler with vtable
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[0] +0x00: 0x{p1_0:X}", _logger.ColorLightBlue);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[1] +0x08 (entity data): 0x{p1_1:X}", _logger.ColorLightBlue);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[3] +0x18 (prev reaction): 0x{p1_3:X}", _logger.ColorLightBlue);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] param1[4] +0x20 (handler): 0x{p1_4:X}", _logger.ColorLightBlue);
-        
-        // Check entity data at param1[1] for potential "immune to physics" flags
-        if (p1_1 != 0)
-        {
-            long battleData = *(long*)(p1_1 + 0x7298);
-            long ptr9c70 = *(long*)(p1_1 + 0x9c70);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x7298 (battle data): 0x{battleData:X}", _logger.ColorLightBlue);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x9c70: 0x{ptr9c70:X}", _logger.ColorLightBlue);
-            
-            // Dump more entity flags to find physics immunity
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- Entity Flags (searching for physics immunity) ---", _logger.ColorYellow);
-            
-            // Check various potential flag locations
-            for (int offset = 0x10; offset <= 0x40; offset += 4)
-            {
-                uint flagVal = *(uint*)(p1_1 + offset);
-                if (flagVal != 0)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x{offset:X}: 0x{flagVal:X8}", _logger.ColorLightBlue);
-                }
-            }
-            
-            // Check around common flag areas
-            uint flags100 = *(uint*)(p1_1 + 0x100);
-            uint flags104 = *(uint*)(p1_1 + 0x104);
-            uint flags108 = *(uint*)(p1_1 + 0x108);
-            uint flags1a0 = *(uint*)(p1_1 + 0x1a0);
-            uint flags1a4 = *(uint*)(p1_1 + 0x1a4);
-            byte flags1c = *(byte*)(p1_1 + 0x1c);
-            byte flags1d = *(byte*)(p1_1 + 0x1d);
-            byte flags1e = *(byte*)(p1_1 + 0x1e);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x100: 0x{flags100:X8}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x104: 0x{flags104:X8}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x108: 0x{flags108:X8}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1a0: 0x{flags1a0:X8}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1a4: 0x{flags1a4:X8}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] entity+0x1c/1d/1e: 0x{flags1c:X2} 0x{flags1d:X2} 0x{flags1e:X2}", _logger.ColorYellow);
-        }
-        
-        // If there's a previous reaction, show its type
-        if (p1_3 != 0)
-        {
-            int prevReactionType = *(int*)(p1_3 + 0x15c);
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] >>> Previous reaction type: {prevReactionType}", _logger.ColorRed);
-        }
-        
-        // === PARAM2 (Attack/Reaction data) ===
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- param2 (Attack/Reaction Data) ---", _logger.ColorGreen);
-        
-        // Key fields from pseudocode
-        int actionId = *(int*)(param2 + 0xB0);
-        int damage = *(int*)(param2 + 0x174);
-        int reactionType = *(int*)(param2 + 0x15c);    // uVar12 - THE KEY VALUE!
-        int reactionVal2 = *(int*)(param2 + 0x160);
-        int someId88 = *(int*)(param2 + 0x88);
-        int val184 = *(int*)(param2 + 0x184);
-        uint flags194 = *(uint*)(param2 + 0x194);
-        byte flags196 = *(byte*)(param2 + 0x196);
-        
-        // Decode flags
-        bool flag194_bit4 = ((flags194 >> 4) & 1) != 0;
-        bool flag194_bit12 = ((flags194 >> 12) & 1) != 0;
-        bool flag194_0x2800 = (flags194 & 0x2800) != 0;
-        bool flag196_bit0 = (flags196 & 1) != 0;
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0xB0 ActionId: {actionId}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x174 Damage: {damage}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x15c ReactionType: {reactionType} {GetReactionTypeName(reactionType)}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x160 PushDirection: {reactionVal2} {ReactionTypes.GetPushDirectionName(reactionVal2)}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x88 LookupID: {someId88}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x184 Modifier: {val184} (reset to 0 in FORCED mode - duration/intensity?)", _logger.ColorGreen);
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x194 Flags: 0x{flags194:X8}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   bit4={flag194_bit4}, bit12={flag194_bit12}, 0x2800={flag194_0x2800}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x196 Flags: 0x{flags196:X2} (bit0={flag196_bit0})", _logger.ColorGreen);
-        
-        // Check if reaction would be skipped (reactionType < 2)
-        if (reactionType < 2)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] >>> ReactionType < 2, would normally skip!", _logger.ColorRed);
-        }
-        
-        // Check +0x58 area (used for entity lookup)
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- +0x58 area (entity ref) ---", _logger.ColorYellow);
-        long ptr58 = *(long*)(param2 + 0x58);
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] +0x58: 0x{ptr58:X}", _logger.ColorYellow);
-        
-        // === DUMP VTABLE of param1[4] (Handler) ===
-        // This handler contains virtual functions that process the reaction
-        // The physics function is likely in one of these offsets
-        if (p1_4 != 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] --- Handler VTable (param1[4]) ---", _logger.ColorRed);
-            long vtable = *(long*)p1_4;
-            if (vtable != 0)
-            {
-                long baseAddr = (long)System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
-                // Log key vtable offsets used in TriggerReactionHit
-                long vfunc_0x40 = *(long*)(vtable + 0x40);  // GetCurrentReactionType?
-                long vfunc_0x48 = *(long*)(vtable + 0x48);  // GetSomething?
-                long vfunc_0x68 = *(long*)(vtable + 0x68);  // CanReact check?
-                long vfunc_0x70 = *(long*)(vtable + 0x70);  // Skip check?
-                long vfunc_0x88 = *(long*)(vtable + 0x88);  // GetPriority?
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] VTable base: 0x{vtable:X}", _logger.ColorRed);
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x40: 0x{vfunc_0x40:X} (offset: 0x{vfunc_0x40 - baseAddr:X})", _logger.ColorRed);
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x48: 0x{vfunc_0x48:X} (offset: 0x{vfunc_0x48 - baseAddr:X})", _logger.ColorRed);
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x68: 0x{vfunc_0x68:X} (offset: 0x{vfunc_0x68 - baseAddr:X})", _logger.ColorRed);
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x70: 0x{vfunc_0x70:X} (offset: 0x{vfunc_0x70 - baseAddr:X})", _logger.ColorRed);
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x88: 0x{vfunc_0x88:X} (offset: 0x{vfunc_0x88 - baseAddr:X})", _logger.ColorRed);
-                
-                // Also check for physics-related functions (likely higher offsets)
-                for (int i = 0; i <= 0x100; i += 8)
-                {
-                    long vfunc = *(long*)(vtable + i);
-                    if (vfunc != 0 && vfunc > baseAddr && vfunc < baseAddr + 0x2000000)
-                    {
-                        // Only log first few and key ones to avoid spam
-                        if (i <= 0x20 || i == 0x90 || i == 0x98 || i == 0xA0 || i == 0xA8 || i == 0xB0)
-                        {
-                            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION]   +0x{i:X2}: 0x{vfunc:X} (offset: 0x{vfunc - baseAddr:X})", _logger.ColorYellow);
-                        }
-                    }
-                }
-            }
-        }
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] ==========================================", _logger.ColorYellow);
     }
     
     /// <summary>
@@ -1716,15 +898,10 @@ public class TrulyEikonicSpellsMod : ModBase
     /// </summary>
     private unsafe void LogMagicHitDebug(AttackInfo info, long R15, long* bnpcRow, long a3, long a4)
     {
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] === MAGIC PROJECTILE HIT ===", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] ActionId: {info.ActionId} (218=Air, 219=Ground, 227=Charged)", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] R15 (attack struct): 0x{R15:X}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] bnpcRow (target): 0x{(long)bnpcRow:X}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] a3: 0x{a3:X}, a4: 0x{a4:X}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_HIT] Damage value at R15+0x174: {info.Damage}", _logger.ColorGreen);
-        
-        // Dump R15 structure for investigation
-        DumpR15Structure(R15);
+        if (DEBUG_DUMP_MAGIC_HIT)
+        {
+            LogDumpStructs.LogMagicHitDebug(_logger, _modConfig.ModId, info, R15, bnpcRow, a3, a4);
+        }
     }
     
     /// <summary>
@@ -1732,143 +909,31 @@ public class TrulyEikonicSpellsMod : ModBase
     /// </summary>
     private unsafe void DumpProjectileData(long ptr)
     {
-        try
+        if (DEBUG_DUMP_PROJECTILE_DATA)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] === Projectile Data Dump (RDX) ===", _logger.ColorYellow);
-            
-            // Dump first 0x80 bytes
-            for (int i = 0; i < 0x80; i += 0x10)
-            {
-                long v0 = *(long*)(ptr + i);
-                long v8 = *(long*)(ptr + i + 8);
-                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] +0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
-            }
-            
-            // Check pointers at 0x20 and 0x40
-            long ptr20 = *(long*)(ptr + 0x20);
-            long ptr40 = *(long*)(ptr + 0x40);
-            
-            if (ptr20 != 0)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Dereferencing Pointer at 0x20: {ptr20:X}", _logger.ColorYellow);
-                for (int i = 0; i < 0x40; i += 0x10)
-                {
-                    long v0 = *(long*)(ptr20 + i);
-                    long v8 = *(long*)(ptr20 + i + 8);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] [0x20]+0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
-                }
-            }
-            
-            if (ptr40 != 0)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Dereferencing Pointer at 0x40: {ptr40:X}", _logger.ColorYellow);
-                for (int i = 0; i < 0x40; i += 0x10)
-                {
-                    long v0 = *(long*)(ptr40 + i);
-                    long v8 = *(long*)(ptr40 + i + 8);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] [0x40]+0x{i:X2}: {v0:X16} {v8:X16}", _logger.ColorYellow);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROJ_DUMP] Error: {ex.Message}", _logger.ColorRed);
+            LogDumpStructs.DumpProjectileData(_logger, _modConfig.ModId, ptr);
         }
     }
 
     /// <summary>
     /// Dump R15 attack structure for reverse engineering
-    /// Use these addresses in CheatEngine to investigate projectile creation
     /// </summary>
     private unsafe void DumpR15Structure(long R15)
     {
-        try
+        if (DEBUG_DUMP_R15_STRUCTURE)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] === R15 Structure Dump ===", _logger.ColorGreen);
-            
-            // Dump key offsets we know
-            int actionId = *(int*)(R15 + 0xB0);
-            int damage = *(int*)(R15 + 0x174);
-            long ptrAt88 = *(long*)(R15 + 0x88);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x00: 0x{*(long*)R15:X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x08: 0x{*(long*)(R15 + 0x08):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x10: 0x{*(long*)(R15 + 0x10):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x18: 0x{*(long*)(R15 + 0x18):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x20: 0x{*(long*)(R15 + 0x20):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x28: 0x{*(long*)(R15 + 0x28):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x30: 0x{*(long*)(R15 + 0x30):X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x88 (entity ptr?): 0x{ptrAt88:X}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0xB0 (ActionId): {actionId}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x174 (Damage): {damage}", _logger.ColorGreen);
-            
-            // Try to find floats (potential position/direction)
-            float f1 = *(float*)(R15 + 0x40);
-            float f2 = *(float*)(R15 + 0x44);
-            float f3 = *(float*)(R15 + 0x48);
-            float f4 = *(float*)(R15 + 0x50);
-            float f5 = *(float*)(R15 + 0x54);
-            float f6 = *(float*)(R15 + 0x58);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x40-0x48 (floats): {f1:F2}, {f2:F2}, {f3:F2}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] +0x50-0x58 (floats): {f4:F2}, {f5:F2}, {f6:F2}", _logger.ColorGreen);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] === For CheatEngine: Search for these hex values ===", _logger.ColorYellow);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [R15_DUMP] Error: {ex.Message}", _logger.ColorRed);
+            LogDumpStructs.DumpR15Structure(_logger, _modConfig.ModId, R15);
         }
     }
     
     /// <summary>
     /// Dump magic template structure for reverse engineering
-    /// This template contains the base parameters for magic projectiles
     /// </summary>
     private unsafe void DumpMagicTemplate(long template)
     {
-        try
+        if (DEBUG_DUMP_MAGIC_TEMPLATE)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] === Magic Template Dump ===", _logger.ColorYellow);
-            
-            // The CopyAttackData function copies from template+0x58 onwards
-            // So the relevant data starts at offset 0x58
-            int actionId = *(int*)(template + 0x58);
-            int val5C = *(int*)(template + 0x5C);
-            int val60 = *(int*)(template + 0x60);
-            int val64 = *(int*)(template + 0x64);
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x00: 0x{*(long*)template:X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x08: 0x{*(long*)(template + 0x08):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x10: 0x{*(long*)(template + 0x10):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x18: 0x{*(long*)(template + 0x18):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x20: 0x{*(long*)(template + 0x20):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x28: 0x{*(long*)(template + 0x28):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x30: 0x{*(long*)(template + 0x30):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x38: 0x{*(long*)(template + 0x38):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x40: 0x{*(long*)(template + 0x40):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x48: 0x{*(long*)(template + 0x48):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x50: 0x{*(long*)(template + 0x50):X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x58 (ActionId): {actionId}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x5C: {val5C}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x60: {val60}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] +0x64: {val64}", _logger.ColorYellow);
-            
-            // Check if template address looks static (in module range)
-            long baseAddr = (long)System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
-            long moduleEnd = baseAddr + System.Diagnostics.Process.GetCurrentProcess().MainModule!.ModuleMemorySize;
-            
-            bool isStatic = template >= baseAddr && template < moduleEnd;
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] Template is static: {isStatic}", _logger.ColorYellow);
-            if (isStatic)
-            {
-                long offset = template - baseAddr;
-                _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] Static offset: 0x{offset:X}", _logger.ColorYellow);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TEMPLATE] Error: {ex.Message}", _logger.ColorRed);
+            LogDumpStructs.DumpMagicTemplate(_logger, _modConfig.ModId, template);
         }
     }
     
@@ -1887,23 +952,20 @@ public class TrulyEikonicSpellsMod : ModBase
         // Update DiaSystem settings
         if (_diaSystem != null)
         {
-            _diaSystem.MaxStacks = configuration.MaxDiaStacks;
-            _diaSystem.DamagePerStack = configuration.DiaDamagePerStack;
+            _diaSystem.UpdateConfiguration(configuration);
         }
         
         // Update DiaraSystem settings
         if (_diaraSystem != null)
         {
-            _diaraSystem.BuffDurationSeconds = configuration.DiaraBuffDuration;
-            _diaraSystem.DiaSpellsPerDodge = configuration.DiaSpellsPerDodge;
+            _diaraSystem.UpdateConfiguration(configuration);
         }
         
         // Update DarkraSystem settings
         if (_darkraSystem != null)
         {
-            _darkraSystem.ShadowHitMultiplier = configuration.ShadowHitMultiplier;
-            _darkraSystem.DebuffDuration = configuration.ShadowDebuffDuration;
-            _darkraSystem.ShadowHitDelayMs = configuration.ShadowHitDelayMs;
+            _darkraSystem.UpdateConfiguration(configuration);
+
         }
         
         // Update PhysicsSystem settings
@@ -1913,10 +975,6 @@ public class TrulyEikonicSpellsMod : ModBase
         }
         
         _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}]   Dia: MaxStacks={configuration.MaxDiaStacks}, DmgPerStack={configuration.DiaDamagePerStack}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}]   Diara: Duration={configuration.DiaraBuffDuration}s, SpellsPerDodge={configuration.DiaSpellsPerDodge}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}]   Darkra: Multiplier={configuration.ShadowHitMultiplier}, Delay={configuration.ShadowHitDelayMs}ms, ReactionType={configuration.ShadowHitReactionType}", _logger.ColorGreen);
-        _logger.WriteLine($"[{_modConfig.ModId}]   Physics: Enabled={configuration.EnablePhysicsModification}, Forward={configuration.PhysicsForwardPushOverride}, Vertical={configuration.PhysicsVerticalPushOverride}", _logger.ColorGreen);
     }
     
     #endregion

@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.Configuration;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -17,8 +19,20 @@ public class DarkraSystem
     // Track Shadow debuff per enemy (targetId -> expiration time)
     private readonly ConcurrentDictionary<long, DateTime> _shadowDebuffs = new();
 
+    // Logger for debug output
+    private readonly ILogger? _logger;
+    private readonly string _modId;
+    public bool DebugLogging { get; set; } = true;
+
     // Use shared Eikon constant
     private const int EIKON_ODIN = EikonUtils.EIKON_ODIN;
+    
+    // === Function pointers for calling game functions ===
+    // Using Func/Action to avoid duplicate delegate definitions
+    private Func<long, long, long, long, long>? _onHitOriginal;  // (bnpcRow, R15, a3, a4) -> result
+    private Action<long, long>? _onReactionOriginal;              // (battleContext, R15)
+    private Func<long>? _getBattleContext;                        // Returns current battle context
+    private Action<float, float, float, float>? _applyPhysics;    // Physics system callback
     
     // === Core Configuration ===
     public float ShadowHitMultiplier { get; set; }
@@ -75,7 +89,9 @@ public class DarkraSystem
         float juggleVerticalPush = 1.0f,
         float juggleForwardPush = -0.1f,
         float juggleForwardDuration = 0.5f,
-        float juggleVerticalInterpolation = 0.3f)
+        float juggleVerticalInterpolation = 0.3f,
+        ILogger? logger = null,
+        string modId = "")
     {
         ShadowHitMultiplier = shadowHitMultiplier;
         DebuffDuration = debuffDuration;
@@ -88,8 +104,133 @@ public class DarkraSystem
         JuggleForwardPush = juggleForwardPush;
         JuggleForwardDuration = juggleForwardDuration;
         JuggleVerticalInterpolation = juggleVerticalInterpolation;
+        _logger = logger;
+        _modId = modId;
     }
     
+    /// <summary>
+    /// Set the game function hooks needed to execute shadow hits
+    /// Call this after hooks are initialized in the main mod
+    /// </summary>
+    public void SetHooks(
+        Func<long, long, long, long, long> onHitOriginal,
+        Action<long, long> onReactionOriginal,
+        Func<long> getBattleContext,
+        Action<float, float, float, float> applyPhysics)
+    {
+        _onHitOriginal = onHitOriginal;
+        _onReactionOriginal = onReactionOriginal;
+        _getBattleContext = getBattleContext;
+        _applyPhysics = applyPhysics;
+    }
+    
+    #region Logging
+    
+    private void Log(string message, System.Drawing.Color? color = null)
+    {
+        if (!DebugLogging || _logger == null) return;
+        _logger.WriteLine($"[{_modId}] [DARKRA] {message}", color ?? _logger.ColorBlue);
+    }
+    
+    private void LogDebug(string message)
+    {
+        if (_logger == null) return;
+        _logger.WriteLine($"[{_modId}] [DARKRA] {message}", _logger.ColorYellow);
+    }
+    
+    #endregion
+    
+    #region Main Hook Entry Points
+    
+    /// <summary>
+    /// Called from TrulyEikonicSpells.OnHitImpl - handles all Darkra logic
+    /// Automatically schedules shadow hits if triggered
+    /// </summary>
+    public unsafe void OnHit(long targetId, int actionId, int activeEikon, long R15, bool isEnabled, long* bnpcRow, long a3, long a4)
+    {
+        if (!isEnabled) return;
+        
+        var result = ProcessHit(targetId, actionId, activeEikon, R15);
+        
+        // Log events
+        if (result.AppliedDebuff)
+        {
+            Log("Shadow debuff applied!");
+        }
+        
+        if (result.TriggeredShadowHit)
+        {
+            Log($"Shadow hit triggered! +{result.ShadowDamage} damage");
+            
+            // Schedule the shadow hit internally
+            ScheduleShadowHit((long)bnpcRow, R15, a3, a4, result.ShadowDamage);
+        }
+    }
+    
+    #endregion
+    
+    #region Shadow Hit Execution
+    
+    /// <summary>
+    /// Schedule a shadow hit to be triggered after the configured delay
+    /// </summary>
+    private void ScheduleShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
+    {
+        Task.Run(() =>
+        {
+            Thread.Sleep(ShadowHitDelayMs);
+            ExecuteShadowHit(bnpcRowValue, r15Value, a3, a4, shadowDamage);
+        });
+    }
+    
+    /// <summary>
+    /// Execute the shadow hit by modifying R15 and calling OnHit/OnReaction
+    /// </summary>
+    private unsafe void ExecuteShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
+    {
+        if (_onHitOriginal == null)
+        {
+            LogDebug("Cannot execute shadow hit - hooks not set!");
+            return;
+        }
+        
+        try
+        {
+            // Prepare R15 with all shadow hit values
+            PrepareR15ForShadowHit(r15Value, shadowDamage);
+            
+            // Apply juggle physics if enabled
+            if (JuggleEnabled && _applyPhysics != null)
+            {
+                _applyPhysics(JuggleForwardPush, JuggleForwardDuration, JuggleVerticalPush, JuggleVerticalInterpolation);
+            }
+            
+            // Call OnHit with the modified R15
+            _onHitOriginal(bnpcRowValue, r15Value, a3, a4);
+            
+            // Call OnReaction to apply knockback/stagger effects
+            long battleContext = _getBattleContext?.Invoke() ?? 0;
+            bool hadReaction = battleContext != 0;
+            
+            if (hadReaction && _onReactionOriginal != null)
+            {
+                _onReactionOriginal(battleContext, r15Value);
+            }
+            
+            // Log result
+            if (hadReaction)
+                Log($"Shadow hit executed with reaction! Damage: {shadowDamage}");
+            else
+                Log($"Shadow hit executed (no reaction context)! Damage: {shadowDamage}");
+        }
+        catch (Exception ex)
+        {
+            LogDebug($"Error executing shadow hit: {ex.Message}");
+        }
+    }
+    
+    #endregion
+
     /// <summary>
     /// Process a hit and check for Darkra mechanics.
     /// Returns info about what shadow hit should be triggered (caller handles the actual hit).
@@ -241,6 +382,44 @@ public class DarkraSystem
     public void Reset()
     {
         _shadowDebuffs.Clear();
+    }
+
+    public void UpdateConfiguration(Config configuration)
+    {
+        // Check for changes and log
+        if (ShadowHitMultiplier != configuration.ShadowHitMultiplier)
+            LogDebug($"ShadowHitMultiplier changed: {ShadowHitMultiplier} -> {configuration.ShadowHitMultiplier}");
+            ShadowHitMultiplier = configuration.ShadowHitMultiplier;
+        if (DebuffDuration != configuration.ShadowDebuffDuration)
+            LogDebug($"DebuffDuration changed: {DebuffDuration} -> {configuration.ShadowDebuffDuration}");
+            DebuffDuration = configuration.ShadowDebuffDuration;
+        if (ShadowHitDelayMs != configuration.ShadowHitDelayMs)
+            LogDebug($"ShadowHitDelayMs changed: {ShadowHitDelayMs} -> {configuration.ShadowHitDelayMs}");
+            ShadowHitDelayMs = configuration.ShadowHitDelayMs;
+        if (ReactionAnimationType != configuration.ShadowHitReactionType)
+            LogDebug($"ReactionAnimationType changed: {ReactionAnimationType} -> {configuration.ShadowHitReactionType}");
+            ReactionAnimationType = configuration.ShadowHitReactionType;
+        if (ReactionPushDirection != configuration.ShadowHitReactionIntensity)
+            LogDebug($"ReactionPushDirection changed: {ReactionPushDirection} -> {configuration.ShadowHitReactionIntensity}");
+            ReactionPushDirection = configuration.ShadowHitReactionIntensity;
+        if (JuggleEnabled != configuration.ShadowHitJuggleEnabled)
+            LogDebug($"JuggleEnabled changed: {JuggleEnabled} -> {configuration.ShadowHitJuggleEnabled}");
+            JuggleEnabled = configuration.ShadowHitJuggleEnabled;
+        if (JuggleAnimId != configuration.ShadowHitJuggleAnimId)
+            LogDebug($"JuggleAnimId changed: {JuggleAnimId} -> {configuration.ShadowHitJuggleAnimId}");
+            JuggleAnimId = configuration.ShadowHitJuggleAnimId;
+        if (JuggleVerticalPush != configuration.ShadowHitJuggleVerticalPush)
+            LogDebug($"JuggleVerticalPush changed: {JuggleVerticalPush} -> {configuration.ShadowHitJuggleVerticalPush}");
+            JuggleVerticalPush = configuration.ShadowHitJuggleVerticalPush;
+        if (JuggleForwardPush != configuration.ShadowHitJuggleForwardPush)
+            LogDebug($"JuggleForwardPush changed: {JuggleForwardPush} -> {configuration.ShadowHitJuggleForwardPush}");
+            JuggleForwardPush = configuration.ShadowHitJuggleForwardPush;
+        if (JuggleForwardDuration != configuration.ShadowHitJuggleForwardDuration)
+            LogDebug($"JuggleForwardDuration changed: {JuggleForwardDuration} -> {configuration.ShadowHitJuggleForwardDuration}");
+            JuggleForwardDuration = configuration.ShadowHitJuggleForwardDuration;
+        if (JuggleVerticalInterpolation != configuration.ShadowHitJuggleVerticalInterpolation)
+            LogDebug($"JuggleVerticalInterpolation changed: {JuggleVerticalInterpolation} -> {configuration.ShadowHitJuggleVerticalInterpolation}");
+            JuggleVerticalInterpolation = configuration.ShadowHitJuggleVerticalInterpolation;
     }
 }
 

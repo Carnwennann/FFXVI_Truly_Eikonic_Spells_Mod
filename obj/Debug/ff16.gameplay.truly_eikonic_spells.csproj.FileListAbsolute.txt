@@ -2499,3 +2499,13 @@ E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff1
 E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\refint\ff16.gameplay.truly_eikonic_spells.dll
 E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.pdb
 E:\Documentos\Mods\FFXVI\MyMods\ff16.gameplay.truly_eikonic_spells\obj\Debug\ref\ff16.gameplay.truly_eikonic_spells.dll
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.AssemblyReference.cache
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.GeneratedMSBuildEditorConfig.editorconfig
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfoInputs.cache
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.AssemblyInfo.cs
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.csproj.CoreCompileInputs.cache
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gam.8AF928A2.Up2Date
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.dll
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\refint\ff16.gameplay.truly_eikonic_spells.dll
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ff16.gameplay.truly_eikonic_spells.pdb
+E:\Documentos\GitHub\Carnwennann\ff16.gameplay.truly_eikonic_spells\obj\Debug\ref\ff16.gameplay.truly_eikonic_spells.dll

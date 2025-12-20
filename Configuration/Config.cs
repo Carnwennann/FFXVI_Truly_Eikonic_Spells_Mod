@@ -55,6 +55,12 @@ public class Config : Configurable<Config>
     [Category("Diara System")]
     public int DiaSpellsPerDodge { get; set; } = 5;
 
+    [DisplayName("Dia Magic ID")]
+    [Description("Magic ID used for Dia spells fired during Diara buff")]
+    [DefaultValue(1)]
+    [Category("Diara System")]
+    public int DiaMagicID { get; set; } = 1;
+
     // ==================== DARKRA SYSTEM ====================
     
     [DisplayName("Enable Darkra System")]

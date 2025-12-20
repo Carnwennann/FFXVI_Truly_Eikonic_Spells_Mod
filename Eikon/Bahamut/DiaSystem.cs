@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.Configuration;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -17,6 +19,11 @@ public class DiaSystem
 {
     // Track Dia stacks per enemy (using target pointer as ID)
     private readonly ConcurrentDictionary<long, int> _diaStacks = new();
+    
+    // Logger for debug output
+    private readonly ILogger? _logger;
+    private readonly string _modId;
+    public bool DebugLogging { get; set; } = true;
     
     // Configuration (settable for hot-reload)
     public int MaxStacks { get; set; }
@@ -102,14 +109,68 @@ public class DiaSystem
     // Use shared Eikon constant
     private const int EIKON_BAHAMUT = EikonUtils.EIKON_BAHAMUT;
     
-    public DiaSystem(int maxStacks = 50, float damagePerStack = 0.01f)
+    public DiaSystem(int maxStacks = 50, float damagePerStack = 0.01f, ILogger? logger = null, string modId = "")
     {
         MaxStacks = maxStacks;
         DamagePerStack = damagePerStack;
+        _logger = logger;
+        _modId = modId;
     }
     
+    #region Logging
+    
+    private void Log(string message, System.Drawing.Color? color = null)
+    {
+        if (!DebugLogging || _logger == null) return;
+        _logger.WriteLine($"[{_modId}] [DIA] {message}", color ?? _logger.ColorGreen);
+    }
+    
+    private void LogDebug(string message)
+    {
+        if (!DebugLogging || _logger == null) return;
+        _logger.WriteLine($"[{_modId}] [DIA] {message}", _logger.ColorYellow);
+    }
+    
+    #endregion
+    
+    #region Main Hook Entry Points
+    
     /// <summary>
-    /// Process a potential Dia hit
+    /// Called from TrulyEikonicSpells.OnHitImpl - handles all Dia logic
+    /// </summary>
+    /// <param name="targetId">Enemy target ID (bnpcRow pointer)</param>
+    /// <param name="actionId">The action ID of the attack</param>
+    /// <param name="activeEikon">Currently active Eikon ID</param>
+    /// <param name="R15">Attack info pointer for damage modification</param>
+    /// <param name="isEnabled">Whether Dia System is enabled in config</param>
+    public unsafe void OnHit(long targetId, int actionId, int activeEikon, long R15, bool isEnabled)
+    {
+        if (!isEnabled) return;
+        
+        var result = ProcessHit(targetId, actionId, activeEikon, R15);
+        
+        // Log results
+        if (result.WasStackingHit)
+        {
+            string bonusText = result.DamageMultiplier > 1.0f ? $" (Damage x{result.DamageMultiplier:F2})" : "";
+            Log($"+1 stack! Total: {result.CurrentStacks}/{MaxStacks}{bonusText}");
+        }
+        else if (result.StacksConsumed > 0)
+        {
+            Log($"Consumed {result.StacksConsumed} stacks! Damage x{result.DamageMultiplier:F2}");
+        }
+        else if (result.WasSynergyHit)
+        {
+            Log($"Synergy! Damage x{result.DamageMultiplier:F2} ({result.CurrentStacks} stacks)");
+        }
+    }
+    
+    #endregion
+    
+    #region Internal Processing
+    
+    /// <summary>
+    /// Process a potential Dia hit (internal logic)
     /// </summary>
     /// <param name="targetId">Enemy target ID</param>
     /// <param name="actionId">The action ID of the attack</param>
@@ -196,6 +257,19 @@ public class DiaSystem
     {
         _diaStacks.Clear();
     }
+
+    public void UpdateConfiguration(Config configuration)
+    {
+        // Check for changes and log
+        if (MaxStacks != configuration.MaxDiaStacks)
+            LogDebug($"MaxStacks changed: {MaxStacks} -> {configuration.MaxDiaStacks}");
+            MaxStacks = configuration.MaxDiaStacks;
+        if (DamagePerStack != configuration.DiaDamagePerStack)
+            LogDebug($"DamagePerStack changed: {DamagePerStack} -> {configuration.DiaDamagePerStack}");
+            DamagePerStack = configuration.DiaDamagePerStack;
+    }
+    
+    #endregion
 }
 
 public struct DiaResult

@@ -1,4 +1,8 @@
+using System.Data.Common;
 using System.Diagnostics;
+using System.Security.Principal;
+using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.Configuration;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -21,26 +25,77 @@ public class DiaraSystem
     private bool _isBuffActive = false;
     private readonly Stopwatch _buffTimer = new();
     
+    // Logger for debug output
+    private readonly ILogger? _logger;
+    private readonly string _modId;
+    public bool DebugLogging { get; set; } = true;
+    
     // Configuration (settable for hot-reload)
     public float BuffDurationSeconds { get; set; }
     public int DiaSpellsPerDodge { get; set; }
+    public int MagicID { get; set; }  // Dia magic ID for projectiles
     
     // Action IDs
     public const int CHARGED_SHOT_ACTION_ID = 227;
+    public const int DIA_MAGIC_ID = 214;
     
     // Events for main mod to handle
     public event Action? OnBuffActivated;
     public event Action? OnBuffDeactivated;
     public event Action<int>? OnPerfectDodgeWithBuff;  // int = number of Dia spells to spawn
     
-    // Logging delegate (set by main mod) - simple string only
+    // Legacy logging delegate (for backwards compatibility) - will be removed
     public Action<string>? Log;
     
-    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5)
+    // Reference to MagicCastSystem for spawning projectiles
+    private MagicCastSystem? _magicCastSystem;
+    
+    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, ILogger? logger = null, string modId = "")
     {
         BuffDurationSeconds = buffDurationSeconds;
         DiaSpellsPerDodge = diaSpellsPerDodge;
+        MagicID = magicID;
+        _logger = logger;
+        _modId = modId;
     }
+    
+    /// <summary>
+    /// Set the MagicCastSystem reference for spawning projectiles.
+    /// Must be called after MagicCastSystem is initialized.
+    /// </summary>
+    public void SetMagicCastSystem(MagicCastSystem magicCastSystem)
+    {
+        _magicCastSystem = magicCastSystem;
+        LogDebug("MagicCastSystem linked");
+    }
+    
+    #region Logging
+    
+    private void LogInfo(string message)
+    {
+        if (!DebugLogging) return;
+        
+        if (_logger != null)
+            _logger.WriteLine($"[{_modId}] [DIARA] {message}", _logger.ColorGreen);
+        else
+            Log?.Invoke($"[DIARA] {message}");
+    }
+    
+    private void LogDebug(string message)
+    {
+        if (!DebugLogging) return;
+        
+        if (_logger != null)
+            _logger.WriteLine($"[{_modId}] [DIARA] {message}", _logger.ColorYellow);
+        else
+            Log?.Invoke($"[DIARA] {message}");
+    }
+    
+    #endregion
+    
+    // Last target tracking for projectile spawning
+    public long LastAttackedEnemyPtr { get; private set; }
+    public long LastAttackR15 { get; private set; }
     
     /// <summary>
     /// Check if Diara buff is currently active
@@ -53,6 +108,29 @@ public class DiaraSystem
     public float RemainingBuffTime => _isBuffActive 
         ? Math.Max(0, BuffDurationSeconds - (float)_buffTimer.Elapsed.TotalSeconds) 
         : 0;
+    
+    #region Main Hook Entry Points
+    
+    /// <summary>
+    /// Called from TrulyEikonicSpells.OnHitImpl - handles all Diara logic
+    /// </summary>
+    public void OnHit(long targetPtr, int actionId, long R15, bool isEnabled)
+    {
+        // Always update timer (even if disabled, to properly expire buffs)
+        Update();
+        
+        if (!isEnabled) return;
+        
+        // Track magic shot targets for projectile spawning
+        if (ActionIds.IsMagicShot(actionId))
+        {
+            LastAttackedEnemyPtr = targetPtr;
+            LastAttackR15 = R15;
+            LogDebug($"Magic shot tracked: Target=0x{targetPtr:X}");
+        }
+    }
+    
+    #endregion
     
     /// <summary>
     /// Called when Clive casts Charged Shot (227) with Bahamut active
@@ -72,15 +150,64 @@ public class DiaraSystem
     }
     
     /// <summary>
-    /// Called when a perfect dodge occurs
-    /// Returns the number of Dia spells to spawn (0 if buff not active)
+    /// Called when a perfect dodge occurs.
+    /// If MagicCastSystem is set, spawns Dia projectiles directly.
+    /// Returns the number of Dia spells spawned (0 if buff not active).
     /// </summary>
     public int OnPerfectDodge()
     {
         if (!IsBuffActive)
             return 0;
         
-        Log?.Invoke($"[DIARA] Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
+        LogInfo($"Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
+        
+        // Try to spawn using MagicCastSystem
+        if (_magicCastSystem != null)
+        {
+            // Try MagicExecute/CastMagic system first (more stable)
+            if (_magicCastSystem.HasMagicContext)
+            {
+                LogDebug("Using CastMagicSpell system...");
+                bool success = _magicCastSystem.CastSpells(MagicID, DiaSpellsPerDodge);
+                if (success)
+                {
+                    LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells!");
+                }
+                else
+                {
+                    LogDebug("CastMagicSpell failed, trying FireMagicProjectile...");
+                    // Fallback to FireMagicProjectile
+                    if (_magicCastSystem.HasProjectileContext)
+                    {
+                        _magicCastSystem.FireDiaProjectiles(DiaSpellsPerDodge);
+                    }
+                }
+            }
+            // Fallback: Try FireMagicProjectile system
+            else if (_magicCastSystem.HasProjectileContext)
+            {
+                LogDebug("Using FireMagicProjectile system...");
+                bool success = _magicCastSystem.FireDiaProjectiles(DiaSpellsPerDodge);
+                if (success)
+                {
+                    LogInfo($"Successfully fired {DiaSpellsPerDodge} Dia projectiles!");
+                }
+                else
+                {
+                    LogDebug("Failed to fire Dia projectiles");
+                }
+            }
+            else
+            {
+                LogDebug("MagicCastSystem not ready - fire a normal shot first!");
+            }
+        }
+        else
+        {
+            LogDebug("MagicCastSystem not linked!");
+        }
+        
+        // Still invoke the event for any external listeners
         OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
         
         return DiaSpellsPerDodge;
@@ -94,7 +221,7 @@ public class DiaraSystem
         _isBuffActive = true;
         _buffTimer.Restart();
         
-        Log?.Invoke($"[DIARA] Buff activated! ({BuffDurationSeconds}s duration)");
+        LogInfo($"Buff activated! ({BuffDurationSeconds}s duration)");
         OnBuffActivated?.Invoke();
     }
     
@@ -108,7 +235,7 @@ public class DiaraSystem
             _isBuffActive = false;
             _buffTimer.Stop();
             
-            Log?.Invoke("[DIARA] Buff expired");
+            LogInfo("Buff expired");
             OnBuffDeactivated?.Invoke();
         }
     }
@@ -139,7 +266,7 @@ public class DiaraSystem
     public void ConsumeSpells()
     {
         // For now just log, the spells are "consumed" by not being spawned
-        Log?.Invoke("[DIARA] Spells consumed (debug mode)");
+        LogDebug("Spells consumed (debug mode)");
     }
     
     /// <summary>
@@ -149,5 +276,19 @@ public class DiaraSystem
     {
         _isBuffActive = false;
         _buffTimer.Reset();
+    }
+
+    public void UpdateConfiguration(Config configuration)
+    {
+        // Check for changes and log
+        if (BuffDurationSeconds != configuration.DiaraBuffDuration)
+            LogDebug($"BuffDurationSeconds changed: {BuffDurationSeconds} -> {configuration.DiaraBuffDuration}");
+            BuffDurationSeconds = configuration.DiaraBuffDuration;
+        if (DiaSpellsPerDodge != configuration.DiaSpellsPerDodge)
+            LogDebug($"DiaSpellsPerDodge changed: {DiaSpellsPerDodge} -> {configuration.DiaSpellsPerDodge}");
+            DiaSpellsPerDodge = configuration.DiaSpellsPerDodge;
+        if (MagicID != configuration.DiaMagicID)
+            LogDebug($"MagicID changed: {MagicID} -> {configuration.DiaMagicID}");
+            MagicID = configuration.DiaMagicID;
     }
 }
