@@ -407,5 +407,65 @@ public static class LogDumpStructs
         }
     }
     
+    /// <summary>
+    /// Log CopyAttackData call information for reverse engineering.
+    /// Returns the ActionId read from the template, or -1 on error.
+    /// </summary>
+    public static unsafe int DumpCopyAttackData(
+        ILogger logger, 
+        string modId, 
+        long destAttackStruct, 
+        long srcAttackTemplate,
+        bool dumpMagicTemplate,
+        bool dumpDestStructure)
+    {
+        try
+        {
+            // Read ActionId from source template (at offset 0x58 from the actual data start)
+            // The function does: lea rbx, [rcx+58] then copies from [rdi+58] to [rbx+58]
+            // So the ActionId is at srcAttackTemplate + 0x58
+            int actionId = *(int*)(srcAttackTemplate + 0x58);
+            
+            // Get return address from stack to find caller
+            long* stackPtr = (long*)&destAttackStruct;
+            long returnAddr = *(stackPtr - 1);
+            var baseAddr = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
+            var callerOffset = returnAddr - baseAddr;
+            
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] === Attack Data Copy ===", logger.ColorGreen);
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] Dest (attack struct): 0x{destAttackStruct:X}", logger.ColorGreen);
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] Src (template): 0x{srcAttackTemplate:X}", logger.ColorGreen);
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] ActionId from template: {actionId}", logger.ColorGreen);
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] Return addr: 0x{returnAddr:X} (offset: 0x{callerOffset:X})", logger.ColorGreen);
+            
+            // Check if this is a magic projectile (218, 219, 227)
+            if (actionId == 218 || actionId == 219 || actionId == 227)
+            {
+                logger.WriteLine($"[{modId}] [COPY_ATTACK] >>> MAGIC PROJECTILE DETECTED! <<<", logger.ColorYellow);
+                logger.WriteLine($"[{modId}] [COPY_ATTACK] Stored magic template: 0x{srcAttackTemplate:X}", logger.ColorYellow);
+                logger.WriteLine($"[{modId}] [COPY_ATTACK] Stored dest struct: 0x{destAttackStruct:X}", logger.ColorYellow);
+                
+                // Dump the template structure
+                if (dumpMagicTemplate)
+                {
+                    DumpMagicTemplate(logger, modId, srcAttackTemplate);
+                }
+                
+                // Dump the destination structure BEFORE copy
+                if (dumpDestStructure)
+                {
+                    DumpDestStructure(logger, modId, destAttackStruct);
+                }
+            }
+            
+            return actionId;
+        }
+        catch (Exception ex)
+        {
+            logger.WriteLine($"[{modId}] [COPY_ATTACK] Error reading: {ex.Message}", logger.ColorRed);
+            return -1;
+        }
+    }
+    
     #endregion
 }

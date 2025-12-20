@@ -226,9 +226,6 @@ public class TrulyEikonicSpellsMod : ModBase
         
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
-        _diaraSystem.OnBuffActivated += OnDiaraBuffActivated;
-        _diaraSystem.OnBuffDeactivated += OnDiaraBuffDeactivated;
-        _diaraSystem.OnPerfectDodgeWithBuff += OnDiaraPerfectDodge;
         
         // Get NEX API
         _managedNexApi = _modLoader.GetController<INextExcelDBApiManaged>();
@@ -402,325 +399,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
         return _onLevelLoad.OriginalFunction(a1, a2, a3, a4);
     }
-    
-    // === Perfect Dodge Handler (for Diara system) ===
-    private unsafe char OnPerfectDodgeImpl(long a1, long a2, double a3, double a4)
-    {
-        // === DEBUG: Reverse Engineering - Perfect Dodge ===
-        if (DEBUG_PERFECT_DODGE)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DODGE] Perfect Dodge detected! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
-        }
-        
-        // Update Diara system (check for buff timeout)
-        _diaraSystem.Update();
-        
-        // Process perfect dodge through Diara system
-        // DiaraSystem now handles projectile spawning directly via MagicCastSystem
-        _diaraSystem.OnPerfectDodge();
-        
-        return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
-    }
-    
-    /// <summary>
-    /// Log timeline from Perfect Dodge context to compare with magic shot timeline
-    /// Uses cached param_1 from GetTimeline to read Timeline data
-    /// </summary>
-    private unsafe void LogTimelineFromContext(long a1, long a2, string context)
-    {
-        try
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] ===========================================", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Context: {context}", _logger.ColorGreen);
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Dodge a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
-            
-            // Use the cached GetTimeline param_1 to get Timeline during this context
-            if (_cachedTimelineParam1 != 0)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Using cached param_1=0x{_cachedTimelineParam1:X}", _logger.ColorYellow);
-                
-                // Call GetTimeline with the cached param_1 to get current Timeline
-                _currentActionContext = context;
-                _shouldLogTimeline = true;
-                
-                // This will trigger GetTimelineImpl which will log the Timeline
-                long timelineResult = _getTimeline.OriginalFunction(_cachedTimelineParam1);
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] GetTimeline result during {context}: 0x{timelineResult:X}", 
-                    timelineResult != 0 ? _logger.ColorGreen : _logger.ColorRed);
-                
-                if (timelineResult != 0)
-                {
-                    // Manually log the Timeline since we called the original directly
-                    if (DEBUG_DUMP_TIMELINE)
-                    {
-                        LogDumpStructs.LogTimelineObject(_logger, _modConfig.ModId, _cachedTimelineParam1, timelineResult, context);
-                    }
-                }
-                else
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Timeline is NULL - vtable[0x48] blocked!", _logger.ColorRed);
-                    
-                    // Try to read what vtable[0x48] is checking
-                    long* vtableEntry = (long*)(_cachedTimelineParam1 + 0x10);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] param_1+0x10 = 0x{*vtableEntry:X}", _logger.ColorYellow);
-                }
-                
-                _shouldLogTimeline = false;
-            }
-            else
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] No cached param_1 available - shoot once first!", _logger.ColorRed);
-            }
-            
-            // Also compare with last cached timeline ptr
-            if (_cachedTimelinePtr != 0)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Last cached Timeline ptr=0x{_cachedTimelinePtr:X}", _logger.ColorYellow);
-            }
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] ===========================================", _logger.ColorYellow);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [TIMELINE] Error in LogTimelineFromContext: {ex.Message}", _logger.ColorRed);
-        }
-    }
-    
-    // Flag to enable timeline logging only during FireMagicProjectile
-    private bool _shouldLogTimeline = false;
-    private string _currentActionContext = "";
-    
-    // === GetTimeline Hook - Now just for LOGGING to understand the Timeline object ===
-    private unsafe long GetTimelineImpl(long param_1)
-    {
-        // Call original first
-        long result = _getTimeline.OriginalFunction(param_1);
-        
-        // Cache the param_1 and timeline ptr for later use (during Perfect Dodge comparison)
-        if (result != 0)
-        {
-            _cachedTimelineParam1 = param_1;
-            _cachedTimelinePtr = result;
-        }
-        
-        // Only log if we're in a magic projectile context
-        if (_shouldLogTimeline)
-        {
-            if (DEBUG_DUMP_TIMELINE)
-            {
-                LogDumpStructs.LogTimelineObject(_logger, _modConfig.ModId, param_1, result, _currentActionContext);
-            }
-            _shouldLogTimeline = false; // Only log once per action
-        }
-        
-        return result;
-    }
-    
-    /// <summary>
-    /// Attempt to trigger Wings of Light visual effect during Diara buff
-    /// </summary>
-    private unsafe void TryTriggerWingsEffect(long dodgeContext)
-    {
-        if (_wingsA1Context == 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Cannot trigger wings - no wings context captured yet. Enter Wings of Light once to capture.", _logger.ColorYellow);
-            return;
-        }
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Attempting to trigger Wings effect! a1=0x{_wingsA1Context:X}, a2=0x{dodgeContext:X}", _logger.ColorGreen);
-        
-        try
-        {
-            // Call the Wings function with captured context
-            long result = _maybeHandleWingsPerfectDodge.OriginalFunction(_wingsA1Context, dodgeContext);
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Wings function returned: 0x{result:X}", _logger.ColorGreen);
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Wings trigger failed: {ex.Message}", _logger.ColorRed);
-        }
-    }
-    
-    // === MaybeHandleWingsPerfectDodge Handler - for Wings of Light effects ===
-    private unsafe long MaybeHandleWingsPerfectDodgeImpl(long a1, long a2)
-    {
-        // Store the a1 context for later use (when we want to trigger wings during Diara)
-        _wingsA1Context = a1;
-        
-        // === DEBUG: Reverse Engineering - Wings Dodge Handler ===
-        if (DEBUG_WINGS_DODGE)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] MaybeHandleWingsPerfectDodge called! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Captured wings context a1=0x{a1:X}", _logger.ColorGreen);
-            
-            if (_diaraSystem.IsBuffActive)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Diara buff active during wings!", _logger.ColorGreen);
-            }
-        }
-        
-        return _maybeHandleWingsPerfectDodge.OriginalFunction(a1, a2);
-    }
-    
-    // === Diara Buff Event Handlers ===
-    private void OnDiaraBuffActivated()
-    {
-        // TODO: Trigger Bahamut wings VFX
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Wings should appear now!", _logger.ColorGreen);
-    }
-    
-    private void OnDiaraBuffDeactivated()
-    {
-        // TODO: Remove Bahamut wings VFX
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Wings should disappear now!", _logger.ColorYellow);
-    }
-    
-    private void OnDiaraPerfectDodge(int spellCount)
-    {
-        // Log the event
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Perfect Dodge Event: {spellCount} spells requested.", _logger.ColorGreen);
-        
-        // Note: Actual spawning is handled by OnPerfectDodgeImpl calling TrySpawnMagicProjectile
-        // which queues them for the next magic shot to avoid crashes.
-    }
-    
-    /// <summary>
-    /// Attempt to spawn Dia spells - currently simulates by applying damage to last target
-    /// TODO: Find actual projectile spawning function for visual effect
-    /// </summary>
-    private unsafe void TrySpawnDiaSpells(int count)
-    {
-        long lastTarget = _diaraSystem.LastAttackedEnemyPtr;
-        
-        if (lastTarget == 0)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Cannot spawn - no recent enemy target!", _logger.ColorRed);
-            return;
-        }
-        
-        _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Applying {count} Dia spell damage to last target (0x{lastTarget:X})", _logger.ColorGreen);
-        
-        // For now, we can only log - actual damage application requires:
-        // 1. Finding a function to spawn projectiles/apply damage directly
-        // 2. OR calling OnHit with crafted parameters (risky)
-        //
-        // The modder mentioned: "spawn magic on-demand with function hooking"
-        // We need to find the function that creates magic projectiles
-        //
-        // Potential approaches to investigate:
-        // - Look for "CreateProjectile" or similar in game memory
-        // - Hook the function that creates Dia projectiles when player shoots
-        // - Use NEX magic table to find projectile definitions
-        
-        for (int i = 0; i < count; i++)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [DIARA] Dia #{i+1} would fire at enemy", _logger.ColorYellow);
-        }
-    }
-    
-    // === BattleTechnique Handler (for logging special abilities only) ===
-    private char OnBattleTechniqueImpl(long a1, uint techId, char a3)
-    {
-        // Store the a1 pointer for potential manual invocation
-        _battleTechniqueA1 = a1;
-        
-        // === DEBUG: Reverse Engineering - Battle Technique calls ===
-        if (DEBUG_BATTLE_TECHNIQUE)
-        {
-            // Only log non-Ifrit special abilities (BattleTechnique is only called for special moves, not normal attacks)
-            // Ifrit moves are 10000-20000 range - skip those as they spam the log
-            if (techId < 10000 || techId > 20000)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TECH] Special Ability techId: {techId}, a1: 0x{a1:X}", _logger.ColorYellow);
-            }
-        }
-        
-        return _onBattleTechnique.OriginalFunction(a1, techId, a3);
-    }
-    
-    // === CopyAttackData Handler - Called when creating attacks/projectiles ===
-    private unsafe void CopyAttackDataImpl(long destAttackStruct, long srcAttackTemplate)
-    {
-        // === DEBUG: Reverse Engineering - Attack Data Copy ===
-        if (DEBUG_COPY_ATTACK_DATA)
-        {
-            try
-            {
-                // Read ActionId from source template (at offset 0x58 from the actual data start)
-                // The function does: lea rbx, [rcx+58] then copies from [rdi+58] to [rbx+58]
-                // So the ActionId is at srcAttackTemplate + 0x58
-                int actionId = *(int*)(srcAttackTemplate + 0x58);
-                
-                // Get return address from stack to find caller
-                // In x64, return address is at RSP when function starts
-                // After our hook's prolog, it's offset - let's try reading it
-                long* stackPtr = (long*)&destAttackStruct; // Approximate stack location
-                long returnAddr = *(stackPtr - 1); // Return address is typically above local vars
-                var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
-                var callerOffset = returnAddr - baseAddr;
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] === Attack Data Copy ===", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Dest (attack struct): 0x{destAttackStruct:X}", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Src (template): 0x{srcAttackTemplate:X}", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] ActionId from template: {actionId}", _logger.ColorGreen);
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Return addr: 0x{returnAddr:X} (offset: 0x{callerOffset:X})", _logger.ColorGreen);
-                
-                // Check if this is a magic projectile (218, 219, 227)
-                if (actionId == 218 || actionId == 219 || actionId == 227)
-                {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] >>> MAGIC PROJECTILE DETECTED! <<<", _logger.ColorYellow);
-                    
-                    // Store the ID for FireMagicProjectile to check
-                    _lastMagicActionId = actionId;
 
-                    // Store the template pointer - this is the key to spawning our own projectiles!
-                    _lastMagicTemplatePtr = srcAttackTemplate;
-                    _lastDestStructPtr = destAttackStruct; // Also store dest for potential reuse
-                    _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Stored magic template: 0x{srcAttackTemplate:X}", _logger.ColorYellow);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Stored dest struct: 0x{destAttackStruct:X}", _logger.ColorYellow);
-                    
-                    // Dump the template structure
-                    if (DEBUG_DUMP_MAGIC_TEMPLATE)
-                    {
-                        LogDumpStructs.DumpMagicTemplate(_logger, _modConfig.ModId, srcAttackTemplate);
-                    }
-                    
-                    // === NEW: Dump the destination structure BEFORE copy ===
-                    // This tells us what's already initialized in destAttackStruct
-                    if (DEBUG_DUMP_DEST_STRUCTURE)
-                    {
-                        LogDumpStructs.DumpDestStructure(_logger, _modConfig.ModId, destAttackStruct);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [COPY_ATTACK] Error reading: {ex.Message}", _logger.ColorRed);
-            }
-        }
-        
-        // Call original function
-        _copyAttackData.OriginalFunction(destAttackStruct, srcAttackTemplate);
-    }
-    
-    private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)
-    {
-        // Save the player mode structure pointer
-        _modeA1 = a1;
-        
-        // Track potential Eikon mode changes
-        _currentEikonMode = playerMode;
-        
-        // === DEBUG: Reverse Engineering - Player Mode changes ===
-        if (DEBUG_PLAYER_MODE)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MODE] StartPlayerMode called with playerMode: {playerMode}, a1: 0x{a1:X}", _logger.ColorYellow);
-        }
-        
-        return _startPlayerMode.OriginalFunction(a1, playerMode, a3);
-    }
-    
     private unsafe long OnHitImpl(long* bnpcRow, long R15, long a3, long a4)
     {
         try
@@ -749,46 +428,7 @@ public class TrulyEikonicSpellsMod : ModBase
         
         return _onHit.OriginalFunction(bnpcRow, R15, a3, a4);
     }
-    
-    private unsafe uint GetAtkSource(long R15)
-    {
-        long v6 = *(long*)(R15 + 136);
-        _getOrCreateEntity(*(long*)_globalEntityManagerPtr, out long entityUnk, v6);
-        return (uint)_getBnpcIdFromEntity(entityUnk);
-    }
-    
-    private unsafe AttackInfo ParseAttackInfo(long* bnpcRow, long R15)
-    {
-        var a = *(long*)((byte*)bnpcRow + 0x20);
-        var b = *(long*)((byte*)a + 0x7298);
-        uint attackTarget = *(uint*)((byte*)b + 0x38);
-        
-        int actionId = *(int*)(R15 + 0xB0);
-        int rawDmg = *(int*)(R15 + 0x174);
-        uint atkSource = GetAtkSource(R15);
-        
-        return new AttackInfo
-        {
-            ActionId = actionId,
-            Damage = rawDmg,
-            TargetId = (long)bnpcRow,
-            IsCliveAttack = _cliveIds.Contains(atkSource) || (atkSource == 100 && attackTarget != 1),
-            IsCliveTarget = _cliveIds.Contains(attackTarget),
-            IsHealOrEffect = attackTarget == 1 && rawDmg <= 0
-        };
-    }
-    
-    // Use shared AttackInfo from EikonUtils.cs
-    
-    // Delegate to shared EikonUtils for Eikon detection
-    private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
-    
-    // Delegate to shared EikonUtils
-    private static string GetEikonName(int eikonId) => EikonUtils.GetEikonName(eikonId);
-    
-    // Delegate to shared EikonUtils
-    private static EikonUtils.SpellElement GetSpellElement(int eikonId) => EikonUtils.GetSpellElement(eikonId);
-    
+
     /// <summary>
     /// OnReaction implementation - captures battle context and applies knockback/stagger
     /// FUN_140596f44 in Ghidra
@@ -881,12 +521,145 @@ public class TrulyEikonicSpellsMod : ModBase
         _onReaction.OriginalFunction(param1, param2);
     }
     
-    /// <summary>
-    /// Get human-readable name for reaction animation types
-    /// Delegates to centralized ReactionTypes class
-    /// </summary>
-    private string GetReactionTypeName(int reactionType) => ReactionTypes.GetAnimationName(reactionType);
+    // === Perfect Dodge Handler (for Diara system) ===
+    private unsafe char OnPerfectDodgeImpl(long a1, long a2, double a3, double a4)
+    {
+        // === DEBUG: Reverse Engineering - Perfect Dodge ===
+        if (DEBUG_PERFECT_DODGE)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [DODGE] Perfect Dodge detected! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
+        }
+        
+        // Update Diara system (check for buff timeout)
+        _diaraSystem.Update();
+        
+        // Process perfect dodge through Diara system
+        // DiaraSystem now handles projectile spawning directly via MagicCastSystem
+        _diaraSystem.OnPerfectDodge();
+        
+        return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
+    }
+    
+    // === MaybeHandleWingsPerfectDodge Handler - for Wings of Light effects ===
+    private unsafe long MaybeHandleWingsPerfectDodgeImpl(long a1, long a2)
+    {
+        // Store the a1 context for later use (when we want to trigger wings during Diara)
+        _wingsA1Context = a1;
+        
+        // === DEBUG: Reverse Engineering - Wings Dodge Handler ===
+        if (DEBUG_WINGS_DODGE)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] MaybeHandleWingsPerfectDodge called! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Captured wings context a1=0x{a1:X}", _logger.ColorGreen);
+            
+            if (_diaraSystem.IsBuffActive)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Diara buff active during wings!", _logger.ColorGreen);
+            }
+        }
+        
+        return _maybeHandleWingsPerfectDodge.OriginalFunction(a1, a2);
+    }
+    
+    // === BattleTechnique Handler (for logging special abilities only) ===
+    private char OnBattleTechniqueImpl(long a1, uint techId, char a3)
+    {
+        // Store the a1 pointer for potential manual invocation
+        _battleTechniqueA1 = a1;
+        
+        // === DEBUG: Reverse Engineering - Battle Technique calls ===
+        if (DEBUG_BATTLE_TECHNIQUE)
+        {
+            // Only log non-Ifrit special abilities (BattleTechnique is only called for special moves, not normal attacks)
+            // Ifrit moves are 10000-20000 range - skip those as they spam the log
+            if (techId < 10000 || techId > 20000)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [TECH] Special Ability techId: {techId}, a1: 0x{a1:X}", _logger.ColorYellow);
+            }
+        }
+        
+        return _onBattleTechnique.OriginalFunction(a1, techId, a3);
+    }
+    
+    // === CopyAttackData Handler - Called when creating attacks/projectiles ===
+    private unsafe void CopyAttackDataImpl(long destAttackStruct, long srcAttackTemplate)
+    {
+        // === DEBUG: Reverse Engineering - Attack Data Copy ===
+        if (DEBUG_COPY_ATTACK_DATA)
+        {
+            int actionId = LogDumpStructs.DumpCopyAttackData(
+                _logger, 
+                _modConfig.ModId, 
+                destAttackStruct, 
+                srcAttackTemplate,
+                DEBUG_DUMP_MAGIC_TEMPLATE,
+                DEBUG_DUMP_DEST_STRUCTURE);
+            
+            // Store magic projectile data for potential reuse
+            if (actionId == 218 || actionId == 219 || actionId == 227)
+            {
+                _lastMagicActionId = actionId;
+                _lastMagicTemplatePtr = srcAttackTemplate;
+                _lastDestStructPtr = destAttackStruct;
+            }
+        }
+        
+        // Call original function
+        _copyAttackData.OriginalFunction(destAttackStruct, srcAttackTemplate);
+    }
+    
+    private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)
+    {
+        // Save the player mode structure pointer
+        _modeA1 = a1;
+        
+        // Track potential Eikon mode changes
+        _currentEikonMode = playerMode;
+        
+        // === DEBUG: Reverse Engineering - Player Mode changes ===
+        if (DEBUG_PLAYER_MODE)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [MODE] StartPlayerMode called with playerMode: {playerMode}, a1: 0x{a1:X}", _logger.ColorYellow);
+        }
+        
+        return _startPlayerMode.OriginalFunction(a1, playerMode, a3);
+    }
+    
 
+    
+    private unsafe uint GetAtkSource(long R15)
+    {
+        long v6 = *(long*)(R15 + 136);
+        _getOrCreateEntity(*(long*)_globalEntityManagerPtr, out long entityUnk, v6);
+        return (uint)_getBnpcIdFromEntity(entityUnk);
+    }
+    
+    private unsafe AttackInfo ParseAttackInfo(long* bnpcRow, long R15)
+    {
+        var a = *(long*)((byte*)bnpcRow + 0x20);
+        var b = *(long*)((byte*)a + 0x7298);
+        uint attackTarget = *(uint*)((byte*)b + 0x38);
+        
+        int actionId = *(int*)(R15 + 0xB0);
+        int rawDmg = *(int*)(R15 + 0x174);
+        uint atkSource = GetAtkSource(R15);
+        
+        return new AttackInfo
+        {
+            ActionId = actionId,
+            Damage = rawDmg,
+            TargetId = (long)bnpcRow,
+            IsCliveAttack = _cliveIds.Contains(atkSource) || (atkSource == 100 && attackTarget != 1),
+            IsCliveTarget = _cliveIds.Contains(attackTarget),
+            IsHealOrEffect = attackTarget == 1 && rawDmg <= 0
+        };
+    }
+    
+    // Use shared AttackInfo from EikonUtils.cs
+    
+    // Delegate to shared EikonUtils for Eikon detection
+    private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
+    
     // ============================================================
     // DEBUG FUNCTIONS - Reverse Engineering Helpers
     // Set DEBUG_* flags at top of file to enable/disable
