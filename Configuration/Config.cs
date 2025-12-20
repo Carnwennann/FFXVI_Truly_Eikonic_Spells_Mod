@@ -57,9 +57,9 @@ public class Config : Configurable<Config>
 
     [DisplayName("Dia Magic ID")]
     [Description("Magic ID used for Dia spells fired during Diara buff")]
-    [DefaultValue(1)]
+    [DefaultValue(214)]
     [Category("Diara System")]
-    public int DiaMagicID { get; set; } = 1;
+    public int DiaMagicID { get; set; } = 214;
 
     // ==================== DARKRA SYSTEM ====================
     
@@ -87,13 +87,13 @@ public class Config : Configurable<Config>
     [Category("Darkra System")]
     public int ShadowHitDelayMs { get; set; } = 1000;
 
-    [DisplayName("Shadow Hit Reaction Animation")]
+    [DisplayName("Shadow Land Hit Reaction Animation")]
     [Description(ReactionTypes.CONFIG_DESC_ANIMATION)]
     [DefaultValue(2)]
     [Category("Darkra System")]
     public int ShadowHitReactionType { get; set; } = 2;
 
-    [DisplayName("Shadow Hit Push Direction")]
+    [DisplayName("Shadow Land Hit Push Direction")]
     [Description(ReactionTypes.CONFIG_DESC_PUSH)]
     [DefaultValue(2)]
     [Category("Darkra System")]
@@ -107,35 +107,35 @@ public class Config : Configurable<Config>
     [Category("Darkra System - Juggle")]
     public bool ShadowHitJuggleEnabled { get; set; } = true;
 
-    [DisplayName("Shadow Hit Anim ID (0x15c)")]
+    [DisplayName("Shadow Air Hit Anim ID (0x15c)")]
     [Description("Animation ID for the shadow hit reaction (6 = launch up)")]
     [DefaultValue(6)]
     [Category("Darkra System - Juggle")]
     public int ShadowHitJuggleAnimId { get; set; } = 6;
 
-    [DisplayName("Shadow Hit Vertical Push")]
+    [DisplayName("Shadow Air Hit Vertical Push")]
     [Description("Vertical knockback force (positive = up, 1.0 = standard juggle)")]
-    [DefaultValue(1.0f)]
+    [DefaultValue(0.4f)]
     [Category("Darkra System - Juggle")]
-    public float ShadowHitJuggleVerticalPush { get; set; } = 1.0f;
+    public float ShadowHitJuggleVerticalPush { get; set; } = 0.4f;
 
-    [DisplayName("Shadow Hit Forward Push")]
+    [DisplayName("Shadow Air Hit Forward Push")]
     [Description("Horizontal knockback force (negative = pull toward, -0.1 = slight pull)")]
     [DefaultValue(-0.1f)]
     [Category("Darkra System - Juggle")]
     public float ShadowHitJuggleForwardPush { get; set; } = -0.1f;
 
-    [DisplayName("Shadow Hit Forward Duration")]
+    [DisplayName("Shadow Air Hit Forward Duration")]
     [Description("Duration of forward movement (0-1, 0.5 = medium travel)")]
     [DefaultValue(0.5f)]
     [Category("Darkra System - Juggle")]
     public float ShadowHitJuggleForwardDuration { get; set; } = 0.5f;
 
-    [DisplayName("Shadow Hit Vertical Interpolation")]
+    [DisplayName("Shadow Air Hit Vertical Interpolation")]
     [Description("Speed of vertical movement (0-1, 0.3 = medium speed)")]
-    [DefaultValue(0.3f)]
+    [DefaultValue(0.2f)]
     [Category("Darkra System - Juggle")]
-    public float ShadowHitJuggleVerticalInterpolation { get; set; } = 0.3f;
+    public float ShadowHitJuggleVerticalInterpolation { get; set; } = 0.2f;
 
     // ==================== PHYSICS EXPERIMENTS ====================
     

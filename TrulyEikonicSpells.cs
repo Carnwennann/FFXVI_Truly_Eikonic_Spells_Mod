@@ -383,9 +383,9 @@ public class TrulyEikonicSpellsMod : ModBase
         _magicCastSystem.InitializeFireMagicProjectile(_hooks!, baseAddr);
         
         // GetTimeline Hook (0x4692A4) - kept for debugging/logging
-        var getTimelineAddr = baseAddr + 0x4692A4;
-        _getTimeline = _hooks!.CreateHook<GetTimelineDelegate>(GetTimelineImpl, getTimelineAddr).Activate();
-        _logger.WriteLine($"[{_modConfig.ModId}] Hooked GetTimeline at 0x{getTimelineAddr:X}", _logger.ColorGreen);
+        //var getTimelineAddr = baseAddr + 0x4692A4;
+        //_getTimeline = _hooks!.CreateHook<GetTimelineDelegate>(GetTimelineImpl, getTimelineAddr).Activate();
+        //_logger.WriteLine($"[{_modConfig.ModId}] Hooked GetTimeline at 0x{getTimelineAddr:X}", _logger.ColorGreen);
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
