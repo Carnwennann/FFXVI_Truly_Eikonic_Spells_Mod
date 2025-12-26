@@ -2,7 +2,7 @@
   "ModId": "ff16.gameplay.truly_eikonic_spells",
   "ModName": "Truly Eikonic Spells",
   "ModAuthor": "SalvadorDalike",
-  "ModVersion": "0.1.0",
+  "ModVersion": "0.2.0",
   "ModDescription": "All the basic proyectiles spells reimagined to give them the final power fantasy they deserve",
   "ModDll": "ff16.gameplay.truly_eikonic_spells.dll",
   "ModIcon": "icon.png",

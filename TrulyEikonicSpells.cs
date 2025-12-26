@@ -2,6 +2,8 @@ using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
+using NenTools.ImGui.Interfaces;
+using NenTools.ImGui.Abstractions;
 using FF16Tools.Files.Nex;
 using FF16Tools.Files.Nex.Entities;
 using Reloaded.Hooks.Definitions;
@@ -24,7 +26,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private const bool DEBUG_BATTLE_TECHNIQUE = false; // Log BattleTechnique calls
     private const bool DEBUG_PERFECT_DODGE = true;   // Log perfect dodge events
     private const bool DEBUG_WINGS_DODGE = false;     // Log Wings of Light dodge handler
-    private const bool DEBUG_PLAYER_MODE = false;    // Log player mode changes (spammy)
+    private const bool DEBUG_PLAYER_MODE = true;    // Log player mode changes (spammy)
     private const bool DEBUG_COPY_ATTACK_DATA = false; // Log CopyAttackData calls (projectile creation)
     private const bool DEBUG_PREPARE_TEMPLATE = false; // Log PrepareAttackTemplate calls
     private const bool DEBUG_FIRE_MAGIC = true;      // Log FireMagicProjectile calls (KEY function!)
@@ -111,6 +113,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private long _globalEntityManagerPtr;
     private long _globalPlayerStatePtr;  // For reading player state like active Eikon
     
+    private IStartupScanner _startupScanner;
+    
     // Current active Eikon tracking
     private uint _currentEikonMode = 0;
     private long _modeA1 = 0;  // Player mode structure pointer
@@ -139,11 +143,12 @@ public class TrulyEikonicSpellsMod : ModBase
     private DarkraSystem _darkraSystem;
     private PhysicsSystem _physicsSystem;
     private MagicCastSystem _magicCastSystem;
+    private PlayerSystem _playerSystem;
+    private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
     private WeakReference<INextExcelDBApiManaged> _managedNexApi;
     public WeakReference<INextExcelDBApi> _rawNexApi;
-    private readonly NexTableLayout _attackParamLayout;
     
     // Clive IDs (from combo meter)
     private readonly HashSet<uint> _cliveIds = new() { 1, 2, 3, 4, 6, 8, 9, 10 };
@@ -168,10 +173,72 @@ public class TrulyEikonicSpellsMod : ModBase
         
         _logger.WriteLine($"[{_modConfig.ModId}] Initializing Truly Eikonic Spells...", _logger.ColorGreen);
         
-        // Load NEX layouts (kept for potential future use)
-        _attackParamLayout = TableMappingReader.ReadTableLayout("attackparam", new Version(1, 0, 3));
+        // Setup scans
+        var scansController = _modLoader.GetController<IStartupScanner>();
+        if (!scansController.TryGetTarget(out IStartupScanner scans))
+        {
+            throw new Exception($"[{_modConfig.ModId}] Unable to get ISharedScans!");
+        }
+        _startupScanner = scans;
+
+        SetupGameSystems();
+
+        SetupModSystems();
         
+        SetupImGui();
+        
+        SetupScans(scans);
+        
+        // Global pointers
+        var baseAddress = Process.GetCurrentProcess().MainModule!.BaseAddress;
+        _globalEntityManagerPtr = baseAddress + 0x1816CD0;
+        _globalPlayerStatePtr = baseAddress + 0x1816608;  // Same as globalUnk in combo_meter
+    }
+
+    private void SetupGameSystems()
+    {
+        // Initialize MagicCastSystem (handles all magic projectile spawning)
+        _magicCastSystem = new MagicCastSystem(_logger, _modConfig, _configuration, _startupScanner);
+        // Setup MagicCastSystem callbacks
+        _magicCastSystem.GetActiveEikon = GetActiveEikon;
+
+        // Initialize PlayerSystem (handles all player-related information)
+        _playerSystem = new PlayerSystem(_logger, _modConfig);
+        
+        // Get NEX API
+        _managedNexApi = _modLoader.GetController<INextExcelDBApiManaged>();
+        _rawNexApi = _modLoader.GetController<INextExcelDBApi>();
+        
+        if (!_managedNexApi.TryGetTarget(out INextExcelDBApiManaged managedApi))
+        {
+            throw new Exception($"[{_modConfig.ModId}] Could not get INextExcelDBApi!");
+        }
+        
+        managedApi.OnNexLoaded += OnNexLoaded;
+    }
+
+    private void SetupImGui()
+    {
+        var imGuiController = _modLoader.GetController<IImGui>();
+        var imGuiShellController = _modLoader.GetController<IImGuiShell>();
+
+        if (imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
+        {
+            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated);
+            imGuiShell.AddComponent(_imGuiConfigurator);
+            _logger.WriteLine($"[{_modConfig.ModId}] ImGui Configurator initialized", _logger.ColorGreen);
+        }
+        else
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] ImGui not available", _logger.ColorYellow);
+        }
+    }
+
+    private void SetupModSystems()
+    {   
         // Initialize systems with configuration
+
+        // DIA SYSTEM
         _diaSystem = new DiaSystem(
             maxStacks: _configuration.MaxDiaStacks,
             damagePerStack: _configuration.DiaDamagePerStack,
@@ -179,6 +246,8 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _diaSystem.DebugLogging = _configuration.DebugLogging;
+        
+        // DIARA SYSTEM
         _diaraSystem = new DiaraSystem(
             buffDurationSeconds: _configuration.DiaraBuffDuration,
             diaSpellsPerDodge: _configuration.DiaSpellsPerDodge,
@@ -187,6 +256,20 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _diaraSystem.DebugLogging = _configuration.DebugLogging;
+        // Connect MagicCastSystem to DiaraSystem for direct projectile spawning
+        _diaraSystem.SetMagicCastSystem(_magicCastSystem);
+        // Setup Diara logging
+        _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
+        _magicCastSystem.OnChargedShotDetected = (eikon, mgr, proj) => 
+        {
+            // Delegate to DiaraSystem for Bahamut charged shot handling
+            return _diaraSystem.OnChargedShotCast(eikon);
+        };
+        // Setup Diara logging
+        _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
+        
+
+        // DARKRA SYSTEM
         _darkraSystem = new DarkraSystem(
             shadowHitMultiplier: _configuration.ShadowHitMultiplier,
             debuffDuration: _configuration.ShadowDebuffDuration,
@@ -204,53 +287,9 @@ public class TrulyEikonicSpellsMod : ModBase
         );
         _darkraSystem.DebugLogging = _configuration.DebugLogging;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] Config loaded - Dia: {_configuration.MaxDiaStacks} stacks, Diara: {_configuration.DiaraBuffDuration}s, Darkra: {_configuration.ShadowHitMultiplier * 100}%", _logger.ColorGreen);
-        
-        // Initialize MagicCastSystem (handles all magic projectile spawning)
-        _magicCastSystem = new MagicCastSystem(_logger, _modConfig, _configuration);
-        
-        // Connect MagicCastSystem to DiaraSystem for direct projectile spawning
-        _diaraSystem.SetMagicCastSystem(_magicCastSystem);
-        
-        // Setup MagicCastSystem callbacks
-        _magicCastSystem.GetActiveEikon = GetActiveEikon;
-        _magicCastSystem.OnChargedShotDetected = (eikon, mgr, proj) => 
-        {
-            // Delegate to DiaraSystem for Bahamut charged shot handling
-            return _diaraSystem.OnChargedShotCast(eikon);
-        };
-        
         // Allocate memory for legacy buffers (some may be removed later)
         _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
         _shadowVTableBuffer = Marshal.AllocHGlobal(VTABLE_SIZE);
-        
-        // Setup Diara logging
-        _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
-        
-        // Get NEX API
-        _managedNexApi = _modLoader.GetController<INextExcelDBApiManaged>();
-        _rawNexApi = _modLoader.GetController<INextExcelDBApi>();
-        
-        if (!_managedNexApi.TryGetTarget(out INextExcelDBApiManaged managedApi))
-        {
-            throw new Exception($"[{_modConfig.ModId}] Could not get INextExcelDBApi!");
-        }
-        
-        managedApi.OnNexLoaded += OnNexLoaded;
-        
-        // Setup scans
-        var scansController = _modLoader.GetController<IStartupScanner>();
-        if (!scansController.TryGetTarget(out IStartupScanner scans))
-        {
-            throw new Exception($"[{_modConfig.ModId}] Unable to get ISharedScans!");
-        }
-        
-        SetupScans(scans);
-        
-        // Global pointers
-        var baseAddress = Process.GetCurrentProcess().MainModule!.BaseAddress;
-        _globalEntityManagerPtr = baseAddress + 0x1816CD0;
-        _globalPlayerStatePtr = baseAddress + 0x1816608;  // Same as globalUnk in combo_meter
     }
     
     private void OnNexLoaded()
@@ -266,6 +305,10 @@ public class TrulyEikonicSpellsMod : ModBase
     
     private unsafe void SetupScans(IStartupScanner scans)
     {
+        
+        // En SetupScans:
+        _playerSystem.SetupScans(scans, _hooks!);
+        
         // OnHit hook - same signature as combo meter
         scans.AddScan("48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 8B 82", address =>
         {
@@ -381,6 +424,9 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize FireMagicProjectile (uses hardcoded offset)
         var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
         _magicCastSystem.InitializeFireMagicProjectile(_hooks!, baseAddr);
+        
+        // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
+        _magicCastSystem.InitializeUniversalMagicHooks(_hooks!);
         
         // GetTimeline Hook (0x4692A4) - kept for debugging/logging
         //var getTimelineAddr = baseAddr + 0x4692A4;
@@ -745,6 +791,12 @@ public class TrulyEikonicSpellsMod : ModBase
         if (_physicsSystem != null)
         {
             _physicsSystem.UpdateConfiguration(configuration);
+        }
+
+        // Update MagicCastSystem settings
+        if (_magicCastSystem != null)
+        {
+            _magicCastSystem.UpdateConfiguration(configuration);
         }
         
         _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);

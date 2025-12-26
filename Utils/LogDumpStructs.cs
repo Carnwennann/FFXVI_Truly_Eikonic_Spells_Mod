@@ -15,7 +15,7 @@ public static class LogDumpStructs
     {
         try 
         {
-            var layout = TableMappingReader.ReadTableLayout(tableName, new Version(1, 0, 3));
+            var layout = TableMappingReader.ReadTableLayout(tableName, new Version(1, 0, 3), "ffxvi");
             logger.WriteLine($"[{modId}] === {tableName.ToUpper()} LAYOUT ===", logger.ColorYellow);
             foreach (var col in layout.Columns)
             {
