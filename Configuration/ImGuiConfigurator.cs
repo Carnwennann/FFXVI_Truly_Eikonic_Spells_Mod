@@ -33,7 +33,7 @@ public class ImGuiConfigurator : IImGuiComponent
 
     public void Render(IImGuiShell imguiShell)
     {
-        if (!_isWindowOpen) return;
+        //if (!_isWindowOpen) return;
 
         if (_imgui.Begin("Truly Eikonic Spells Configuration", ref _isWindowOpen, ImGuiWindowFlags.ImGuiWindowFlags_None))
         {
