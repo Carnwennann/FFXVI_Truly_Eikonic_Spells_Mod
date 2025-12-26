@@ -213,21 +213,49 @@ public class ImGuiConfigurator : IImGuiComponent
         bool enableFuzzer = _config.EnableUniversalFuzzer;
         if (_imgui.Checkbox("Enable Universal Fuzzer", ref enableFuzzer)) _config.EnableUniversalFuzzer = enableFuzzer;
         
-        int propId = _config.FuzzerPropertyId;
-        if (_imgui.InputInt("Target Property ID", ref propId)) _config.FuzzerPropertyId = propId;
-        
-        bool useFloat = _config.FuzzerUseFloat;
-        if (_imgui.Checkbox("Use Float Value", ref useFloat)) _config.FuzzerUseFloat = useFloat;
-        
-        if (useFloat)
+        if (_imgui.Button("Add New Fuzzer Entry"))
         {
-            float fVal = _config.FuzzerFloatValue;
-            if (_imgui.InputFloat("Float Value", ref fVal)) _config.FuzzerFloatValue = fVal;
+            _config.FuzzerEntries.Add(new FuzzerEntry());
         }
-        else
+
+        for (int i = 0; i < _config.FuzzerEntries.Count; i++)
         {
-            int iVal = _config.FuzzerIntValue;
-            if (_imgui.InputInt("Int Value", ref iVal)) _config.FuzzerIntValue = iVal;
+            var entry = _config.FuzzerEntries[i];
+            
+            if (_imgui.CollapsingHeader($"Entry {i}: Prop {entry.PropertyId}##Header_{i}", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                bool enabled = entry.Enabled;
+                if (_imgui.Checkbox($"Enabled##{i}", ref enabled)) entry.Enabled = enabled;
+                
+                _imgui.SameLine();
+                if (_imgui.Button($"Remove##{i}"))
+                {
+                    _config.FuzzerEntries.RemoveAt(i);
+                    break;
+                }
+
+                int opType = entry.OpType;
+                if (_imgui.InputInt($"Op Type (-1=Any)##{i}", ref opType)) entry.OpType = opType;
+
+                int propId = entry.PropertyId;
+                if (_imgui.InputInt($"Property ID##{i}", ref propId)) entry.PropertyId = propId;
+
+                bool useFloat = entry.UseFloat;
+                if (_imgui.Checkbox($"Use Float##{i}", ref useFloat)) entry.UseFloat = useFloat;
+
+                if (useFloat)
+                {
+                    float fVal = entry.FloatValue;
+                    if (_imgui.InputFloat($"Float Value##{i}", ref fVal)) entry.FloatValue = fVal;
+                }
+                else
+                {
+                    int iVal = entry.IntValue;
+                    if (_imgui.InputInt($"Int Value##{i}", ref iVal)) entry.IntValue = iVal;
+                }
+            }
+            
+            _imgui.Separator();
         }
 
         _imgui.Separator();

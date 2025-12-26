@@ -623,8 +623,16 @@ public unsafe class MagicCastSystem
 
     private readonly Dictionary<int, string> _propertyNames = new()
     {
-        { 8, "Speed" },
-        { 35, "Duration (s)" },
+        { 8, "Speed - float" },
+        { 31, "Scale projectile body (default=1.0) - float"},
+        { 35, "Duration (s) - float" },
+        { 42, "Hitbox/Attachment Size? - float" },
+        // 1 = enemy, 2 = ???, 3 = clive, 4 = Clive's feet (yeah really)
+        { 73, "Location spawn magic ID? - int"},
+        // Collection of effects and sound for eg. 1008 shiva projectile impact
+        // But also spawns projectiles on some IDs e.g. 1007
+        { 89, "Impact ID? - int"}, 
+        { 2593, "Op2593 - Y-axis curve strength - float (positive = up, negative = down)"},
     };
 
     private long OperationFactoryImpl(long a1, int opType, long a3)
@@ -656,25 +664,34 @@ public unsafe class MagicCastSystem
         // dataPtr + 8 is the pointer to the actual value
         long valuePtr = *(long*)(dataPtr + 8);
 
-        // UNIVERSAL FUZZER LOGIC - Save original values to restore them after execution
+        // UNIVERSAL FUZZER LOGIC
         bool isFuzzed = false;
         float originalFloat = 0;
         int originalInt = 0;
+        FuzzerEntry? activeEntry = null;
 
-        if (_configuration.EnableUniversalFuzzer && propertyId == _configuration.FuzzerPropertyId)
+        if (_configuration.EnableUniversalFuzzer)
         {
-            isFuzzed = true;
-            if (_configuration.FuzzerUseFloat)
+            foreach (var entry in _configuration.FuzzerEntries)
             {
-                originalFloat = *(float*)valuePtr;
-                *(float*)valuePtr = _configuration.FuzzerFloatValue;
-                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {originalFloat:F4} -> {_configuration.FuzzerFloatValue:F4}", _logger.ColorYellow);
-            }
-            else
-            {
-                originalInt = *(int*)valuePtr;
-                *(int*)valuePtr = _configuration.FuzzerIntValue;
-                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {originalInt} -> {_configuration.FuzzerIntValue}", _logger.ColorYellow);
+                if (entry.Enabled && entry.PropertyId == propertyId && (entry.OpType == -1 || entry.OpType == opType))
+                {
+                    activeEntry = entry;
+                    isFuzzed = true;
+                    if (entry.UseFloat)
+                    {
+                        originalFloat = *(float*)valuePtr;
+                        *(float*)valuePtr = entry.FloatValue;
+                        _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {originalFloat:F4} -> {entry.FloatValue:F4}", _logger.ColorYellow);
+                    }
+                    else
+                    {
+                        originalInt = *(int*)valuePtr;
+                        *(int*)valuePtr = entry.IntValue;
+                        _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {originalInt} -> {entry.IntValue}", _logger.ColorYellow);
+                    }
+                    break; // Only apply one override per property call
+                }
             }
         }
 
@@ -695,9 +712,9 @@ public unsafe class MagicCastSystem
         _magicUnkExecuteHook!.OriginalFunction(magicFileInstance, opType, propertyId, dataPtr);
 
         // RESTORE original value so we don't corrupt the game's memory permanently
-        if (isFuzzed)
+        if (isFuzzed && activeEntry != null)
         {
-            if (_configuration.FuzzerUseFloat)
+            if (activeEntry.UseFloat)
                 *(float*)valuePtr = originalFloat;
             else
                 *(int*)valuePtr = originalInt;

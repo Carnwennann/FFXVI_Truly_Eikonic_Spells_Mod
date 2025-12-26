@@ -13,6 +13,16 @@ public enum TriState
     Off = 2
 }
 
+public class FuzzerEntry
+{
+    public bool Enabled { get; set; } = true;
+    public int OpType { get; set; } = -1; // -1 = any
+    public int PropertyId { get; set; } = -1;
+    public bool UseFloat { get; set; } = true;
+    public float FloatValue { get; set; } = 0.0f;
+    public int IntValue { get; set; } = 0;
+}
+
 public class Config : Configurable<Config>
 {
     // ==================== DIA SYSTEM ====================
@@ -177,29 +187,10 @@ public class Config : Configurable<Config>
     [Category("Magic - Universal Fuzzer")]
     public bool EnableUniversalFuzzer { get; set; } = false;
 
-    [DisplayName("Fuzzer - Target Property ID")]
-    [Description("The Property ID to override (e.g., 35, 37, 38)")]
-    [DefaultValue(-1)]
+    [DisplayName("Fuzzer Entries")]
+    [Description("List of property overrides to apply")]
     [Category("Magic - Universal Fuzzer")]
-    public int FuzzerPropertyId { get; set; } = -1;
-
-    [DisplayName("Fuzzer - Float Value")]
-    [Description("Value to apply if the property is a float")]
-    [DefaultValue(0.0f)]
-    [Category("Magic - Universal Fuzzer")]
-    public float FuzzerFloatValue { get; set; } = 0.0f;
-
-    [DisplayName("Fuzzer - Int Value")]
-    [Description("Value to apply if the property is an int/byte")]
-    [DefaultValue(0)]
-    [Category("Magic - Universal Fuzzer")]
-    public int FuzzerIntValue { get; set; } = 0;
-
-    [DisplayName("Fuzzer - Use Float")]
-    [Description("Whether to use the float value or the int value for the override")]
-    [DefaultValue(true)]
-    [Category("Magic - Universal Fuzzer")]
-    public bool FuzzerUseFloat { get; set; } = true;
+    public List<FuzzerEntry> FuzzerEntries { get; set; } = new();
 
     // ==================== MAGIC STRUCT OVERRIDES ====================
     // These modify the BattleMagic struct fields before CastMagic executes
