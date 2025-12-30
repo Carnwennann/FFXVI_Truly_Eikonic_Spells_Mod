@@ -4,14 +4,14 @@ using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
 /// <summary>
 /// Low-level function hooks for entity management.
 /// Captures singletons and provides access to game functions.
 /// Based on FF16Framework's EntityManagerHooks.
 /// </summary>
-public unsafe class FunctionHooks
+public unsafe class FunctionApi
 {
     // ============================================================
     // STRUCTURES (from FF16Framework)
@@ -118,7 +118,7 @@ public unsafe class FunctionHooks
     // CONSTRUCTOR
     // ============================================================
     
-    public FunctionHooks(ILogger logger, IModConfig modConfig)
+    public FunctionApi(ILogger logger, IModConfig modConfig)
     {
         _logger = logger;
         _modConfig = modConfig;
@@ -140,12 +140,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find UnkSingletonPlayerOrCameraRelated_Ctor", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find UnkSingletonPlayerOrCameraRelated_Ctor", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _unkSingletonCtorHook = hooks.CreateHook<UnkSingletonPlayerOrCameraRelated_CtorDelegate>(UnkSingletonCtorImpl, addr).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Hooked UnkSingletonPlayerOrCameraRelated_Ctor at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked UnkSingletonPlayerOrCameraRelated_Ctor at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // StaticActorManager_GetOrCreate
@@ -154,12 +154,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find StaticActorManager_GetOrCreate", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find StaticActorManager_GetOrCreate", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _staticActorManagerGetOrCreateHook = hooks.CreateHook<StaticActorManager_GetOrCreateDelegate>(StaticActorManagerGetOrCreateImpl, addr).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Hooked StaticActorManager_GetOrCreate at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked StaticActorManager_GetOrCreate at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // ActorManager_SetupEntity - captures ActorManager
@@ -167,12 +167,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find ActorManager_SetupEntity", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find ActorManager_SetupEntity", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _actorManagerSetupEntityHook = hooks.CreateHook<ActorManager_SetupEntityDelegate>(ActorManagerSetupEntityImpl, addr).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Hooked ActorManager_SetupEntity at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked ActorManager_SetupEntity at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // ActorManager_GetActorByKey - wrapper only
@@ -180,12 +180,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find ActorManager_GetActorByKey", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find ActorManager_GetActorByKey", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _getActorByKeyFunc = hooks.CreateWrapper<ActorManager_GetActorByKeyDelegate>(addr, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Found ActorManager_GetActorByKey at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Found ActorManager_GetActorByKey at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // StaticActorInfo_IsValidActor - wrapper only
@@ -193,12 +193,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find StaticActorInfo_IsValidActor", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find StaticActorInfo_IsValidActor", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _isValidActorFunc = hooks.CreateWrapper<StaticActorInfo_IsValidActorDelegate>(addr, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Found StaticActorInfo_IsValidActor at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Found StaticActorInfo_IsValidActor at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // StaticActorInfo_GetPosition - wrapper only
@@ -206,12 +206,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find StaticActorInfo_GetPosition", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find StaticActorInfo_GetPosition", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _getPositionFunc = hooks.CreateWrapper<StaticActorInfo_GetPositionDelegate>(addr, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Found StaticActorInfo_GetPosition at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Found StaticActorInfo_GetPosition at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // StaticActorInfo_GetRotation - wrapper only
@@ -219,12 +219,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find StaticActorInfo_GetRotation", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find StaticActorInfo_GetRotation", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _getRotationFunc = hooks.CreateWrapper<StaticActorInfo_GetRotationDelegate>(addr, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Found StaticActorInfo_GetRotation at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Found StaticActorInfo_GetRotation at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // StaticActorInfo_GetForwardVector - wrapper only
@@ -232,12 +232,12 @@ public unsafe class FunctionHooks
         {
             if (!result.Found)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] FAILED to find StaticActorInfo_GetForwardVector", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find StaticActorInfo_GetForwardVector", _logger.ColorRed);
                 return;
             }
             var addr = GetAddressFromResult(result.Offset);
             _getForwardVectorFunc = hooks.CreateWrapper<StaticActorInfo_GetForwardVectorDelegate>(addr, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Found StaticActorInfo_GetForwardVector at 0x{addr:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Found StaticActorInfo_GetForwardVector at 0x{addr:X}", _logger.ColorGreen);
         });
     }
     
@@ -253,7 +253,7 @@ public unsafe class FunctionHooks
     private nint UnkSingletonCtorImpl(nint @this)
     {
         UnkSingletonPlayerOrCameraRelated = @this;
-        _logger.WriteLine($"[{_modConfig.ModId}] [FunctionHooks] Captured UnkSingletonPlayerOrCameraRelated: 0x{@this:X}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Captured UnkSingletonPlayerOrCameraRelated: 0x{@this:X}", _logger.ColorGreen);
         return _unkSingletonCtorHook!.OriginalFunction(@this);
     }
     

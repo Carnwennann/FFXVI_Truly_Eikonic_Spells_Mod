@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Security.Principal;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.GameApis;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -47,8 +48,8 @@ public class DiaraSystem
     // Legacy logging delegate (for backwards compatibility) - will be removed
     public Action<string>? Log;
     
-    // Reference to MagicCastSystem for spawning projectiles
-    private MagicCastSystem? _magicCastSystem;
+    // Reference to MagicCastApi for spawning projectiles
+    private MagicCastApi? _MagicCastApi;
     
     public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, ILogger? logger = null, string modId = "")
     {
@@ -60,13 +61,13 @@ public class DiaraSystem
     }
     
     /// <summary>
-    /// Set the MagicCastSystem reference for spawning projectiles.
-    /// Must be called after MagicCastSystem is initialized.
+    /// Set the MagicCastApi reference for spawning projectiles.
+    /// Must be called after MagicCastApi is initialized.
     /// </summary>
-    public void SetMagicCastSystem(MagicCastSystem magicCastSystem)
+    public void SetMagicCastApi(MagicCastApi MagicCastApi)
     {
-        _magicCastSystem = magicCastSystem;
-        LogDebug("MagicCastSystem linked");
+        _MagicCastApi = MagicCastApi;
+        LogDebug("MagicCastApi linked");
     }
     
     #region Logging
@@ -151,7 +152,7 @@ public class DiaraSystem
     
     /// <summary>
     /// Called when a perfect dodge occurs.
-    /// If MagicCastSystem is set, spawns Dia projectiles directly.
+    /// If MagicCastApi is set, spawns Dia projectiles directly.
     /// Returns the number of Dia spells spawned (0 if buff not active).
     /// </summary>
     public int OnPerfectDodge()
@@ -161,14 +162,14 @@ public class DiaraSystem
         
         LogInfo($"Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
         
-        // Try to spawn using MagicCastSystem
-        if (_magicCastSystem != null)
+        // Try to spawn using MagicCastApi
+        if (_MagicCastApi != null)
         {
             // Try MagicExecute/CastMagic system first (more stable)
-            if (_magicCastSystem.HasMagicContext)
+            if (_MagicCastApi.HasMagicContext)
             {
                 LogDebug("Using CastMagicSpell system...");
-                bool success = _magicCastSystem.CastSpells(MagicID, DiaSpellsPerDodge);
+                bool success = _MagicCastApi.CastSpells(MagicID, DiaSpellsPerDodge);
                 if (success)
                 {
                     LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells!");
@@ -177,17 +178,17 @@ public class DiaraSystem
                 {
                     LogDebug("CastMagicSpell failed, trying FireMagicProjectile...");
                     // Fallback to FireMagicProjectile
-                    if (_magicCastSystem.HasProjectileContext)
+                    if (_MagicCastApi.HasProjectileContext)
                     {
-                        _magicCastSystem.FireDiaProjectiles(DiaSpellsPerDodge);
+                        _MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge);
                     }
                 }
             }
             // Fallback: Try FireMagicProjectile system
-            else if (_magicCastSystem.HasProjectileContext)
+            else if (_MagicCastApi.HasProjectileContext)
             {
                 LogDebug("Using FireMagicProjectile system...");
-                bool success = _magicCastSystem.FireDiaProjectiles(DiaSpellsPerDodge);
+                bool success = _MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge);
                 if (success)
                 {
                     LogInfo($"Successfully fired {DiaSpellsPerDodge} Dia projectiles!");
@@ -199,12 +200,12 @@ public class DiaraSystem
             }
             else
             {
-                LogDebug("MagicCastSystem not ready - fire a normal shot first!");
+                LogDebug("MagicCastApi not ready - fire a normal shot first!");
             }
         }
         else
         {
-            LogDebug("MagicCastSystem not linked!");
+            LogDebug("MagicCastApi not linked!");
         }
         
         // Still invoke the event for any external listeners

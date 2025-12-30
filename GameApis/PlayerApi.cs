@@ -3,19 +3,19 @@ using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
 /// <summary>
 /// High-level API for player information.
 /// Provides easy access to player position, rotation, entity IDs, etc.
 /// </summary>
-public unsafe class PlayerSystem
+public unsafe class PlayerApi
 {
     // ============================================================
     // DEPENDENCIES
     // ============================================================
     
-    private readonly FunctionHooks _hooks;
+    private readonly FunctionApi _hooks;
     private readonly ILogger _logger;
     private readonly IModConfig _modConfig;
     
@@ -24,7 +24,7 @@ public unsafe class PlayerSystem
     // ============================================================
     
     /// <summary>
-    /// Returns true if the player system is fully initialized and ready to use.
+    /// Returns true if the player API is fully initialized and ready to use.
     /// </summary>
     public bool IsInitialized => _hooks.IsInitialized;
     
@@ -37,11 +37,11 @@ public unsafe class PlayerSystem
     // CONSTRUCTOR
     // ============================================================
     
-    public PlayerSystem(ILogger logger, IModConfig modConfig)
+    public PlayerApi(ILogger logger, IModConfig modConfig)
     {
         _logger = logger;
         _modConfig = modConfig;
-        _hooks = new FunctionHooks(logger, modConfig);
+        _hooks = new FunctionApi(logger, modConfig);
     }
     
     // ============================================================
@@ -88,7 +88,7 @@ public unsafe class PlayerSystem
     /// <summary>
     /// Get the ActorReference pointer for the player.
     /// </summary>
-    public FunctionHooks.ActorReference* GetPlayerActorReference()
+    public FunctionApi.ActorReference* GetPlayerActorReference()
     {
         uint actorId = GetPlayerActorId();
         if (actorId == 0)
@@ -130,7 +130,7 @@ public unsafe class PlayerSystem
         if (!_hooks.IsValidActor(staticActorInfo))
             return null;
         
-        FunctionHooks.NodePositionPair position;
+        FunctionApi.NodePositionPair position;
         var result = _hooks.GetPosition(staticActorInfo, &position);
         if (result == null)
             return null;
@@ -248,24 +248,24 @@ public unsafe class PlayerSystem
         var rotation = GetPlayerRotation();
         var forward = GetPlayerForwardVector();
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem] === Player State ===", _logger.ColorYellow);
-        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Initialized: {IsInitialized}", _logger.ColorYellow);
-        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   ActorId: {actorId}", _logger.ColorYellow);
-        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   EntityId: {entityId}", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] === Player State ===", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Initialized: {IsInitialized}", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   ActorId: {actorId}", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   EntityId: {entityId}", _logger.ColorYellow);
         
         if (position.HasValue)
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Position: ({position.Value.X:F2}, {position.Value.Y:F2}, {position.Value.Z:F2})", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Position: ({position.Value.X:F2}, {position.Value.Y:F2}, {position.Value.Z:F2})", _logger.ColorYellow);
         else
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Position: N/A", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Position: N/A", _logger.ColorYellow);
         
         if (rotation.HasValue)
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Rotation: ({rotation.Value.X:F2}, {rotation.Value.Y:F2}, {rotation.Value.Z:F2})", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Rotation: ({rotation.Value.X:F2}, {rotation.Value.Y:F2}, {rotation.Value.Z:F2})", _logger.ColorYellow);
         else
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Rotation: N/A", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Rotation: N/A", _logger.ColorYellow);
         
         if (forward.HasValue)
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Forward: ({forward.Value.X:F2}, {forward.Value.Y:F2}, {forward.Value.Z:F2})", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Forward: ({forward.Value.X:F2}, {forward.Value.Y:F2}, {forward.Value.Z:F2})", _logger.ColorYellow);
         else
-            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerSystem]   Forward: N/A", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi]   Forward: N/A", _logger.ColorYellow);
     }
 }

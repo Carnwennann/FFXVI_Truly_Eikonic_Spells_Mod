@@ -1,5 +1,6 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
+using ff16.gameplay.truly_eikonic_spells.GameApis;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
 using NenTools.ImGui.Interfaces;
@@ -58,8 +59,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private IHook<OnReactionDelegate> _onReaction;
     private long _battleContextForReaction = 0;  // Captured from OnReaction calls
     
-    // PhysicsUpdate - now handled by PhysicsSystem class
-    // See PhysicsSystem.cs for physics manipulation logic
+    // PhysicsUpdate - now handled by PhysicsApi class
+    // See PhysicsApi.cs for physics manipulation logic
     
     public delegate long OnLevelLoad(long a1, double a2, double a3, double a4);
     private IHook<OnLevelLoad> _onLevelLoad;
@@ -141,9 +142,9 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaSystem _diaSystem;
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
-    private PhysicsSystem _physicsSystem;
-    private MagicCastSystem _magicCastSystem;
-    private PlayerSystem _playerSystem;
+    private PhysicsApi _physicsApi;
+    private MagicCastApi _magicCastApi;
+    private PlayerApi _playerApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
@@ -181,7 +182,7 @@ public class TrulyEikonicSpellsMod : ModBase
         }
         _startupScanner = scans;
 
-        SetupGameSystems();
+        SetupGameApis();
 
         SetupModSystems();
         
@@ -195,15 +196,15 @@ public class TrulyEikonicSpellsMod : ModBase
         _globalPlayerStatePtr = baseAddress + 0x1816608;  // Same as globalUnk in combo_meter
     }
 
-    private void SetupGameSystems()
+    private void SetupGameApis()
     {
-        // Initialize MagicCastSystem (handles all magic projectile spawning)
-        _magicCastSystem = new MagicCastSystem(_logger, _modConfig, _configuration, _startupScanner);
-        // Setup MagicCastSystem callbacks
-        _magicCastSystem.GetActiveEikon = GetActiveEikon;
+        // Initialize MagicCastApi (handles all magic projectile spawning)
+        _magicCastApi = new MagicCastApi(_logger, _modConfig, _configuration, _startupScanner);
+        // Setup MagicCastApi callbacks
+        _magicCastApi.GetActiveEikon = GetActiveEikon;
 
-        // Initialize PlayerSystem (handles all player-related information)
-        _playerSystem = new PlayerSystem(_logger, _modConfig);
+        // Initialize PlayerApi (handles all player-related information)
+        _playerApi = new PlayerApi(_logger, _modConfig);
         
         // Get NEX API
         _managedNexApi = _modLoader.GetController<INextExcelDBApiManaged>();
@@ -257,11 +258,11 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _diaraSystem.DebugLogging = _configuration.DebugLogging;
-        // Connect MagicCastSystem to DiaraSystem for direct projectile spawning
-        _diaraSystem.SetMagicCastSystem(_magicCastSystem);
+        // Connect MagicCastApi to DiaraSystem for direct projectile spawning
+        _diaraSystem.SetMagicCastApi(_magicCastApi);
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
-        _magicCastSystem.OnChargedShotDetected = (eikon, mgr, proj) => 
+        _magicCastApi.OnChargedShotDetected = (eikon, mgr, proj) => 
         {
             // Delegate to DiaraSystem for Bahamut charged shot handling
             return _diaraSystem.OnChargedShotCast(eikon);
@@ -308,7 +309,7 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         
         // En SetupScans:
-        _playerSystem.SetupScans(scans, _hooks!);
+        _playerApi.SetupScans(scans, _hooks!);
         
         // OnHit hook - same signature as combo meter
         scans.AddScan("48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 8B 82", address =>
@@ -335,25 +336,25 @@ public class TrulyEikonicSpellsMod : ModBase
                 _logger.WriteLine($"[{_modConfig.ModId}] Failed to hook OnReaction: {ex.Message}", _logger.ColorRed);
             }
             
-            // Initialize PhysicsSystem - handles knockback physics manipulation
+            // Initialize PhysicsApi - handles knockback physics manipulation
             try
             {
-                _physicsSystem = new PhysicsSystem(_logger, _modConfig, _configuration);
-                _physicsSystem.Initialize(_hooks!, baseAddress);
-                _logger.WriteLine($"[{_modConfig.ModId}] PhysicsSystem initialized", _logger.ColorGreen);
+                _physicsApi = new PhysicsApi(_logger, _modConfig, _configuration);
+                _physicsApi.Initialize(_hooks!, baseAddress);
+                _logger.WriteLine($"[{_modConfig.ModId}] PhysicsApi initialized", _logger.ColorGreen);
                 
                 // Set up DarkraSystem hooks now that all hooks are ready
                 _darkraSystem.SetHooks(
                     (bnpcRow, R15, a3, a4) => { unsafe { return _onHit.OriginalFunction((long*)bnpcRow, R15, a3, a4); } },
                     (ctx, R15) => _onReaction.OriginalFunction(ctx, R15),
                     () => _battleContextForReaction,
-                    _physicsSystem.ApplyShadowHitPhysics
+                    _physicsApi.ApplyShadowHitPhysics
                 );
                 _logger.WriteLine($"[{_modConfig.ModId}] DarkraSystem hooks configured", _logger.ColorGreen);
             }
             catch (Exception ex)
             {
-                _logger.WriteLine($"[{_modConfig.ModId}] Failed to initialize PhysicsSystem: {ex.Message}", _logger.ColorRed);
+                _logger.WriteLine($"[{_modConfig.ModId}] Failed to initialize PhysicsApi: {ex.Message}", _logger.ColorRed);
             }
         });
         
@@ -419,15 +420,15 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
         
-        // Initialize MagicCastSystem hooks (MagicExecute, CastMagic)
-        _magicCastSystem.SetupScans(scans, _hooks!);
+        // Initialize MagicCastApi hooks (MagicExecute, CastMagic)
+        _magicCastApi.SetupScans(scans, _hooks!);
         
         // Initialize FireMagicProjectile (uses hardcoded offset)
         var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
-        _magicCastSystem.InitializeFireMagicProjectile(_hooks!, baseAddr);
+        _magicCastApi.InitializeFireMagicProjectile(_hooks!, baseAddr);
         
         // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
-        _magicCastSystem.InitializeUniversalMagicHooks(_hooks!);
+        _magicCastApi.InitializeUniversalMagicHooks(_hooks!);
         
         // GetTimeline Hook (0x4692A4) - kept for debugging/logging
         //var getTimelineAddr = baseAddr + 0x4692A4;
@@ -440,7 +441,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaSystem.Reset();
         _diaraSystem.Reset();
         _darkraSystem.Reset();
-        _magicCastSystem.Reset();
+        _magicCastApi.Reset();
         _currentEikonMode = 0;
         
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
@@ -581,7 +582,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaraSystem.Update();
         
         // Process perfect dodge through Diara system
-        // DiaraSystem now handles projectile spawning directly via MagicCastSystem
+        // DiaraSystem now handles projectile spawning directly via MagicCastApi
         _diaraSystem.OnPerfectDodge();
         
         return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
@@ -788,16 +789,16 @@ public class TrulyEikonicSpellsMod : ModBase
 
         }
         
-        // Update PhysicsSystem settings
-        if (_physicsSystem != null)
+        // Update PhysicsApi settings
+        if (_physicsApi != null)
         {
-            _physicsSystem.UpdateConfiguration(configuration);
+            _physicsApi.UpdateConfiguration(configuration);
         }
 
-        // Update MagicCastSystem settings
-        if (_magicCastSystem != null)
+        // Update MagicCastApi settings
+        if (_magicCastApi != null)
         {
-            _magicCastSystem.UpdateConfiguration(configuration);
+            _magicCastApi.UpdateConfiguration(configuration);
         }
         
         _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);

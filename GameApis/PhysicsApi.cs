@@ -2,7 +2,7 @@ using Reloaded.Hooks.Definitions;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
 /// <summary>
 /// Handles physics/knockback manipulation for hit reactions.
@@ -14,7 +14,7 @@ namespace ff16.gameplay.truly_eikonic_spells;
 /// +0x0C: VerticalPush (positive = up, negative = down)
 /// +0x10: VerticalInterpolation (0-1, 0 = instant, 1 = very slow)
 /// </summary>
-public unsafe class PhysicsSystem
+public unsafe class PhysicsApi
 {
     // Function signatures
     [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
@@ -39,7 +39,7 @@ public unsafe class PhysicsSystem
     // Handler structure offsets
     private const int NEX_ROW_INSTANCE_INDEX = 0x0E;  // handler[0x0E] = NexRowInstance pointer
     
-    public PhysicsSystem(ILogger logger, IModConfig modConfig, Config configuration)
+    public PhysicsApi(ILogger logger, IModConfig modConfig, Config configuration)
     {
         _logger = logger;
         _modConfig = modConfig;
@@ -54,12 +54,12 @@ public unsafe class PhysicsSystem
         // Set up NexRowGetPtr as a function pointer (NOT a hook - it crashes if hooked)
         long nexRowGetPtrAddr = baseAddress + NEX_ROW_GET_PTR_OFFSET;
         _nexRowGetPtrFunc = hooks.CreateWrapper<NexRowGetPtrDelegate>(nexRowGetPtrAddr, out _);
-        _logger.WriteLine($"[{_modConfig.ModId}] [PhysicsSystem] NexRowGetPtr function at 0x{nexRowGetPtrAddr:X}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PhysicsApi] NexRowGetPtr function at 0x{nexRowGetPtrAddr:X}", _logger.ColorGreen);
         
         // Hook PhysicsUpdate
         long physicsUpdateAddr = baseAddress + PHYSICS_UPDATE_OFFSET;
         _physicsUpdateHook = hooks.CreateHook<PhysicsUpdateDelegate>(PhysicsUpdateImpl, physicsUpdateAddr).Activate();
-        _logger.WriteLine($"[{_modConfig.ModId}] [PhysicsSystem] PhysicsUpdate hook at 0x{physicsUpdateAddr:X}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [PhysicsApi] PhysicsUpdate hook at 0x{physicsUpdateAddr:X}", _logger.ColorGreen);
     }
     
     /// <summary>

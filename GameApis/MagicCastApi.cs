@@ -5,7 +5,7 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
 /// <summary>
 /// Handles magic spell casting and projectile spawning.
@@ -21,7 +21,7 @@ namespace ff16.gameplay.truly_eikonic_spells;
 ///    - Takes a MagicManager pointer + ProjectileData
 ///    - MagicManager+0x38 points to MagicInputConfig
 ///    - MagicInputConfig+0x10 = Shot Type (1=Normal, 2=Charged, 3=Precision, 4=Burst)
-///    - Used for: magic projectiles (Dia/Diara type shots)
+///    - Used for: magic projectiles (Dia/Dia-type shots)
 /// 
 /// Key structures:
 /// - MagicManager: Main manager structure (~512 bytes)
@@ -37,7 +37,7 @@ namespace ff16.gameplay.truly_eikonic_spells;
 ///   +0x00 = ptr1 (pointer to some data)
 ///   +0x08 = array of 32 longs (256 bytes)
 /// </summary>
-public unsafe class MagicCastSystem
+public unsafe class MagicCastApi
 {
     // ============================================================
     // DELEGATES
@@ -221,7 +221,7 @@ public unsafe class MagicCastSystem
     // CONSTRUCTOR
     // ============================================================
     
-    public MagicCastSystem(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
+    public MagicCastApi(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
     {
         _logger = logger;
         _modConfig = modConfig;
@@ -240,7 +240,7 @@ public unsafe class MagicCastSystem
         for (int i = 0; i < MAGIC_INPUT_CONFIG_SIZE; i++) *((byte*)_magicInputConfigCopy + i) = 0;
         for (int i = 0; i < PROJECTILE_DATA_SIZE; i++) *((byte*)_projectileDataBuffer + i) = 0;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Allocated buffers: MagicStruct=0x{(long)_magicStructBuffer:X}, MagicManager=0x{(long)_magicManagerCopy:X}, Config=0x{(long)_magicInputConfigCopy:X}, ProjData=0x{(long)_projectileDataBuffer:X}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Allocated buffers: MagicStruct=0x{(long)_magicStructBuffer:X}, MagicManager=0x{(long)_magicManagerCopy:X}, Config=0x{(long)_magicInputConfigCopy:X}, ProjData=0x{(long)_projectileDataBuffer:X}", _logger.ColorGreen);
     }
     
     // ============================================================
@@ -258,7 +258,7 @@ public unsafe class MagicCastSystem
         {
             _setupMagicHook = hooks.CreateHook<SetupMagicDelegate>(SetupMagicImpl, address).Activate();
             _setupMagicWrapper = hooks.CreateWrapper<SetupMagicDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked SetupMagic at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked SetupMagic at 0x{address:X}", _logger.ColorGreen);
         });
         
         // CastMagic - Actually spawns the spell
@@ -266,7 +266,7 @@ public unsafe class MagicCastSystem
         {
             _castMagicHook = hooks.CreateHook<CastMagicDelegate>(CastMagicImpl, address).Activate();
             _castMagicWrapper = hooks.CreateWrapper<CastMagicDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
         });
     }
     
@@ -279,7 +279,7 @@ public unsafe class MagicCastSystem
         var fireMagicAddr = baseAddress + FIRE_MAGIC_PROJECTILE_OFFSET;
         _fireMagicProjectileHook = hooks.CreateHook<FireMagicProjectileDelegate>(FireMagicProjectileImpl, fireMagicAddr).Activate();
         _fireMagicProjectileWrapper = hooks.CreateWrapper<FireMagicProjectileDelegate>(fireMagicAddr, out _);
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked FireMagicProjectile at 0x{fireMagicAddr:X}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked FireMagicProjectile at 0x{fireMagicAddr:X}", _logger.ColorGreen);
     }
 
     /// <summary>
@@ -290,7 +290,7 @@ public unsafe class MagicCastSystem
         // MagicUnkExecute - The Universal Property Logger/Fuzzer
         _scanner.AddScan(MAGIC_UNK_EXECUTE_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
             _magicUnkExecuteHook = hooks.CreateHook<MagicUnkExecuteDelegate>(MagicUnkExecuteImpl, address).Activate();
             _magicUnkExecuteWrapper = hooks.CreateWrapper<MagicUnkExecuteDelegate>(address, out _);
         });
@@ -298,7 +298,7 @@ public unsafe class MagicCastSystem
         // OperationFactory - The VTable Mapper
         _scanner.AddScan(OPERATION_FACTORY_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked OperationFactory at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked OperationFactory at 0x{address:X}", _logger.ColorGreen);
             _operationFactoryHook = hooks.CreateHook<OperationFactoryDelegate>(OperationFactoryImpl, address).Activate();
             _operationFactoryWrapper = hooks.CreateWrapper<OperationFactoryDelegate>(address, out _);
         });
@@ -306,14 +306,14 @@ public unsafe class MagicCastSystem
         // MagicFile::ProcessUnk
         _scanner.AddScan(MAGIC_FILE_PROCESS_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked MagicFile::ProcessUnk at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicFile::ProcessUnk at 0x{address:X}", _logger.ColorGreen);
             _magicFileProcessHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileProcessImpl, address).Activate();
         });
 
         // MagicFile::HandleSubEntry
         _scanner.AddScan(MAGIC_FILE_HANDLE_SUB_ENTRY_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
             _magicFileHandleSubEntryHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileHandleSubEntryImpl, address).Activate();
         });
     }
@@ -512,23 +512,23 @@ public unsafe class MagicCastSystem
     {
         if (!_hasCachedProjectileContext)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Cannot fire projectiles - no cached context! Fire a normal shot first.", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Cannot fire projectiles - no cached context! Fire a normal shot first.", _logger.ColorRed);
             return false;
         }
         
         if (_magicManagerCopy == IntPtr.Zero || _magicInputConfigCopy == IntPtr.Zero)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Cannot fire projectiles - buffers not allocated!", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Cannot fire projectiles - buffers not allocated!", _logger.ColorRed);
             return false;
         }
         
         if (_fireMagicProjectileHook == null)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Cannot fire projectiles - hook not initialized!", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Cannot fire projectiles - hook not initialized!", _logger.ColorRed);
             return false;
         }
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Firing {count} projectiles (shotType={shotType})...", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Firing {count} projectiles (shotType={shotType})...", _logger.ColorGreen);
         
         try
         {
@@ -548,14 +548,14 @@ public unsafe class MagicCastSystem
                 if (result != 0) successCount++;
             }
             
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Fired {successCount}/{count} projectiles!", 
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Fired {successCount}/{count} projectiles!", 
                 successCount == count ? _logger.ColorGreen : _logger.ColorYellow);
             
             return successCount > 0;
         }
         catch (Exception ex)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] CRASH firing projectiles: {ex.Message}", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] CRASH firing projectiles: {ex.Message}", _logger.ColorRed);
             return false;
         }
     }
@@ -576,7 +576,7 @@ public unsafe class MagicCastSystem
     /// </summary>
     public bool CastSpells(int magicID = 1, int count = 1)
     {   
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Attempting to cast {count} Dia spells via CastMagicSpell...", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Attempting to cast {count} Dia spells via CastMagicSpell...", _logger.ColorGreen);
         
         int successCount = 0;
         for (int i = 0; i < count; i++)
@@ -1103,11 +1103,11 @@ public unsafe class MagicCastSystem
             }
             
             _hasCachedProjectileContext = true;
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Context cached from 0x{magicManager:X}", _logger.ColorBlue);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Context cached from 0x{magicManager:X}", _logger.ColorBlue);
         }
         catch (Exception ex)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Cache failed: {ex.Message}", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Cache failed: {ex.Message}", _logger.ColorRed);
         }
     }
     
@@ -1433,7 +1433,7 @@ public unsafe class MagicCastSystem
         _setupMagic_actionID = 0;
         _setupMagic_flag = 0;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Reset", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Reset", _logger.ColorYellow);
     }
     
     /// <summary>
@@ -1442,7 +1442,7 @@ public unsafe class MagicCastSystem
     public void UpdateConfiguration(Config configuration)
     {
         _configuration = configuration;
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Configuration updated! a5_experiment={_configuration.a5_experiment}, actionID_experiment={_configuration.a6_experiment}", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Configuration updated! a5_experiment={_configuration.a5_experiment}, actionID_experiment={_configuration.a6_experiment}", _logger.ColorGreen);
     }
     
     /// <summary>
