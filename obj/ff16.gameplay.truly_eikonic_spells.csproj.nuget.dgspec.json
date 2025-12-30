@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {}
+    "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {}
   },
   "projects": {
-    "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {
+    "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
+        "projectUniqueName": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
         "projectName": "ff16.gameplay.truly_eikonic_spells",
-        "projectPath": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
+        "projectPath": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
         "packagesPath": "C:\\Users\\Alejandro\\.nuget\\packages\\",
-        "outputPath": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\obj\\",
+        "outputPath": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Alejandro\\AppData\\Roaming\\NuGet\\NuGet.Config"
@@ -52,13 +52,9 @@
               "target": "Package",
               "version": "[1.4.1, )"
             },
-            "NenTools.ImGui.Abstractions": {
-              "target": "Package",
-              "version": "[1.0.1, )"
-            },
             "NenTools.ImGui.Interfaces": {
               "target": "Package",
-              "version": "[1.0.1, )"
+              "version": "[1.0.2, )"
             },
             "Reloaded.Memory": {
               "target": "Package",

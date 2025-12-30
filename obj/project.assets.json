@@ -6625,20 +6625,7 @@
           }
         }
       },
-      "NenTools.ImGui.Abstractions/1.0.1": {
-        "type": "package",
-        "compile": {
-          "lib/net9.0/NenTools.ImGui.Abstractions.dll": {
-            "related": ".xml"
-          }
-        },
-        "runtime": {
-          "lib/net9.0/NenTools.ImGui.Abstractions.dll": {
-            "related": ".xml"
-          }
-        }
-      },
-      "NenTools.ImGui.Interfaces/1.0.1": {
+      "NenTools.ImGui.Interfaces/1.0.2": {
         "type": "package",
         "compile": {
           "lib/net9.0/NenTools.ImGui.Interfaces.dll": {
@@ -9562,31 +9549,17 @@
         "ref/xamarinwatchos10/_._"
       ]
     },
-    "NenTools.ImGui.Abstractions/1.0.1": {
-      "sha512": "PBhBs7Rtu2Mcm4azSoc2H06c2Pqleq5M53j5qIoEuSpVDtLglwiVKiALViQ99ec0NmEPTYKOK/p6fmc3ddm3eA==",
+    "NenTools.ImGui.Interfaces/1.0.2": {
+      "sha512": "KXBWfN4WylJdBmXEbBePPtDzKBFv1Pg/j9fUzHKLFODsPSZQE8cXyuxMnD1YH+iX956NnLUvKDH+LdjE0W377w==",
       "type": "package",
-      "path": "nentools.imgui.abstractions/1.0.1",
-      "files": [
-        ".nupkg.metadata",
-        ".signature.p7s",
-        "LICENSE.txt",
-        "lib/net9.0/NenTools.ImGui.Abstractions.dll",
-        "lib/net9.0/NenTools.ImGui.Abstractions.xml",
-        "nentools.imgui.abstractions.1.0.1.nupkg.sha512",
-        "nentools.imgui.abstractions.nuspec"
-      ]
-    },
-    "NenTools.ImGui.Interfaces/1.0.1": {
-      "sha512": "LapiWc33MQ78qxmvl7rhDdtQUc70D4ufw4rH5zoFyYYAtPTtUBVaGbxW2NkfsYJe+oEyweiHD5czLDBULBFHQQ==",
-      "type": "package",
-      "path": "nentools.imgui.interfaces/1.0.1",
+      "path": "nentools.imgui.interfaces/1.0.2",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "LICENSE.txt",
         "lib/net9.0/NenTools.ImGui.Interfaces.dll",
         "lib/net9.0/NenTools.ImGui.Interfaces.xml",
-        "nentools.imgui.interfaces.1.0.1.nupkg.sha512",
+        "nentools.imgui.interfaces.1.0.2.nupkg.sha512",
         "nentools.imgui.interfaces.nuspec"
       ]
     },
@@ -13040,8 +13013,7 @@
     "net9.0-windows7.0": [
       "FF16Framework.Interfaces >= 1.2.0",
       "FF16Tools.Files >= 1.4.1",
-      "NenTools.ImGui.Abstractions >= 1.0.1",
-      "NenTools.ImGui.Interfaces >= 1.0.1",
+      "NenTools.ImGui.Interfaces >= 1.0.2",
       "Reloaded.Memory >= 9.4.1",
       "Reloaded.Memory.SigScan.ReloadedII.Interfaces >= 1.2.0",
       "Reloaded.Memory.Sigscan >= 3.1.8",
@@ -13101,13 +13073,9 @@
             "target": "Package",
             "version": "[1.4.1, )"
           },
-          "NenTools.ImGui.Abstractions": {
-            "target": "Package",
-            "version": "[1.0.1, )"
-          },
           "NenTools.ImGui.Interfaces": {
             "target": "Package",
-            "version": "[1.0.1, )"
+            "version": "[1.0.2, )"
           },
           "Reloaded.Memory": {
             "target": "Package",

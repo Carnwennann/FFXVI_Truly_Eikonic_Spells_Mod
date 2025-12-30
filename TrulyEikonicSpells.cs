@@ -3,7 +3,7 @@ using ff16.gameplay.truly_eikonic_spells.Utils;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
 using NenTools.ImGui.Interfaces;
-using NenTools.ImGui.Abstractions;
+using NenTools.ImGui.Interfaces.Shell;
 using FF16Tools.Files.Nex;
 using FF16Tools.Files.Nex.Entities;
 using Reloaded.Hooks.Definitions;
@@ -222,7 +222,8 @@ public class TrulyEikonicSpellsMod : ModBase
         var imGuiController = _modLoader.GetController<IImGui>();
         var imGuiShellController = _modLoader.GetController<IImGuiShell>();
 
-        if (imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
+        if (imGuiController != null && imGuiShellController != null && 
+            imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
         {
             _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated);
             imGuiShell.AddComponent(_imGuiConfigurator);
@@ -230,7 +231,7 @@ public class TrulyEikonicSpellsMod : ModBase
         }
         else
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] ImGui not available", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modConfig.ModId}] ImGui not available (Controller or Shell missing)", _logger.ColorYellow);
         }
     }
 

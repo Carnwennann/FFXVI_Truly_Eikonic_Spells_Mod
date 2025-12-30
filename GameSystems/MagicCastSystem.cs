@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Numerics;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
@@ -104,6 +105,10 @@ public unsafe class MagicCastSystem
     // Universal Magic Signatures
     private const string MAGIC_UNK_EXECUTE_SIG = "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 49 8B F9 41 8B D8 8B F2 41 83 F8 02 75 2F 48 8D 59 10 48 8D B9 10 01 00 00 EB 1B 48 8B 0B 48 85 C9 74 0F 39 71 20 75 0A";
     private const string OPERATION_FACTORY_SIG = "48 89 5C 24 08 57 48 83 EC 20 49 8B F8 81 FA B7 00 00 00 75 65 48 8B 01 4C 8D 4C 24 48 33 DB 48 89 5C 24 48 8D 53 48 44 8D 43 08 FF 50 30 48 8B D0 48 85 C0 74 6A 48 8B 0F 48 8D 05 04 96 E8 00 48 89 02 44 8D 43 01 41 8B C0 87 42 0C 83 4A 20 FF";
+    
+    // Signatures from 010 Template
+    private const string MAGIC_FILE_PROCESS_SIG = "48 8B C4 48 89 58 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 ?? 48 81 EC ?? ?? ?? ?? C5 F8 29 70 ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 45 33 F6 48 89 55";
+    private const string MAGIC_FILE_HANDLE_SUB_ENTRY_SIG = "40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC ?? 48 8D 59";
 
     // Shot types for MagicInputConfig+0x10
     public const int SHOT_TYPE_NORMAL = 1;    // Normal shot (Dia)
@@ -126,12 +131,17 @@ public unsafe class MagicCastSystem
     private IHook<FireMagicProjectileDelegate>? _fireMagicProjectileHook;
     private IHook<MagicUnkExecuteDelegate>? _magicUnkExecuteHook;
     private IHook<OperationFactoryDelegate>? _operationFactoryHook;
+    private IHook<GenericMagicDelegate>? _magicFileProcessHook;
+    private IHook<GenericMagicDelegate>? _magicFileHandleSubEntryHook;
     
     private SetupMagicDelegate? _setupMagicWrapper;
     private CastMagicDelegate? _castMagicWrapper;
     private FireMagicProjectileDelegate? _fireMagicProjectileWrapper;
     private MagicUnkExecuteDelegate? _magicUnkExecuteWrapper;
     private OperationFactoryDelegate? _operationFactoryWrapper;
+
+    [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
+    public delegate long GenericMagicDelegate(long a1, long a2, long a3, long a4);
     
     // ============================================================
     // CACHED CONTEXT
@@ -146,6 +156,13 @@ public unsafe class MagicCastSystem
     private byte _setupMagic_flag = 0;             // Flag byte
     private long _castMagic_a1 = 0;
     private bool _hasMagicContext = false;
+
+    // Tracker for operation occurrences within a single MagicFileProcess call
+    private Dictionary<int, int> _opInstanceTracker = new();
+    private Dictionary<long, int> _propInstanceTracker = new(); // Key: (opType << 32) | propId
+    private int _lastOpType = -1;
+    private List<FuzzerEntry> _pendingInjections = new();
+    private bool _isProcessingInjections = false;
     
     // FireMagicProjectile system cache (deep copy)
     private IntPtr _magicManagerCopy = IntPtr.Zero;
@@ -285,8 +302,141 @@ public unsafe class MagicCastSystem
             _operationFactoryHook = hooks.CreateHook<OperationFactoryDelegate>(OperationFactoryImpl, address).Activate();
             _operationFactoryWrapper = hooks.CreateWrapper<OperationFactoryDelegate>(address, out _);
         });
+
+        // MagicFile::ProcessUnk
+        _scanner.AddScan(MAGIC_FILE_PROCESS_SIG, address =>
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked MagicFile::ProcessUnk at 0x{address:X}", _logger.ColorGreen);
+            _magicFileProcessHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileProcessImpl, address).Activate();
+        });
+
+        // MagicFile::HandleSubEntry
+        _scanner.AddScan(MAGIC_FILE_HANDLE_SUB_ENTRY_SIG, address =>
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastSystem] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
+            _magicFileHandleSubEntryHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileHandleSubEntryImpl, address).Activate();
+        });
     }
-    
+
+    private long MagicFileProcessImpl(long a1, long a2, long a3, long a4)
+    {
+        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_PROCESS] Called! a1=0x{a1:X}, a2=0x{a2:X}, a3=0x{a3:X}", _logger.ColorYellow);
+        
+        // Reset trackers for this new process call
+        _opInstanceTracker.Clear();
+        _propInstanceTracker.Clear();
+        _lastOpType = -1;
+        _pendingInjections.Clear();
+
+        // Ejecutar original primero para que se carguen las operaciones base
+        long result = _magicFileProcessHook!.OriginalFunction(a1, a2, a3, a4);
+
+        // Process any remaining injections at the end of the group
+        if (_pendingInjections.Count > 0)
+        {
+            int magicId = *(int*)(a1 + 280);
+            if (magicId == 0) magicId = *(int*)(a1 + 272);
+            
+            _isProcessingInjections = true;
+            try
+            {
+                foreach (var entry in _pendingInjections)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} (End of Group) in Magic {magicId}", _logger.ColorGreen);
+                    PerformInjection(a1, entry);
+                }
+                _pendingInjections.Clear();
+            }
+            finally
+            {
+                _isProcessingInjections = false;
+            }
+        }
+
+        // Inyectar propiedades personalizadas (Opción 2) - Solo las que van al final
+        if (_configuration.EnableUniversalFuzzer)
+        {
+            int magicId = *(int*)(a1 + 280);
+            // Si el ID en 280 parece inválido (0), probamos en 272
+            if (magicId == 0) magicId = *(int*)(a1 + 272);
+
+            foreach (var entry in _configuration.FuzzerEntries)
+            {
+                if (entry.Enabled && entry.IsInjection && entry.InjectAfterOp == -1)
+                {
+                    if (entry.TargetMagicId == -1 || entry.TargetMagicId == magicId)
+                    {
+                        _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} at END of Magic {magicId}", _logger.ColorGreen);
+                        PerformInjection(a1, entry);
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private void PerformInjection(long magicFileInstance, FuzzerEntry entry)
+    {
+        if (entry.UseVec3)
+            InjectPropertyVec3(magicFileInstance, entry.OpType, entry.PropertyId, entry.Vec3X, entry.Vec3Y, entry.Vec3Z);
+        else if (entry.UseFloat)
+            InjectPropertyFloat(magicFileInstance, entry.OpType, entry.PropertyId, entry.FloatValue);
+        else
+            InjectPropertyInt(magicFileInstance, entry.OpType, entry.PropertyId, entry.IntValue);
+    }
+
+    private void InjectPropertyFloat(long magicFileInstance, int opType, int propId, float value)
+    {
+        float* valPtr = stackalloc float[1];
+        *valPtr = value;
+        
+        long* fakeData = stackalloc long[2];
+        fakeData[0] = 0; 
+        fakeData[1] = (long)valPtr;
+        
+        // Llamamos a nuestro Impl en lugar de OriginalFunction para ver los logs
+        MagicUnkExecuteImpl(magicFileInstance, opType, propId, (long)fakeData);
+    }
+
+    private void InjectPropertyInt(long magicFileInstance, int opType, int propId, int value)
+    {
+        int* valPtr = stackalloc int[1];
+        *valPtr = value;
+        
+        long* fakeData = stackalloc long[2];
+        fakeData[0] = 0;
+        fakeData[1] = (long)valPtr;
+        
+        // Llamamos a nuestro Impl en lugar de OriginalFunction para ver los logs
+        MagicUnkExecuteImpl(magicFileInstance, opType, propId, (long)fakeData);
+    }
+
+    private void InjectPropertyVec3(long magicFileInstance, int opType, int propId, float x, float y, float z)
+    {
+        Vector3* valPtr = stackalloc Vector3[1];
+        *valPtr = new Vector3(x, y, z);
+        
+        long* fakeData = stackalloc long[2];
+        fakeData[0] = 0; 
+        fakeData[1] = (long)valPtr;
+        
+        // Llamamos a nuestro Impl en lugar de OriginalFunction para ver los logs
+        MagicUnkExecuteImpl(magicFileInstance, opType, propId, (long)fakeData);
+    }
+
+    private long MagicFileHandleSubEntryImpl(long a1, long a2, long a3, long a4)
+    {
+        int opType = (int)a2;
+        
+        // Detect Op change (though UnkExecute should have caught it already)
+        CheckOpChange(a1, opType);
+
+        long result = _magicFileHandleSubEntryHook!.OriginalFunction(a1, a2, a3, a4);
+
+        return result;
+    }
+
     // ============================================================
     // PUBLIC API - CAST MAGIC
     // ============================================================
@@ -623,17 +773,102 @@ public unsafe class MagicCastSystem
 
     private readonly Dictionary<int, string> _propertyNames = new()
     {
+        
+        { 2, "??? - int"},
         { 8, "Speed - float" },
+        // value:  0 = use target, 1 = not use target
+        { 13, "Calculate target trajectory - bool" },
+        { 14, "Pi value - float" },
+        // Positive values = downwards, negative = upwards
+        // Only works if Calculate target trajectory is 0
+        { 22, "Vertical Angle Degrees offset - float" },
+        // value: 0 = no, 1 = yes
+        { 30, "Disappear after duration? - bool" },
         { 31, "Scale projectile body (default=1.0) - float"},
         { 35, "Duration (s) - float" },
+        // value: 76 = impacts with map geometry, 260 = no longer impacts with map geometry
+        { 36, "Hitbox Behaviour ID? - int" },
+        { 41, "Hitbox Behaviour Impact ID? - int" },
         { 42, "Hitbox/Attachment Size? - float" },
-        // 1 = enemy, 2 = ???, 3 = clive, 4 = Clive's feet (yeah really)
-        { 73, "Location spawn magic ID? - int"},
+        // - 0 = ?
+        // - 1 = Targeted Actor
+        // - 2 = Source Body Part (Eid Id, specified by Prop 81)
+        // - 3 = Source Position (Center)
+        // - 4 = ?
+        // - 5 = Layout Instance ID (specified by Prop 1458)
+        // - 6 = ? (prop 84 is used?)
+        // - 7 = ? (Targeted Actor but with a twist)
+        { 73, "Location spawn type ID - int"},
         // Collection of effects and sound for eg. 1008 shiva projectile impact
         // But also spawns projectiles on some IDs e.g. 1007
-        { 89, "Impact ID? - int"}, 
-        { 2593, "Op2593 - Y-axis curve strength - float (positive = up, negative = down)"},
+        { 89, "VFX ID? - int"},
+        // values: 2=parabola, 3= infinite looking orbit around source, 4=stationary at source (or don't work?)
+        { 187, "Type of trayectory ID - int"},
+        { 2227, "??? - int"},
+        { 2430 , "Trajectory variables - vec3"},
+        { 2351 , "Unknown variable - float"},
+        // value: can be positive or negative float
+        { 2593, "Trayectory intensity curve strength - float"},
     };
+
+    private HashSet<int> _scannedMagicIds = new();
+
+    private void ScanMagicFile(long ptr, int magicId)
+    {
+        if (ptr == 0 || _scannedMagicIds.Contains(magicId)) return;
+        _scannedMagicIds.Add(magicId);
+
+        _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] === MagicFile {magicId} Analysis (0x{ptr:X}) ===", _logger.ColorYellow);
+        
+        try {
+            // Según la plantilla, el objeto magicFileInstance debería tener un puntero a los datos crudos
+            // o contener la estructura OperationGroups.
+            // Vamos a buscar el MagicId (214 para Dia) en los primeros 512 bytes.
+            for (int i = 0; i < 128; i++) 
+            {
+                int offset = i * 4;
+                int val = *(int*)(ptr + offset);
+                
+                if (val == magicId)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] Found MagicId {val} at +0x{offset:X}", _logger.ColorGreen);
+                    
+                    // Si esto es el inicio de la estructura 'Magic' de la plantilla:
+                    // +0x04: OperationGroupsOffset
+                    // +0x08: OperationGroupsDataSize
+                    int nextVal = *(int*)(ptr + offset + 4);
+                    int sizeVal = *(int*)(ptr + offset + 8);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] Potential GroupsOffset: 0x{nextVal:X}, Size: 0x{sizeVal:X}", _logger.ColorBlue);
+                }
+
+                // Buscar punteros a VTables de operaciones conocidas
+                if (i % 2 == 0) {
+                    long pVal = *(long*)(ptr + offset);
+                    foreach (var op in _operationNames) {
+                        if (pVal == op.Key) {
+                            _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] Found VTable for {op.Value} at +0x{offset:X}", _logger.ColorGreen);
+                        }
+                    }
+                }
+            }
+
+            // Buscar el contador de operaciones (OperationGroupCount)
+            // Suele ser un valor pequeño (1-10) seguido de offsets
+            for (int i = 0; i < 256; i++) {
+                int offset = i * 4;
+                int count = *(int*)(ptr + offset);
+                if (count > 0 && count < 20) {
+                    // Podría ser un contador. ¿Lo que sigue parece un offset?
+                    int potentialOffset = *(int*)(ptr + offset + 4);
+                    if (potentialOffset > 0 && potentialOffset < 0x10000) {
+                         _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] Potential OpGroupCount {count} at +0x{offset:X} (Next: 0x{potentialOffset:X})", _logger.ColorBlue);
+                    }
+                }
+            }
+        } catch { }
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [SCAN] === End Analysis ===", _logger.ColorYellow);
+    }
 
     private long OperationFactoryImpl(long a1, int opType, long a3)
     {
@@ -653,12 +888,105 @@ public unsafe class MagicCastSystem
         return result;
     }
 
+    private void CheckOpChange(long magicFileInstance, int opType)
+    {
+        if (_isProcessingInjections) return;
+        if (opType == _lastOpType) return;
+
+        int magicId = *(int*)(magicFileInstance + 280);
+        if (magicId == 0) magicId = *(int*)(magicFileInstance + 272);
+
+        // 1. Perform pending injections from the PREVIOUS operation
+        if (_pendingInjections.Count > 0)
+        {
+            _isProcessingInjections = true;
+            try
+            {
+                foreach (var entry in _pendingInjections)
+                {
+                    _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} in Magic {magicId}", _logger.ColorGreen);
+                    PerformInjection(magicFileInstance, entry);
+                }
+                _pendingInjections.Clear();
+            }
+            finally
+            {
+                _isProcessingInjections = false;
+            }
+        }
+
+        // 2. Update state for the NEW operation
+        _lastOpType = opType;
+        int currentOpOccurrence = _opInstanceTracker.GetValueOrDefault(opType, 0) + 1;
+        _opInstanceTracker[opType] = currentOpOccurrence;
+
+        _logger.WriteLine($"[{_modConfig.ModId}] [MAGIC_SUBENTRY] New Op Instance! Op={opType}, Occurrence={currentOpOccurrence}", _logger.ColorYellow);
+
+        // 3. Check for injections that should happen after THIS new operation
+        if (_configuration.EnableUniversalFuzzer)
+        {
+            foreach (var entry in _configuration.FuzzerEntries)
+            {
+                if (entry.Enabled && entry.IsInjection && entry.InjectAfterOp == opType)
+                {
+                    if (entry.TargetMagicId == -1 || entry.TargetMagicId == magicId)
+                    {
+                        if (entry.Occurrence == -1 || entry.Occurrence == currentOpOccurrence)
+                        {
+                            // Queue it for later (when this Op ends)
+                            _pendingInjections.Add(entry);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private void MagicUnkExecuteImpl(long magicFileInstance, int opType, int propertyId, long dataPtr)
     {
+        // Detect Op change before processing property
+        CheckOpChange(magicFileInstance, opType);
+
         // Try to find Magic ID. Offset 272 was giving weird values, let's check 280
         int magicId = *(int*)(magicFileInstance + 280);
-        if (magicId <= 0 || magicId > 100000) magicId = *(int*)(magicFileInstance + 272); // Fallback
+        if (magicId == 0) magicId = *(int*)(magicFileInstance + 272); // Fallback
+
+        // Track occurrences
+        long propKey = ((long)opType << 32) | (uint)propertyId;
+        int propOccurrence = _propInstanceTracker.GetValueOrDefault(propKey, 0) + 1;
+        _propInstanceTracker[propKey] = propOccurrence;
+
+        int opOccurrence = _opInstanceTracker.GetValueOrDefault(opType, 0);
         
+        // Check for DisableOp
+        if (_configuration.EnableUniversalFuzzer)
+        {
+            foreach (var entry in _configuration.FuzzerEntries)
+            {
+                if (entry.Enabled && entry.DisableOp && entry.OpType == opType)
+                {
+                    if (entry.TargetMagicId == -1 || entry.TargetMagicId == magicId)
+                    {
+                        // If PropertyId is -1, we use Op Occurrence
+                        // If PropertyId is specific, we use Prop Occurrence
+                        int targetOcc = (entry.PropertyId == -1) ? opOccurrence : propOccurrence;
+
+                        if (entry.Occurrence == -1 || entry.Occurrence == targetOcc)
+                        {
+                            if (entry.PropertyId == -1 || entry.PropertyId == propertyId)
+                            {
+                                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {magicId} Op {opType} Prop {propertyId} DISABLED (Occ {targetOcc})", _logger.ColorRed);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Debug Scan
+        ScanMagicFile(magicFileInstance, magicId);
+
         string contextStr = $"[Magic {magicId}]";
 
         // dataPtr + 8 is the pointer to the actual value
@@ -668,37 +996,49 @@ public unsafe class MagicCastSystem
         bool isFuzzed = false;
         float originalFloat = 0;
         int originalInt = 0;
+        Vector3 originalVec3 = Vector3.Zero;
         FuzzerEntry? activeEntry = null;
 
         if (_configuration.EnableUniversalFuzzer)
         {
             foreach (var entry in _configuration.FuzzerEntries)
             {
-                if (entry.Enabled && entry.PropertyId == propertyId && (entry.OpType == -1 || entry.OpType == opType))
+                if (entry.Enabled && !entry.IsInjection && !entry.DisableOp && entry.PropertyId == propertyId && (entry.OpType == -1 || entry.OpType == opType))
                 {
-                    activeEntry = entry;
-                    isFuzzed = true;
-                    if (entry.UseFloat)
+                    if (entry.TargetMagicId == -1 || entry.TargetMagicId == magicId)
                     {
-                        originalFloat = *(float*)valuePtr;
-                        *(float*)valuePtr = entry.FloatValue;
-                        _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {originalFloat:F4} -> {entry.FloatValue:F4}", _logger.ColorYellow);
+                        // Use Prop Occurrence for specific property overrides
+                        if (entry.Occurrence == -1 || entry.Occurrence == propOccurrence)
+                        {
+                            activeEntry = entry;
+                            isFuzzed = true;
+                            
+                            if (entry.UseVec3)
+                            {
+                                originalVec3 = *(Vector3*)valuePtr;
+                                *(Vector3*)valuePtr = new Vector3(entry.Vec3X, entry.Vec3Y, entry.Vec3Z);
+                                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Vec3) OVERRIDE: {originalVec3} -> {*(Vector3*)valuePtr} (Occ {propOccurrence})", _logger.ColorYellow);
+                            }
+                            else if (entry.UseFloat)
+                            {
+                                originalFloat = *(float*)valuePtr;
+                                *(float*)valuePtr = entry.FloatValue;
+                                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {originalFloat:F4} -> {entry.FloatValue:F4} (Occ {propOccurrence})", _logger.ColorYellow);
+                            }
+                            else
+                            {
+                                originalInt = *(int*)valuePtr;
+                                *(int*)valuePtr = entry.IntValue;
+                                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {originalInt} -> {entry.IntValue} (Occ {propOccurrence})", _logger.ColorYellow);
+                            }
+                            break; // Only apply one override per property call
+                        }
                     }
-                    else
-                    {
-                        originalInt = *(int*)valuePtr;
-                        *(int*)valuePtr = entry.IntValue;
-                        _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {originalInt} -> {entry.IntValue}", _logger.ColorYellow);
-                    }
-                    break; // Only apply one override per property call
                 }
             }
         }
 
         // LOGGING
-        float fVal = *(float*)valuePtr;
-        int iVal = *(int*)valuePtr;
-        
         // Highlight known properties
         string propName = "";
         if (_propertyNames.TryGetValue(propertyId, out string? name))
@@ -706,7 +1046,17 @@ public unsafe class MagicCastSystem
             propName = $" ({name})";
         }
 
-        _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId}{propName}: float={fVal:F4}, int={iVal} (0x{iVal:X})", _logger.ColorBlue);
+        if (activeEntry != null && activeEntry.UseVec3)
+        {
+            Vector3 v = *(Vector3*)valuePtr;
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId}{propName}: Vec3=({v.X:F4}, {v.Y:F4}, {v.Z:F4})", _logger.ColorBlue);
+        }
+        else
+        {
+            float fVal = *(float*)valuePtr;
+            int iVal = *(int*)valuePtr;
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId}{propName}: float={fVal:F4}, int={iVal} (0x{iVal:X})", _logger.ColorBlue);
+        }
 
         // Execute original function with the (potentially fuzzed) value
         _magicUnkExecuteHook!.OriginalFunction(magicFileInstance, opType, propertyId, dataPtr);
@@ -714,7 +1064,9 @@ public unsafe class MagicCastSystem
         // RESTORE original value so we don't corrupt the game's memory permanently
         if (isFuzzed && activeEntry != null)
         {
-            if (activeEntry.UseFloat)
+            if (activeEntry.UseVec3)
+                *(Vector3*)valuePtr = originalVec3;
+            else if (activeEntry.UseFloat)
                 *(float*)valuePtr = originalFloat;
             else
                 *(int*)valuePtr = originalInt;

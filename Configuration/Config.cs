@@ -16,11 +16,45 @@ public enum TriState
 public class FuzzerEntry
 {
     public bool Enabled { get; set; } = true;
-    public int OpType { get; set; } = -1; // -1 = any
-    public int PropertyId { get; set; } = -1;
+    public bool IsInjection { get; set; } = false; // Si es true, se inyecta aunque no exista
+    public int TargetMagicId { get; set; } = -1;   // -1 para todos, o el ID del log (ej: -1610379072)
+    public int InjectAfterOp { get; set; } = -1;   // Inyectar después de esta Op (-1 = al final)
+    public bool DisableOp { get; set; } = false;   // Si es true, bloquea esta operación original
+    public int OpType { get; set; } = 51;
+    public int PropertyId { get; set; } = 8; // -1 para eliminar todas las propiedades de la Op
     public bool UseFloat { get; set; } = true;
     public float FloatValue { get; set; } = 0.0f;
     public int IntValue { get; set; } = 0;
+
+    // Nuevos campos
+    public bool UseVec3 { get; set; } = false;
+    public float Vec3X { get; set; } = 0.0f;
+    public float Vec3Y { get; set; } = 0.0f;
+    public float Vec3Z { get; set; } = 0.0f;
+
+    public int Occurrence { get; set; } = -1; // -1 para todas, 0 para la primera, 1 para la segunda...
+
+    public FuzzerEntry Clone()
+    {
+        return new FuzzerEntry
+        {
+            Enabled = this.Enabled,
+            IsInjection = this.IsInjection,
+            TargetMagicId = this.TargetMagicId,
+            InjectAfterOp = this.InjectAfterOp,
+            DisableOp = this.DisableOp,
+            OpType = this.OpType,
+            PropertyId = this.PropertyId,
+            UseFloat = this.UseFloat,
+            FloatValue = this.FloatValue,
+            IntValue = this.IntValue,
+            UseVec3 = this.UseVec3,
+            Vec3X = this.Vec3X,
+            Vec3Y = this.Vec3Y,
+            Vec3Z = this.Vec3Z,
+            Occurrence = this.Occurrence
+        };
+    }
 }
 
 public class Config : Configurable<Config>

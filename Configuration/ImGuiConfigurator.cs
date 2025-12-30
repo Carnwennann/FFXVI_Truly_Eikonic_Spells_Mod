@@ -1,6 +1,6 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using NenTools.ImGui.Interfaces;
-using NenTools.ImGui.Abstractions;
+using NenTools.ImGui.Interfaces.Shell;
 using System.Numerics;
 
 namespace ff16.gameplay.truly_eikonic_spells.Configuration;
@@ -215,7 +215,16 @@ public class ImGuiConfigurator : IImGuiComponent
         
         if (_imgui.Button("Add New Fuzzer Entry"))
         {
-            _config.FuzzerEntries.Add(new FuzzerEntry());
+            if (_config.FuzzerEntries.Count > 0)
+            {
+                // Copy the last entry
+                var lastEntry = _config.FuzzerEntries[_config.FuzzerEntries.Count - 1];
+                _config.FuzzerEntries.Add(lastEntry.Clone());
+            }
+            else
+            {
+                _config.FuzzerEntries.Add(new FuzzerEntry());
+            }
         }
 
         for (int i = 0; i < _config.FuzzerEntries.Count; i++)
@@ -228,30 +237,95 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.Checkbox($"Enabled##{i}", ref enabled)) entry.Enabled = enabled;
                 
                 _imgui.SameLine();
+                if (!entry.DisableOp)
+                {
+                    bool isInjection = entry.IsInjection;
+                    if (_imgui.Checkbox($"Inject##{i}", ref isInjection)) entry.IsInjection = isInjection;
+                    _imgui.SameLine();
+                }
+
+                if (!entry.IsInjection)
+                {
+                    bool disableOp = entry.DisableOp;
+                    if (_imgui.Checkbox($"Disable##{i}", ref disableOp)) entry.DisableOp = disableOp;
+                    _imgui.SameLine();
+                }
+
                 if (_imgui.Button($"Remove##{i}"))
                 {
                     _config.FuzzerEntries.RemoveAt(i);
                     break;
                 }
 
+                int targetId = entry.TargetMagicId;
+                if (_imgui.InputInt($"Target Magic ID (-1=All)##{i}", ref targetId)) entry.TargetMagicId = targetId;
+
                 int opType = entry.OpType;
                 if (_imgui.InputInt($"Op Type (-1=Any)##{i}", ref opType)) entry.OpType = opType;
 
-                int propId = entry.PropertyId;
-                if (_imgui.InputInt($"Property ID##{i}", ref propId)) entry.PropertyId = propId;
+                int occurrence = entry.Occurrence;
+                if (_imgui.InputInt($"Occurrence (-1=All)##{i}", ref occurrence)) entry.Occurrence = occurrence;
 
-                bool useFloat = entry.UseFloat;
-                if (_imgui.Checkbox($"Use Float##{i}", ref useFloat)) entry.UseFloat = useFloat;
-
-                if (useFloat)
+                if (entry.IsInjection)
                 {
-                    float fVal = entry.FloatValue;
-                    if (_imgui.InputFloat($"Float Value##{i}", ref fVal)) entry.FloatValue = fVal;
+                    int afterOp = entry.InjectAfterOp;
+                    if (_imgui.InputInt($"Inject After Op (-1=End)##{i}", ref afterOp)) entry.InjectAfterOp = afterOp;
                 }
-                else
+
+                int propId = entry.PropertyId;
+                string propLabel = entry.DisableOp ? $"Property ID (-1=All Op)##{i}" : $"Property ID##{i}";
+                if (_imgui.InputInt(propLabel, ref propId)) entry.PropertyId = propId;
+
+                if (!entry.DisableOp)
                 {
-                    int iVal = entry.IntValue;
-                    if (_imgui.InputInt($"Int Value##{i}", ref iVal)) entry.IntValue = iVal;
+                    // Value Type (radio buttons to avoid popup asserts)
+                    int currentType = entry.UseVec3 ? 2 : (entry.UseFloat ? 1 : 0);
+                    _imgui.Text("Value Type:");
+                    _imgui.SameLine();
+                    if (_imgui.RadioButton($"Int##{i}", currentType == 0))
+                    {
+                        entry.UseFloat = false;
+                        entry.UseVec3 = false;
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.RadioButton($"Float##{i}", currentType == 1))
+                    {
+                        entry.UseFloat = true;
+                        entry.UseVec3 = false;
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.RadioButton($"Vec3##{i}", currentType == 2))
+                    {
+                        entry.UseFloat = false;
+                        entry.UseVec3 = true;
+                    }
+
+                    if (entry.UseVec3)
+                    {
+                        float vX = entry.Vec3X;
+                        float vY = entry.Vec3Y;
+                        float vZ = entry.Vec3Z;
+
+                        _imgui.Text("Vector3:");
+                        _imgui.SetNextItemWidth(100);
+                        if (_imgui.InputFloat($"X##{i}", ref vX)) entry.Vec3X = vX;
+                        _imgui.SameLine();
+                        _imgui.SetNextItemWidth(100);
+                        if (_imgui.InputFloat($"Y##{i}", ref vY)) entry.Vec3Y = vY;
+                        _imgui.SameLine();
+                        _imgui.SetNextItemWidth(100);
+                        if (_imgui.InputFloat($"Z##{i}", ref vZ)) entry.Vec3Z = vZ;
+                    }
+                    else if (entry.UseFloat)
+                    {
+                        float fVal = entry.FloatValue;
+                        if (_imgui.InputFloat($"Float Value##{i}", ref fVal)) entry.FloatValue = fVal;
+                    }
+                    else
+                    {
+                        int iVal = entry.IntValue;
+                        if (_imgui.InputInt($"Int Value##{i}", ref iVal)) entry.IntValue = iVal;
+                    }
                 }
             }
             
