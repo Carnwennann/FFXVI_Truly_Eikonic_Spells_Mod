@@ -50,6 +50,7 @@ public class DiaraSystem
     
     // Reference to MagicCastApi for spawning projectiles
     private MagicCastApi? _MagicCastApi;
+    private MagicInjectionApi? _magicInjectionApi;
     
     public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, ILogger? logger = null, string modId = "")
     {
@@ -68,6 +69,12 @@ public class DiaraSystem
     {
         _MagicCastApi = MagicCastApi;
         LogDebug("MagicCastApi linked");
+    }
+
+    public void SetMagicInjectionApi(MagicInjectionApi magicInjectionApi)
+    {
+        _magicInjectionApi = magicInjectionApi;
+        LogDebug("MagicInjectionApi linked");
     }
     
     #region Logging
@@ -152,7 +159,7 @@ public class DiaraSystem
     
     /// <summary>
     /// Called when a perfect dodge occurs.
-    /// If MagicCastApi is set, spawns Dia projectiles directly.
+    /// Spawns Dia projectiles using the MagicInjectionApi for modified properties.
     /// Returns the number of Dia spells spawned (0 if buff not active).
     /// </summary>
     public int OnPerfectDodge()
@@ -162,56 +169,57 @@ public class DiaraSystem
         
         LogInfo($"Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
         
-        // Try to spawn using MagicCastApi
-        if (_MagicCastApi != null)
+        // 1. Try Modified Cast (SetupMagic + CastMagic)
+        // This is the preferred method as it uses the "DiaModified" JSON profile
+        if (_magicInjectionApi != null && _MagicCastApi != null && _MagicCastApi.HasMagicContext)
         {
-            // Try MagicExecute/CastMagic system first (more stable)
-            if (_MagicCastApi.HasMagicContext)
+            LogDebug("Attempting Modified Cast via MagicInjectionApi...");
+            if (_magicInjectionApi.CastModifiedMagic("DiaModified", MagicID, DiaSpellsPerDodge))
             {
-                LogDebug("Using CastMagicSpell system...");
-                bool success = _MagicCastApi.CastSpells(MagicID, DiaSpellsPerDodge);
-                if (success)
-                {
-                    LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells!");
-                }
-                else
-                {
-                    LogDebug("CastMagicSpell failed, trying FireMagicProjectile...");
-                    // Fallback to FireMagicProjectile
-                    if (_MagicCastApi.HasProjectileContext)
-                    {
-                        _MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge);
-                    }
-                }
-            }
-            // Fallback: Try FireMagicProjectile system
-            else if (_MagicCastApi.HasProjectileContext)
-            {
-                LogDebug("Using FireMagicProjectile system...");
-                bool success = _MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge);
-                if (success)
-                {
-                    LogInfo($"Successfully fired {DiaSpellsPerDodge} Dia projectiles!");
-                }
-                else
-                {
-                    LogDebug("Failed to fire Dia projectiles");
-                }
-            }
-            else
-            {
-                LogDebug("MagicCastApi not ready - fire a normal shot first!");
+                LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells!");
+                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+                return DiaSpellsPerDodge;
             }
         }
-        else
+
+        // 2. Try Normal Cast (Fallback if injection fails or profile missing)
+        if (_MagicCastApi != null && _MagicCastApi.HasMagicContext)
         {
-            LogDebug("MagicCastApi not linked!");
+            LogDebug("Falling back to Normal Cast via MagicCastApi...");
+            if (_MagicCastApi.CastSpells(MagicID, DiaSpellsPerDodge))
+            {
+                LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
+                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+                return DiaSpellsPerDodge;
+            }
         }
-        
-        // Still invoke the event for any external listeners
-        OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-        
-        return DiaSpellsPerDodge;
+
+        // 3. Try Modified Projectile (FireMagicProjectile)
+        if (_magicInjectionApi != null && _MagicCastApi != null && _MagicCastApi.HasProjectileContext)
+        {
+            LogDebug("Attempting Modified Projectile Fire via MagicInjectionApi...");
+            if (_magicInjectionApi.FireModifiedProjectiles("DiaModified", DiaSpellsPerDodge))
+            {
+                LogInfo($"Successfully fired {DiaSpellsPerDodge} MODIFIED Dia projectiles!");
+                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+                return DiaSpellsPerDodge;
+            }
+        }
+
+        // 4. Try Normal Projectile (Fallback)
+        if (_MagicCastApi != null && _MagicCastApi.HasProjectileContext)
+        {
+            LogDebug("Falling back to Normal Projectile Fire via MagicCastApi...");
+            if (_MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge))
+            {
+                LogInfo($"Successfully fired {DiaSpellsPerDodge} Dia projectiles (Normal)!");
+                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+                return DiaSpellsPerDodge;
+            }
+        }
+
+        LogDebug("Failed to spawn Dia spells - MagicCastApi context not ready. (Try firing a normal shot first)");
+        return 0;
     }
     
     /// <summary>

@@ -2754,3 +2754,4 @@ E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\ffto\WorldSituationBalloon.layout
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\ffto\ZodiacStone.layout
 E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\Nex\Layouts\ffto\ZodiacStoneOwnerTimeline.layout
+E:\Documentos\Mods\FFXVI\Tools\Reloaded\Release\Mods\ff16.gameplay.truly_eikonic_spells\Eikon\Bahamut\Diara\DiaModifications.json

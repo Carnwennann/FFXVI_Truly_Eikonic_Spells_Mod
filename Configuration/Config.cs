@@ -33,6 +33,7 @@ public class FuzzerEntry
     public float Vec3Z { get; set; } = 0.0f;
 
     public int Occurrence { get; set; } = -1; // -1 para todas, 0 para la primera, 1 para la segunda...
+    public int TargetOperationGroupId { get; set; } = -1; // -1 para todos, o el ID del grupo (ej: 4338)
 
     public FuzzerEntry Clone()
     {
@@ -52,7 +53,8 @@ public class FuzzerEntry
             Vec3X = this.Vec3X,
             Vec3Y = this.Vec3Y,
             Vec3Z = this.Vec3Z,
-            Occurrence = this.Occurrence
+            Occurrence = this.Occurrence,
+            TargetOperationGroupId = this.TargetOperationGroupId
         };
     }
 }
