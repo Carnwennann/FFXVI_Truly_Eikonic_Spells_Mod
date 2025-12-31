@@ -107,6 +107,12 @@ public class Config : Configurable<Config>
     [Category("Diara System")]
     public int DiaMagicID { get; set; } = 214;
 
+    [DisplayName("Dia Fan Angle Step")]
+    [Description("Degrees of separation between each Dia spell in the fan")]
+    [DefaultValue(15.0f)]
+    [Category("Diara System")]
+    public float DiaFanAngleStep { get; set; } = 15.0f;
+
     // ==================== DARKRA SYSTEM ====================
     
     [DisplayName("Enable Darkra System")]

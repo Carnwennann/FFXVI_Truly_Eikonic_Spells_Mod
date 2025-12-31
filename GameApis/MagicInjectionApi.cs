@@ -75,21 +75,39 @@ public class MagicInjectionApi
             return false;
         }
 
-        _logger.WriteLine($"[{_modId}] [MagicInjectionApi] Casting Magic {magicId} x{count} with '{modificationName}' modifications", _logger.ColorYellow);
-
-        // Set temporary overrides in MagicCastApi
-        _magicCastApi.TemporaryFuzzerEntries = entries;
-
-        try
+        // Enqueue the same modification set 'count' times
+        for (int i = 0; i < count; i++)
         {
-            // Trigger the cast
-            return _magicCastApi.CastSpells(magicId, count);
+            _magicCastApi.EnqueueModifications(magicId, entries);
         }
-        finally
+
+        return _magicCastApi.CastSpells(magicId, count);
+    }
+
+    /// <summary>
+    /// Casts magic spells using a list of pre-adapted modification sets.
+    /// Each list in the outer list represents one projectile's modifications.
+    /// </summary>
+    public bool CastModifiedMagic(int magicId, List<List<FuzzerEntry>> modifications)
+    {
+        _logger.WriteLine($"[{_modId}] [MagicInjectionApi] CastModifiedMagic called with {modifications.Count} custom modification sets", _logger.ColorYellow);
+
+        foreach (var modSet in modifications)
         {
-            // ALWAYS clear temporary overrides after the cast
-            _magicCastApi.TemporaryFuzzerEntries = null;
+            _magicCastApi.EnqueueModifications(magicId, modSet);
         }
+
+        return _magicCastApi.CastSpells(magicId, modifications.Count);
+    }
+
+    /// <summary>
+    /// Gets the cached modifications for a given profile name.
+    /// </summary>
+    public List<FuzzerEntry>? GetModifications(string name)
+    {
+        if (_cachedModifications.TryGetValue(name, out var entries))
+            return entries;
+        return null;
     }
 
     /// <summary>

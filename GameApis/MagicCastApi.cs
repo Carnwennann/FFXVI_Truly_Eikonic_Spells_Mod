@@ -451,7 +451,7 @@ public unsafe class MagicCastApi
     // PUBLIC API - CAST MAGIC
     // ============================================================
     
-    private void EnqueueModifications(int magicId, List<FuzzerEntry> entries)
+    public void EnqueueModifications(int magicId, List<FuzzerEntry> entries)
     {
         // Group entries by their target group ID
         var grouped = entries.GroupBy(e => e.TargetOperationGroupId);

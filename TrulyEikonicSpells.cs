@@ -264,6 +264,7 @@ public class TrulyEikonicSpellsMod : ModBase
             buffDurationSeconds: _configuration.DiaraBuffDuration,
             diaSpellsPerDodge: _configuration.DiaSpellsPerDodge,
             magicID: _configuration.DiaMagicID,
+            fanAngleStep: _configuration.DiaFanAngleStep,
             logger: _logger,
             modId: _modConfig.ModId
         );

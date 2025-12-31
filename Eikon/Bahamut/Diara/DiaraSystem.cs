@@ -35,6 +35,7 @@ public class DiaraSystem
     public float BuffDurationSeconds { get; set; }
     public int DiaSpellsPerDodge { get; set; }
     public int MagicID { get; set; }  // Dia magic ID for projectiles
+    public float FanAngleStep { get; set; } // Degrees between spells in fan
     
     // Action IDs
     public const int CHARGED_SHOT_ACTION_ID = 227;
@@ -52,11 +53,12 @@ public class DiaraSystem
     private MagicCastApi? _MagicCastApi;
     private MagicInjectionApi? _magicInjectionApi;
     
-    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, ILogger? logger = null, string modId = "")
+    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, float fanAngleStep = 15.0f, ILogger? logger = null, string modId = "")
     {
         BuffDurationSeconds = buffDurationSeconds;
         DiaSpellsPerDodge = diaSpellsPerDodge;
         MagicID = magicID;
+        FanAngleStep = fanAngleStep;
         _logger = logger;
         _modId = modId;
     }
@@ -173,12 +175,19 @@ public class DiaraSystem
         // This is the preferred method as it uses the "DiaModified" JSON profile
         if (_magicInjectionApi != null && _MagicCastApi != null && _MagicCastApi.HasMagicContext)
         {
-            LogDebug("Attempting Modified Cast via MagicInjectionApi...");
-            if (_magicInjectionApi.CastModifiedMagic("DiaModified", MagicID, DiaSpellsPerDodge))
+            LogDebug("Attempting Modified Fan Cast via MagicInjectionApi...");
+            
+            var baseEntries = _magicInjectionApi.GetModifications("DiaModified");
+            if (baseEntries != null)
             {
-                LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells!");
-                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-                return DiaSpellsPerDodge;
+                var fanModifications = GenerateFanModifications(baseEntries);
+                
+                if (_magicInjectionApi.CastModifiedMagic(MagicID, fanModifications))
+                {
+                    LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells in a fan!");
+                    OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+                    return DiaSpellsPerDodge;
+                }
             }
         }
 
@@ -291,13 +300,76 @@ public class DiaraSystem
     {
         // Check for changes and log
         if (BuffDurationSeconds != configuration.DiaraBuffDuration)
+        {
             LogDebug($"BuffDurationSeconds changed: {BuffDurationSeconds} -> {configuration.DiaraBuffDuration}");
             BuffDurationSeconds = configuration.DiaraBuffDuration;
+        }
         if (DiaSpellsPerDodge != configuration.DiaSpellsPerDodge)
+        {
             LogDebug($"DiaSpellsPerDodge changed: {DiaSpellsPerDodge} -> {configuration.DiaSpellsPerDodge}");
             DiaSpellsPerDodge = configuration.DiaSpellsPerDodge;
+        }
         if (MagicID != configuration.DiaMagicID)
+        {
             LogDebug($"MagicID changed: {MagicID} -> {configuration.DiaMagicID}");
             MagicID = configuration.DiaMagicID;
+        }
+        if (FanAngleStep != configuration.DiaFanAngleStep)
+        {
+            LogDebug($"FanAngleStep changed: {FanAngleStep} -> {configuration.DiaFanAngleStep}");
+            FanAngleStep = configuration.DiaFanAngleStep;
+        }
+    }
+
+    /// <summary>
+    /// Generates a list of modification sets for a fan pattern.
+    /// </summary>
+    private List<List<FuzzerEntry>> GenerateFanModifications(List<FuzzerEntry> baseEntries)
+    {
+        var fanModifications = new List<List<FuzzerEntry>>();
+        
+        // Calculate start angle to center the fan
+        // For 5 spells with 15 deg step: -30, -15, 0, 15, 30
+        float startAngle = -(DiaSpellsPerDodge - 1) * FanAngleStep / 2f;
+
+        for (int i = 0; i < DiaSpellsPerDodge; i++)
+        {
+            float currentAngle = startAngle + (i * FanAngleStep);
+            var modifiedEntries = new List<FuzzerEntry>();
+            
+            foreach (var entry in baseEntries)
+            {
+                var newEntry = entry.Clone();
+                
+                // Apply fan angle to trajectory (Op 2493, Prop 2430)
+                if (newEntry.OpType == 2493 && newEntry.PropertyId == 2430 && newEntry.UseVec3)
+                {
+                    // The user said: "Vec3Y es izquierda y Vec3Z es derecha"
+                    // This implies they might be separate positive-only axes.
+                    if (currentAngle > 0)
+                    {
+                        newEntry.Vec3Y = currentAngle; // Left
+                        newEntry.Vec3Z = 0;
+                    }
+                    else if (currentAngle < 0)
+                    {
+                        newEntry.Vec3Y = 0;
+                        newEntry.Vec3Z = -currentAngle; // Right (positive value)
+                    }
+                    else
+                    {
+                        newEntry.Vec3Y = 0;
+                        newEntry.Vec3Z = 0;
+                    }
+                    
+                    LogDebug($"Projectile {i}: Angle {currentAngle:F2} -> Vec3Y={newEntry.Vec3Y:F2}, Vec3Z={newEntry.Vec3Z:F2}");
+                }
+                
+                modifiedEntries.Add(newEntry);
+            }
+            fanModifications.Add(modifiedEntries);
+        }
+        
+        return fanModifications;
     }
 }
