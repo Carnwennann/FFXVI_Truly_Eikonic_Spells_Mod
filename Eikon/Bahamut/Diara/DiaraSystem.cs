@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 
 namespace ff16.gameplay.truly_eikonic_spells;
@@ -48,9 +49,8 @@ public class DiaraSystem
     // Legacy logging delegate (for backwards compatibility) - will be removed
     public Action<string>? Log;
     
-    // Reference to MagicCastApi for spawning projectiles
-    private MagicCastApi? _MagicCastApi;
-    private MagicInjectionApi? _magicInjectionApi;
+    // Reference to MagicApi for spawning projectiles
+    private MagicApi? _magicApi;
     
     public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, float fanAngleStep = 15.0f, ILogger? logger = null, string modId = "")
     {
@@ -62,20 +62,13 @@ public class DiaraSystem
         _modId = modId;
     }
     
-    /// <summary>
-    /// Set the MagicCastApi reference for spawning projectiles.
-    /// Must be called after MagicCastApi is initialized.
-    /// </summary>
-    public void SetMagicCastApi(MagicCastApi MagicCastApi)
+    public void SetMagicApi(MagicApi magicApi)
     {
-        _MagicCastApi = MagicCastApi;
-        LogDebug("MagicCastApi linked");
-    }
-
-    public void SetMagicInjectionApi(MagicInjectionApi magicInjectionApi)
-    {
-        _magicInjectionApi = magicInjectionApi;
-        LogDebug("MagicInjectionApi linked");
+        _magicApi = magicApi;
+        LogDebug("MagicApi linked");
+        
+        // Register ourselves as a charged shot handler
+        _magicApi.RegisterChargedShotHandler(OnChargedShotCast);
     }
     
     #region Logging
@@ -160,49 +153,41 @@ public class DiaraSystem
     
     /// <summary>
     /// Called when a perfect dodge occurs.
-    /// Spawns Dia projectiles using the MagicInjectionApi for modified properties.
+    /// Spawns Dia projectiles using the MagicApi for modified properties.
     /// Returns the number of Dia spells spawned (0 if buff not active).
     /// </summary>
     public int OnPerfectDodge()
     {
-        if (!IsBuffActive)
+        if (!IsBuffActive || _magicApi == null)
             return 0;
         
         LogInfo($"Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
         
-        // 1. Try Modified Cast (SetupMagic + CastMagic)
-        // This is the preferred method as it uses the "DiaModified" JSON profile
-        if (_magicInjectionApi != null && _MagicCastApi != null && _MagicCastApi.HasMagicContext)
+        // 1. Try Modified Fan Cast
+        var baseEntries = _magicApi.GetModifications("DiaModified");
+        if (baseEntries != null)
         {
-            LogDebug("Attempting Modified Fan Cast via MagicInjectionApi...");
+            LogDebug("Attempting Modified Fan Cast via MagicApi...");
+            var fanModifications = GenerateFanModifications(baseEntries);
             
-            var baseEntries = _magicInjectionApi.GetModifications("DiaModified");
-            if (baseEntries != null)
+            if (_magicApi.CastModifiedMagic(MagicID, fanModifications))
             {
-                var fanModifications = GenerateFanModifications(baseEntries);
-                
-                if (_magicInjectionApi.CastModifiedMagic(MagicID, fanModifications))
-                {
-                    LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells in a fan!");
-                    OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-                    return DiaSpellsPerDodge;
-                }
-            }
-        }
-
-        // 2. Try Normal Cast (Fallback if injection fails or profile missing)
-        if (_MagicCastApi != null && _MagicCastApi.HasMagicContext)
-        {
-            LogDebug("Falling back to Normal Cast via MagicCastApi...");
-            if (_MagicCastApi.CastSpells(MagicID, DiaSpellsPerDodge))
-            {
-                LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
+                LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells in a fan!");
                 OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
                 return DiaSpellsPerDodge;
             }
         }
 
-        LogDebug("Failed to spawn Dia spells - MagicCastApi context not ready. (Try firing a normal shot first)");
+        // 2. Fallback to Normal Cast (API handles context check internally)
+        LogDebug("Falling back to Normal Cast via MagicApi...");
+        if (_magicApi.CastSpells(MagicID, DiaSpellsPerDodge))
+        {
+            LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
+            OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
+            return DiaSpellsPerDodge;
+        }
+
+        LogDebug("Failed to spawn Dia spells - MagicApi context not ready. (Try firing a normal shot first)");
         return 0;
     }
     

@@ -5,39 +5,13 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
 /// <summary>
-/// Handles magic spell casting and projectile spawning.
-/// 
-/// The magic system works with two approaches:
-/// 
-/// 1. SetupMagic + CastMagic flow:
-///    - SetupMagic prepares the spell struct with magicId
-///    - CastMagic actually spawns the spell using the prepared struct
-///    - Used for: general magic spells by ID
-/// 
-/// 2. FireMagicProjectile flow:
-///    - Takes a MagicManager pointer + ProjectileData
-///    - MagicManager+0x38 points to MagicInputConfig
-///    - MagicInputConfig+0x10 = Shot Type (1=Normal, 2=Charged, 3=Precision, 4=Burst)
-///    - Used for: magic projectiles (Dia/Dia-type shots)
-/// 
-/// Key structures:
-/// - MagicManager: Main manager structure (~512 bytes)
-///   +0x28 = Timeline pointer
-///   +0x38 = MagicInputConfig pointer
-/// 
-/// - MagicInputConfig: Shot configuration (~256 bytes)
-///   +0x10 = Shot Type (1=Normal/Dia, 2=Charged/Diara, 3=Precision Counter, 4=Burst)
-///   +0x18 = Burst ID?
-///   +0x1C = Charged ID?
-/// 
-/// - UnkMagicStruct: Magic spell setup structure (264 bytes)
-///   +0x00 = ptr1 (pointer to some data)
-///   +0x08 = array of 32 longs (256 bytes)
+/// Internal system for handling magic spell casting and projectile spawning.
+/// Interacts directly with the game's magic system via hooks.
 /// </summary>
-public unsafe class MagicCastApi
+internal unsafe class MagicGameSystem
 {
     // ============================================================
     // DELEGATES
@@ -188,7 +162,7 @@ public unsafe class MagicCastApi
     // CONSTRUCTOR
     // ============================================================
     
-    public MagicCastApi(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
+    public MagicGameSystem(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
     {
         _logger = logger;
         _modConfig = modConfig;
@@ -201,7 +175,7 @@ public unsafe class MagicCastApi
         // Zero-initialize
         for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) *((byte*)_magicStructBuffer + i) = 0;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Initialized", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Initialized", _logger.ColorGreen);
     }
     
     // ============================================================
@@ -219,7 +193,7 @@ public unsafe class MagicCastApi
         {
             _setupMagicHook = hooks.CreateHook<SetupMagicDelegate>(SetupMagicImpl, address).Activate();
             _setupMagicWrapper = hooks.CreateWrapper<SetupMagicDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked SetupMagic at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked SetupMagic at 0x{address:X}", _logger.ColorGreen);
         });
         
         // CastMagic - Actually spawns the spell
@@ -227,14 +201,14 @@ public unsafe class MagicCastApi
         {
             _castMagicHook = hooks.CreateHook<CastMagicDelegate>(CastMagicImpl, address).Activate();
             _castMagicWrapper = hooks.CreateWrapper<CastMagicDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
         });
 
         // FireMagicProjectile - For detecting and suppressing charged shots
         scans.AddScan(FIRE_MAGIC_PROJECTILE_SIG, address =>
         {
             _fireMagicProjectileHook = hooks.CreateHook<FireMagicProjectileDelegate>(FireMagicProjectileImpl, address).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked FireMagicProjectile at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked FireMagicProjectile at 0x{address:X}", _logger.ColorGreen);
         });
     }
     
@@ -246,7 +220,7 @@ public unsafe class MagicCastApi
         // MagicUnkExecute - The Universal Property Logger/Fuzzer
         _scanner.AddScan(MAGIC_UNK_EXECUTE_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
             _magicUnkExecuteHook = hooks.CreateHook<MagicUnkExecuteDelegate>(MagicUnkExecuteImpl, address).Activate();
             _magicUnkExecuteWrapper = hooks.CreateWrapper<MagicUnkExecuteDelegate>(address, out _);
         });
@@ -254,7 +228,7 @@ public unsafe class MagicCastApi
         // OperationFactory - The VTable Mapper
         _scanner.AddScan(OPERATION_FACTORY_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked OperationFactory at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked OperationFactory at 0x{address:X}", _logger.ColorGreen);
             _operationFactoryHook = hooks.CreateHook<OperationFactoryDelegate>(OperationFactoryImpl, address).Activate();
             _operationFactoryWrapper = hooks.CreateWrapper<OperationFactoryDelegate>(address, out _);
         });
@@ -262,14 +236,14 @@ public unsafe class MagicCastApi
         // MagicFile::ProcessUnk
         _scanner.AddScan(MAGIC_FILE_PROCESS_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicFile::ProcessUnk at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked MagicFile::ProcessUnk at 0x{address:X}", _logger.ColorGreen);
             _magicFileProcessHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileProcessImpl, address).Activate();
         });
 
         // MagicFile::HandleSubEntry
         _scanner.AddScan(MAGIC_FILE_HANDLE_SUB_ENTRY_SIG, address =>
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
             _magicFileHandleSubEntryHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileHandleSubEntryImpl, address).Activate();
         });
     }
@@ -475,24 +449,6 @@ public unsafe class MagicCastApi
         }
     }
     
-    /// <summary>
-    /// Cast Dia spell using SetupMagic/CastMagic system (more stable than FireMagicProjectile).
-    /// magicId for Dia needs to be discovered - try common values or check logs.
-    /// </summary>
-    public bool CastSpells(int magicID = 1, int count = 1)
-    {   
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Attempting to cast {count} Dia spells via CastMagicSpell...", _logger.ColorGreen);
-        
-        int successCount = 0;
-        for (int i = 0; i < count; i++)
-        {
-            if (CastMagicSpell(magicID))
-                successCount++;
-        }
-        
-        return successCount > 0;
-    }
-    
     // ============================================================
     // HOOK IMPLEMENTATIONS
     // ============================================================
@@ -534,7 +490,7 @@ public unsafe class MagicCastApi
     {
         if (!_hasMagicContext)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Captured Magic Context (a1=0x{a1:X})", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Captured Magic Context (a1=0x{a1:X})", _logger.ColorGreen);
         }
         
         _castMagic_a1 = a1;
@@ -561,7 +517,7 @@ public unsafe class MagicCastApi
                     // If the callback returns true, we suppress the projectile by returning 0
                     if (OnChargedShotDetected(activeEikon, magicManagerPtr, projectileDataPtr))
                     {
-                        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Suppressing Charged Shot projectile for Eikon {activeEikon}", _logger.ColorYellow);
+                        _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Suppressing Charged Shot projectile for Eikon {activeEikon}", _logger.ColorYellow);
                         return (char)0;
                     }
                 }
@@ -1011,7 +967,7 @@ public unsafe class MagicCastApi
         _setupMagic_actionID = 0;
         _setupMagic_flag = 0;
         
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicCastApi] Reset", _logger.ColorYellow);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Reset", _logger.ColorYellow);
     }
     
     /// <summary>

@@ -1,6 +1,7 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
 using NenTools.ImGui.Interfaces;
@@ -95,8 +96,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
-    private MagicCastApi _magicCastApi;
-    private MagicInjectionApi _magicInjectionApi;
+    private MagicGameSystem _magicGameSystem;
+    private MagicApi _magicApi;
     private PlayerApi _playerApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
@@ -151,19 +152,19 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private void SetupGameApis()
     {
-        // Initialize MagicCastApi (handles all magic projectile spawning)
-        _magicCastApi = new MagicCastApi(_logger, _modConfig, _configuration, _startupScanner);
-        // Setup MagicCastApi callbacks
-        _magicCastApi.GetActiveEikon = GetActiveEikon;
+        // Initialize MagicGameSystem (handles all magic projectile spawning)
+        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner);
+        // Setup MagicGameSystem callbacks
+        _magicGameSystem.GetActiveEikon = GetActiveEikon;
 
-        // Initialize MagicInjectionApi
-        _magicInjectionApi = new MagicInjectionApi(_logger, _modConfig.ModId, _magicCastApi);
+        // Initialize MagicApi
+        _magicApi = new MagicApi(_logger, _modConfig.ModId, _magicGameSystem);
         
         // Load Dia modifications
         string modDir = _modLoader.GetDirectoryForModId(_modConfig.ModId);
         string diaModPath = Path.Combine(modDir, "Eikon", "Bahamut", "Diara", "DiaModifications.json");
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicInjectionApi] Attempting to load modifications from: {diaModPath}", _logger.ColorYellow);
-        _magicInjectionApi.LoadModifications("DiaModified", diaModPath);
+        _logger.WriteLine($"[{_modConfig.ModId}] [MagicApi] Attempting to load modifications from: {diaModPath}", _logger.ColorYellow);
+        _magicApi.LoadModifications("DiaModified", diaModPath);
 
         // Initialize PlayerApi (handles all player-related information)
         _playerApi = new PlayerApi(_logger, _modConfig);
@@ -219,17 +220,12 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _diaraSystem.DebugLogging = _configuration.DebugLogging;
-        // Connect MagicCastApi to DiaraSystem for direct projectile spawning
-        _diaraSystem.SetMagicCastApi(_magicCastApi);
-        // Connect MagicInjectionApi for modified casts
-        _diaraSystem.SetMagicInjectionApi(_magicInjectionApi);
+        // Connect MagicApi for all magic operations
+        _diaraSystem.SetMagicApi(_magicApi);
+        
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
-        _magicCastApi.OnChargedShotDetected = (eikon, mgr, proj) => 
-        {
-            // Delegate to DiaraSystem for Bahamut charged shot handling
-            return _diaraSystem.OnChargedShotCast(eikon);
-        };
+        
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
         
@@ -368,11 +364,11 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
         
-        // Initialize MagicCastApi hooks (MagicExecute, CastMagic)
-        _magicCastApi.SetupScans(scans, _hooks!);
+        // Initialize MagicGameSystem hooks (MagicExecute, CastMagic)
+        _magicGameSystem.SetupScans(scans, _hooks!);
         
         // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
-        _magicCastApi.InitializeUniversalMagicHooks(_hooks!);
+        _magicGameSystem.InitializeUniversalMagicHooks(_hooks!);
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
@@ -380,7 +376,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaSystem.Reset();
         _diaraSystem.Reset();
         _darkraSystem.Reset();
-        _magicCastApi.Reset();
+        _magicGameSystem.Reset();
         _currentEikonMode = 0;
         
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
@@ -509,7 +505,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaraSystem.Update();
         
         // Process perfect dodge through Diara system
-        // DiaraSystem now handles projectile spawning directly via MagicCastApi
+        // DiaraSystem handles projectile spawning via MagicApi
         _diaraSystem.OnPerfectDodge();
         
         return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
@@ -641,10 +637,10 @@ public class TrulyEikonicSpellsMod : ModBase
             _physicsApi.UpdateConfiguration(configuration);
         }
 
-        // Update MagicCastApi settings
-        if (_magicCastApi != null)
+        // Update MagicApi settings (which updates internal system)
+        if (_magicApi != null)
         {
-            _magicCastApi.UpdateConfiguration(configuration);
+            _magicApi.UpdateConfiguration(configuration);
         }
         
         _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);
