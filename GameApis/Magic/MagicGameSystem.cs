@@ -169,6 +169,9 @@ internal unsafe class MagicGameSystem
         _configuration = configuration;
         _scanner = scanner;
         
+        // Initialize operation names from metadata
+        _operationNames = MagicOperations.GetDefaultNames();
+
         // Allocate buffers
         _magicStructBuffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
         
@@ -531,69 +534,7 @@ internal unsafe class MagicGameSystem
     // INTERNAL HELPERS
     // ============================================================
     
-    private readonly Dictionary<long, string> _operationNames = new()
-    {
-        { 0x7FF6C7A69EA0, "Operation_35 (Duration)" },
-        { 0x7FF6C7A695D8, "Operation_25" },
-        { 0x7FF6C7A69958, "Operation_94" },
-        { 0x7FF6C7A69798, "Operation_87" },
-        { 0x7FF6C7A684E8, "Operation_1841" },
-        { 0x7FF6C7A69F80, "Operation_101" },
-        { 0x7FF6C7A6A060, "Operation_183" },
-        { 0x7FF6C7A69B18, "Operation_139" },
-        { 0x7FF6C7A6A988, "Operation_4448" },
-        { 0x7FF6C7A6A230, "Operation_50" },
-        { 0x7FF6C7A6A310, "Operation_108" },
-        { 0x7FF6C7A68960, "Operation_1587" },
-        { 0x7FF6C7A67FA0, "Operation_2855" },
-        { 0x7FF6C79D9860, "Operation_3790" },
-        { 0x7FF6C79D9780, "Operation_3771" },
-        { 0x7FF6C7A68080, "Operation_3847" },
-        { 0x7FF6C7A68320, "Operation_39" },
-        { 0x7FF6C79D8178, "Operation_6460" },
-        { 0x7FF6C7A67C18, "Operation_4553" },
-        { 0x7FF6C7A67DD8, "Operation_4446" },
-    };
-
-    private readonly Dictionary<int, string> _propertyNames = new()
-    {
-        
-        { 2, "??? - int"},
-        { 8, "Speed - float" },
-        // value:  0 = use target, 1 = not use target
-        { 13, "Calculate target trajectory - bool" },
-        { 14, "Pi value - float" },
-        // Positive values = downwards, negative = upwards
-        // Only works if Calculate target trajectory is 0
-        { 22, "Vertical Angle Degrees offset - float" },
-        // value: 0 = no, 1 = yes
-        { 30, "Disappear after duration? - bool" },
-        { 31, "Scale projectile body (default=1.0) - float"},
-        { 35, "Duration (s) - float" },
-        // value: 76 = impacts with map geometry, 260 = no longer impacts with map geometry
-        { 36, "Hitbox Behaviour ID? - int" },
-        { 41, "Hitbox Behaviour Impact ID? - int" },
-        { 42, "Hitbox/Attachment Size? - float" },
-        // - 0 = ?
-        // - 1 = Targeted Actor
-        // - 2 = Source Body Part (Eid Id, specified by Prop 81)
-        // - 3 = Source Position (Center)
-        // - 4 = ?
-        // - 5 = Layout Instance ID (specified by Prop 1458)
-        // - 6 = ? (prop 84 is used?)
-        // - 7 = ? (Targeted Actor but with a twist)
-        { 73, "Location spawn type ID - int"},
-        // Collection of effects and sound for eg. 1008 shiva projectile impact
-        // But also spawns projectiles on some IDs e.g. 1007
-        { 89, "VFX ID? - int"},
-        // values: 2=parabola, 3= infinite looking orbit around source, 4=stationary at source (or don't work?)
-        { 187, "Type of trayectory ID - int"},
-        { 2227, "??? - int"},
-        { 2430 , "Trajectory variables - vec3"},
-        { 2351 , "Unknown variable - float"},
-        // value: can be positive or negative float
-        { 2593, "Trayectory intensity curve strength - float"},
-    };
+    private readonly Dictionary<long, string> _operationNames;
 
     private long OperationFactoryImpl(long a1, int opType, long a3)
     {
@@ -916,23 +857,41 @@ internal unsafe class MagicGameSystem
         }
 
         // LOGGING
-        // Highlight known properties
-        string propName = "";
-        if (_propertyNames.TryGetValue(propertyId, out string? name))
+        if (MagicProperties.Definitions.TryGetValue(propertyId, out var info))
         {
-            propName = $" ({name})";
-        }
-
-        if (activeEntry != null && activeEntry.UseVec3)
-        {
-            Vector3 v = *(Vector3*)valuePtr;
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId}{propName}: Vec3=({v.X:F4}, {v.Y:F4}, {v.Z:F4})", _logger.ColorBlue);
+            string valStr = "";
+            switch (info.Type)
+            {
+                case MagicPropertyType.Float:
+                    valStr = $"float={*(float*)valuePtr:F4}";
+                    break;
+                case MagicPropertyType.Int:
+                    valStr = $"int={*(int*)valuePtr} (0x{*(int*)valuePtr:X})";
+                    break;
+                case MagicPropertyType.Bool:
+                    valStr = $"bool={(*(int*)valuePtr != 0)}";
+                    break;
+                case MagicPropertyType.Vec3Float:
+                    var v = *(Vector3*)valuePtr;
+                    valStr = $"vec3<f>=({v.X:F4}, {v.Y:F4}, {v.Z:F4})";
+                    break;
+                case MagicPropertyType.Vec3Int:
+                    int* iv = (int*)valuePtr;
+                    valStr = $"vec3<i>=({iv[0]}, {iv[1]}, {iv[2]})";
+                    break;
+            }
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} ({info.Name}): {valStr}", _logger.ColorBlue);
         }
         else
         {
+            // Unidentified: log all possible types to help identification
             float fVal = *(float*)valuePtr;
             int iVal = *(int*)valuePtr;
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId}{propName}: float={fVal:F4}, int={iVal} (0x{iVal:X})", _logger.ColorBlue);
+            var v = *(Vector3*)valuePtr;
+            int* iVec = (int*)valuePtr;
+            
+            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} (UNKNOWN): " +
+                $"int={iVal}, float={fVal:F4}, vec3<f>=({v.X:F4}, {v.Y:F4}, {v.Z:F4}), vec3<i>=({iVec[0]}, {iVec[1]}, {iVec[2]})", _logger.ColorYellow);
         }
 
         // Execute original function with the (potentially fuzzed) value

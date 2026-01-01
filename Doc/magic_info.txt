@@ -1,0 +1,3242 @@
+//----------------- Operation Info
+# Operation 1
+Uses properties: 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 2211, 2296, 2351, 2368, 2856, 3513, 3544, 3605, 3606, 3722, 4094, 4101, 4102, 4128, 6484, 6776, 6825, 6826, 6988
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007_1001.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5851/magic/c5851.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 25
+Uses properties: 2, 27, 28, 29, 30, 31, 32, 33, 34, 81, 1231, 1232, 2359, 2798, 2799, 4101, 4243, 4244, 5959, 6056, 7791, 7813
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5851/magic/c5851.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 35
+Uses properties: 35, 36, 37, 38, 1417
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007_1001.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5808/magic/c5808.magic
+  - chara/c5851/magic/c5851.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 39
+Uses properties: 39, 1503, 4785
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5851/magic/c5851.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 40
+Uses properties: 2, 32, 35, 41, 42, 43, 44, 45, 46, 47, 48, 49, 1123, 2227, 2430, 4132, 5274, 5275
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007_1001.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5808/magic/c5808.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 50
+Uses properties: 2, 41, 42, 45, 47
+Used by:
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5005/magic/c5005_101.magic
+
+# Operation 51
+Uses properties: 2, 12, 14, 26, 32, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71, 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 84, 85, 114, 185, 1102, 1286, 1433, 1434, 1458, 1484, 1657, 2396, 2397, 3916, 3938, 4010, 4011, 4101, 4102, 4103, 4136, 4142, 4143, 4144, 5119, 5945, 6202, 6383, 6596, 6600, 6913, 7037, 7811
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c5808/magic/c5808.magic
+  - chara/c5851/magic/c5851.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 86
+Uses properties: 26, 84
+Used by:
+  - chara/c5022/magic/c5022.magic
+
+# Operation 87
+Uses properties: 31, 34, 53, 89, 2359, 4102, 6056
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 92
+Uses properties: 2, 39, 70, 74, 75, 76, 93, 1791, 3721, 3746, 3747, 6745
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 94
+Uses properties: 2, 95, 96, 97, 98, 99, 1432, 1833, 1834, 1957, 4327, 4343, 4387, 4785, 4786, 5671, 6137, 7099, 7231
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6004/magic/c6004.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 108
+Uses properties: 3, 6, 8, 9, 11, 47
+Used by:
+  - chara/c5003/magic/c5003.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5022/magic/c5022.magic
+
+# Operation 109
+Uses properties: 2, 110, 4402, 4774, 6107
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007_1001.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+
+# Operation 111
+Uses properties: 2, 31, 112, 113, 114
+Used by:
+  - chara/c2001/magic/c2001.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c6002/magic/c6002_2.magic
+
+# Operation 128
+Uses properties: 2, 8, 15, 47, 69, 129, 130, 131, 132, 3907, 4277
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6003/magic/c6003.magic
+
+# Operation 135
+Uses properties: 2, 70, 114, 134, 136, 1341, 1649, 2153, 2311, 2420, 4135, 4258, 5642, 5947, 6170, 6685
+Used by:
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5808/magic/c5808.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 139
+Uses properties: 2, 23, 42, 43, 114, 140, 3349, 4128
+Used by:
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 144
+Uses properties: 14, 23, 26, 42, 74, 75, 81, 145
+Used by:
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c6001/magic/c6001_4.magic
+
+# Operation 151
+Uses properties: 74, 75, 93, 102
+Used by:
+  - chara/c6002/magic/c6002_2.magic
+
+# Operation 153
+Uses properties: 2, 32, 65, 74, 75, 102, 2919, 2920, 2921
+Used by:
+  - chara/c6002/magic/c6002_2.magic
+
+# Operation 171
+Uses properties: 8, 9, 10, 11, 23, 145, 172, 175, 1793, 1794, 1796, 4060, 4128, 4296
+Used by:
+  - chara/c5028/magic/c5028.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 182
+Uses properties: 134, 136, 3785, 3802, 6179, 6184
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c5028/magic/c5028.magic
+
+# Operation 183
+Uses properties: 26, 81
+Used by:
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c6002/magic/c6002_2.magic
+
+# Operation 788
+Uses properties: 2, 29, 41, 42, 69, 73, 81, 105, 997, 1025, 1026, 1490, 1807, 1959, 1994, 1997, 1999, 2000, 2259, 2260, 2319, 2528, 2529, 3078, 3079, 3362, 3363, 3658, 3659, 3681, 3872, 3906, 3970, 4132, 4427, 4509, 4829, 5125, 5274, 5275, 6299, 6376, 7121
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5005/magic/c5005_2.magic
+  - chara/c5007/magic/c5007_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5808/magic/c5808.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+
+# Operation 798
+Uses properties: 110, 188
+Used by:
+  - chara/c5023/magic/c5023.magic
+  - chara/c6007/magic/c6007.magic
+
+# Operation 1470
+Uses properties: 2, 8, 9, 11, 93, 188
+Used by:
+  - chara/c5022/magic/c5022.magic
+  - chara/c5026/magic/c5026_101.magic
+
+# Operation 1562
+Uses properties: 2, 42, 114
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+
+# Operation 1587
+Uses properties: 15, 24, 26, 32, 66, 1286, 1433, 2906, 4102, 4278, 4279
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c6007/magic/c6007_golden.magic
+
+# Operation 1623
+Uses properties: 8, 1818, 6270, 6271, 6272, 6273, 6274, 6275
+Used by:
+  - chara/c6004/magic/c6004_2.magic
+
+# Operation 1685
+Uses properties: 32, 42, 43, 1688
+Used by:
+  - chara/c6012/magic/c6012.magic
+
+# Operation 1825
+Uses properties: 2061, 2062, 2063, 2064, 2065, 2066, 2067, 2068, 2069, 3791, 5989, 7799
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 1841
+Uses properties: 2, 32, 42, 43, 44, 45, 46, 47, 48, 49, 114, 2430, 2575
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2004/magic/c2004.magic
+  - chara/c2006/magic/c2006.magic
+  - chara/c2007/magic/c2007.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5002/magic/c5002.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5003/magic/c5003.magic
+  - chara/c5004/magic/c5004.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5007/magic/c5007.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5011/magic/c5011.magic
+  - chara/c5012/magic/c5012.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5020/magic/c5020.magic
+  - chara/c5021/magic/c5021_1001.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c5102/magic/c5102.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 1842
+Uses properties: 2, 32, 42, 43, 45, 46, 47, 48, 114, 2430, 2575
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5015/magic/c5015_1001.magic
+  - chara/c5015/magic/c5015.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6013/magic/c6013.magic
+
+# Operation 2325
+Uses properties: 8, 32, 35, 47, 48, 75, 93, 147, 148, 149, 150, 2413, 2414, 3848, 3907
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 2366
+Uses properties: 81, 105, 1341, 2367
+Used by:
+  - chara/c5808/magic/c5808.magic
+  - chara/c6007/magic/c6007.magic
+
+# Operation 2493
+Uses properties: 2, 8, 187, 2351, 2430, 2593, 7691
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c5003/magic/c5003_201.magic
+
+# Operation 2592
+Uses properties: 35, 42, 43, 102, 148, 149, 150, 1686, 1688, 1793
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 2598
+Uses properties: 102, 2599, 2630
+Used by:
+  - chara/c5015/magic/c5015.magic
+  - chara/c5022/magic/c5022.magic
+
+# Operation 2855
+Uses properties: 15, 23, 79, 2857, 2859, 2860, 3171, 3172, 3497, 3498, 3499, 4002, 4014, 5841
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2002/magic/c2002.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 3070
+Uses properties: 75, 117, 3077, 3113, 3114, 3115, 3116, 3694, 3695, 3696
+Used by:
+  - chara/c5025/magic/c5025.magic
+
+# Operation 3176
+Uses properties: 3176, 4071, 7102
+Used by:
+  - chara/c5009/magic/c5009.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5032/magic/c5032.magic
+
+# Operation 3270
+Uses properties: 8, 46, 102
+Used by:
+  - chara/c5027/magic/c5027.magic
+
+# Operation 3294
+Uses properties: 26, 31, 32, 132
+Used by:
+  - chara/c5024/magic/c5024.magic
+  - chara/c5028/magic/c5028.magic
+
+# Operation 3433
+Uses properties: 2, 3434, 3440, 3441, 3608, 3609, 3691, 3692, 3693, 5142, 5143, 5685, 5799
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c6001/magic/c6001_2.magic
+  - chara/c6001/magic/c6001_3.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6004/magic/c6004_2.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+
+# Operation 3436
+Uses properties: 102
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 3515
+Uses properties: 3, 8, 9, 11, 12, 28, 122, 123, 2413, 3903, 4008
+Used by:
+  - chara/c5024/magic/c5024.magic
+
+# Operation 3558
+Uses properties: 42, 140
+Used by:
+  - chara/c6007/magic/c6007.magic
+
+# Operation 3586
+Uses properties: 2, 32, 46, 81, 102, 110, 148, 2599
+Used by:
+  - chara/c5027/magic/c5027.magic
+
+# Operation 3643
+Uses properties: 2, 8, 32, 35, 42, 47, 68, 74, 75, 81, 102, 117, 2060, 4107, 4436, 6287, 6459, 6831
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 3660
+Uses properties: 32, 74, 102, 2318
+Used by:
+  - chara/c5014/magic/c5014_1001.magic
+
+# Operation 3771
+Uses properties: 2, 3, 4, 5, 8, 37, 74, 75, 117, 3440, 3441, 3608, 6339, 6340, 6471, 6515, 6516
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 3781
+Uses properties: 32, 42, 68, 74, 75, 132, 3782
+Used by:
+  - chara/c5014/magic/c5014_1001.magic
+
+# Operation 3790
+Uses properties: 2, 8, 37, 96, 105, 1833, 2593, 3440
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 3847
+Uses properties: 2, 28, 30, 42, 3848, 3856, 4008, 4845, 4846, 4847, 4848
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2001/magic/c2001.magic
+  - chara/c2003/magic/c2003.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2024/magic/c2024.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c3010/magic/c3010.magic
+  - chara/c5001/magic/c5001_2.magic
+  - chara/c5001/magic/c5001.magic
+  - chara/c5003/magic/c5003_201.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5008/magic/c5008.magic
+  - chara/c5009/magic/c5009_jump.magic
+  - chara/c5009/magic/c5009.magic
+  - chara/c5010/magic/c5010_hammer.magic
+  - chara/c5010/magic/c5010.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5014/magic/c5014.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5016/magic/c5016.magic
+  - chara/c5017/magic/c5017.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5019/magic/c5019.magic
+  - chara/c5021/magic/c5021.magic
+  - chara/c5022/magic/c5022.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5026/magic/c5026.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5035/magic/c5035.magic
+  - chara/c5036/magic/c5036.magic
+  - chara/c5037/magic/c5037.magic
+  - chara/c6001/magic/c6001_4.magic
+  - chara/c6002/magic/c6002_2.magic
+  - chara/c6002/magic/c6002.magic
+  - chara/c6003/magic/c6003.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+  - chara/c6701/magic/c6701.magic
+
+# Operation 3877
+Uses properties: 3897, 3898, 3899, 3900, 3901
+Used by:
+  - chara/c6001/magic/c6001.magic
+  - chara/c6002/magic/c6002_2.magic
+
+# Operation 3910
+Uses properties: 26, 117, 3912
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c5003/magic/c5003_201.magic
+
+# Operation 3940
+Uses properties: 75, 3434, 3441, 5034
+Used by:
+  - chara/c6007/magic/c6007.magic
+
+# Operation 3941
+Uses properties: 46, 4165
+Used by:
+  - chara/c5019/magic/c5019.magic
+
+# Operation 4015
+Uses properties: 2, 18, 26, 32, 47, 48, 64, 69, 74, 75, 1484, 2430, 3499, 3544, 3721, 4614, 5120, 5904
+Used by:
+  - chara/c5028/magic/c5028.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6007/magic/c6007.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 4106
+Uses properties: 2, 8, 9, 11, 23, 24, 41, 42, 46, 69, 81, 105, 1688, 1689, 1690, 1999, 2259, 2260, 3431, 3432, 3659, 3681, 3782, 4107, 4128, 4262, 4263, 4282, 4291, 4293, 4294, 4295, 4297, 4298, 4442, 4443, 4540, 4832, 4833
+Used by:
+  - chara/c6007/magic/c6007.magic
+
+# Operation 4274
+Uses properties: 3113, 3114, 3115, 3116, 3694, 4275, 4276
+Used by:
+  - chara/c5025/magic/c5025.magic
+
+# Operation 4344
+Uses properties: 8, 12, 24, 32, 79, 81, 132, 1432, 1999, 3078, 3606, 4277
+Used by:
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+
+# Operation 4446
+Uses properties: 42, 114, 4447
+Used by:
+  - chara/c1001/magic/c1001_101.magic
+  - chara/c1001/magic/c1001.magic
+  - chara/c2008/magic/c2008_101.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c5005/magic/c5005_101.magic
+  - chara/c5013/magic/c5013.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+  - chara/c5024/magic/c5024.magic
+  - chara/c5026/magic/c5026_101.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5032/magic/c5032.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c6007/magic/c6007_golden.magic
+  - chara/c6014/magic/c6014.magic
+
+# Operation 4448
+Uses properties: 2, 32, 35, 41, 42, 45, 47, 49, 1123, 2227, 5274, 5275
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c2001/magic/c2001_2.magic
+  - chara/c2031/magic/c2031.magic
+  - chara/c5009/magic/c5009_1001.magic
+  - chara/c5016/magic/c5016_frostbomb.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c5032/magic/c5032_2.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c6003/magic/c6003.magic
+
+# Operation 4516
+Uses properties: 147
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 4553
+Uses properties: 42
+Used by:
+  - chara/c1001/magic/c1001.magic
+  - chara/c5001/magic/c5001.magic
+
+# Operation 4784
+Uses properties: 8, 9, 24, 28, 30, 41, 42, 43, 52, 53, 75, 78, 81, 89, 102, 104, 105, 109, 148, 188, 995, 2060, 3722, 3848, 3856, 4277, 4846
+Used by:
+  - chara/c5018/magic/c5018_2.magic
+
+# Operation 4828
+Uses properties: 20, 23, 30, 41, 52, 71, 89, 105, 106, 119, 132, 172, 187, 1123, 1490, 1688, 1689, 1690, 2060, 2856, 3431, 3659, 5747, 5932, 5958
+Used by:
+  - chara/c5018/magic/c5018.magic
+
+# Operation 4998
+Uses properties: 26, 42, 74, 75, 4999, 5000, 6115
+Used by:
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5033/magic/c5033.magic
+  - chara/c5036/magic/c5036.magic
+
+# Operation 5035
+Uses properties: 2, 35, 41, 42, 46, 49, 52, 53, 54, 3078, 3362, 5036, 5037, 5038, 5039, 5040, 5041
+Used by:
+  - chara/c5027/magic/c5027.magic
+
+# Operation 5059
+Uses properties: 35
+Used by:
+  - chara/c5027/magic/c5027.magic
+
+# Operation 5068
+Uses properties: 3434, 3440, 3441, 3608, 3609, 3691
+Used by:
+  - chara/c5018/magic/c5018_2.magic
+  - chara/c5018/magic/c5018.magic
+
+# Operation 5133
+Uses properties: 2, 46, 48, 3848, 3856, 6135
+Used by:
+  - chara/c2031/magic/c2031.magic
+  - chara/c5006/magic/c5006.magic
+  - chara/c5014/magic/c5014_1001.magic
+  - chara/c5023/magic/c5023.magic
+  - chara/c5025/magic/c5025.magic
+  - chara/c5027/magic/c5027.magic
+  - chara/c5028/magic/c5028.magic
+  - chara/c6013/magic/c6013_3.magic
+  - chara/c6013/magic/c6013.magic
+  - chara/c6014/magic/c6014.magic
+
+# Operation 5207
+Uses properties: 26, 42, 75
+Used by:
+  - chara/c5036/magic/c5036.magic
+
+# Operation 5224
+Uses properties: 42, 188
+Used by:
+  - chara/c5028/magic/c5028.magic
+  - chara/c5036/magic/c5036.magic
+
+# Operation 5321
+Uses properties: 2, 23, 26, 32, 73, 74, 75, 5322, 5324, 5325, 5326, 5327, 5355, 5356, 5525
+Used by:
+  - chara/c6007/magic/c6007_golden.magic
+
+# Operation 5476
+Uses properties: 32, 93, 5838, 5839
+Used by:
+  - chara/c6007/magic/c6007_golden.magic
+
+# Operation 5643
+Uses properties: 8, 9, 11, 41, 42, 44, 105, 3659, 5683, 5684, 6053, 6087, 6088, 6089, 6090, 6180
+Used by:
+  - chara/c5028/magic/c5028.magic
+  - chara/c6012/magic/c6012.magic
+
+# Operation 5722
+Uses properties: 32, 42, 43, 44, 45, 46, 48, 114, 2430
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 5964
+Uses properties: 8, 9, 11, 23, 25, 32, 41, 42, 93, 109, 3659, 3782, 4999, 5000, 5970, 5971, 5972, 5973, 5974, 6087, 6088, 6203, 6204, 6257, 6276, 6277
+Used by:
+  - chara/c5028/magic/c5028.magic
+
+# Operation 6024
+Uses properties: 26, 74, 75, 117, 6050, 6208
+Used by:
+  - chara/c5028/magic/c5028.magic
+
+# Operation 6118
+Uses properties: 26, 42, 74, 75, 6119, 6120, 6121, 6122
+Used by:
+  - chara/c5028/magic/c5028.magic
+
+# Operation 6264
+Uses properties: 6265
+Used by:
+  - chara/c5028/magic/c5028.magic
+
+# Operation 6453
+Uses properties: 12, 4101, 4102
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 6460
+Uses properties: 35, 6459
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 6473
+Uses properties: 6474, 6475
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 6846
+Uses properties: 6851, 6925, 6926, 6927, 6928
+Used by:
+  - chara/c5032/magic/c5032_2.magic
+
+# Operation 6931
+Uses properties: 12, 42, 75, 102, 4101, 4102, 5838
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 6942
+Uses properties: 2, 41, 42, 81, 105, 997, 3078, 3362
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 7038
+Uses properties: 1, 7039
+Used by:
+  - chara/c2031/magic/c2031.magic
+
+# Operation 7584
+Uses properties: 12, 42, 47, 74, 117, 4101, 4102, 5274, 5275, 7585, 7586, 7587, 7588, 7812
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 7732
+Uses properties: 2, 47, 74
+Used by:
+  - chara/c5005/magic/c5005_101.magic
+
+# Operation 7771
+Uses properties: 12, 117, 4101, 4102
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+# Operation 7801
+Uses properties: 2061, 2062, 2063, 2064, 2065, 2066, 2067, 2068, 2069, 3791, 5989, 6454
+Used by:
+  - chara/c2002/magic/c2002.magic
+
+# Operation 7808
+Uses properties: 4101, 4102, 7809
+Used by:
+  - chara/c1001/magic/c1001.magic
+
+
+//----------------- Property Info
+Prop 1 used by ops: 7038
+Prop 2 used by ops: 1, 25, 40, 50, 51, 92, 94, 109, 111, 128, 135, 139, 153, 788, 1470, 1562, 1841, 1842, 2493, 3433, 3586, 3643, 3771, 3790, 3847, 4015, 4106, 4448, 5035, 5133, 5321, 6942, 7732
+Prop 3 used by ops: 1, 108, 3515, 3771
+Prop 4 used by ops: 1, 3771
+Prop 5 used by ops: 1, 3771
+Prop 6 used by ops: 1, 108
+Prop 7 used by ops: 1
+Prop 8 used by ops: 1, 108, 128, 171, 1470, 1623, 2325, 2493, 3270, 3515, 3643, 3771, 3790, 4106, 4344, 4784, 5643, 5964
+Prop 9 used by ops: 1, 108, 171, 1470, 3515, 4106, 4784, 5643, 5964
+Prop 10 used by ops: 1, 171
+Prop 11 used by ops: 1, 108, 171, 1470, 3515, 4106, 5643, 5964
+Prop 12 used by ops: 1, 51, 3515, 4344, 6453, 6931, 7584, 7771
+Prop 13 used by ops: 1
+Prop 14 used by ops: 1, 51, 144
+Prop 15 used by ops: 1, 128, 1587, 2855
+Prop 16 used by ops: 1
+Prop 17 used by ops: 1
+Prop 18 used by ops: 1, 4015
+Prop 19 used by ops: 1
+Prop 20 used by ops: 1, 4828
+Prop 21 used by ops: 1
+Prop 22 used by ops: 1
+Prop 23 used by ops: 1, 139, 144, 171, 2855, 4106, 4828, 5321, 5964
+Prop 24 used by ops: 1, 1587, 4106, 4344, 4784
+Prop 25 used by ops: 5964
+Prop 26 used by ops: 51, 86, 144, 183, 1587, 3294, 3910, 4015, 4998, 5207, 5321, 6024, 6118
+Prop 27 used by ops: 25
+Prop 28 used by ops: 25, 3515, 3847, 4784
+Prop 29 used by ops: 25, 788
+Prop 30 used by ops: 25, 3847, 4784, 4828
+Prop 31 used by ops: 25, 87, 111, 3294
+Prop 32 used by ops: 25, 40, 51, 153, 1587, 1685, 1841, 1842, 2325, 3294, 3586, 3643, 3660, 3781, 4015, 4344, 4448, 5321, 5476, 5722, 5964
+Prop 33 used by ops: 25
+Prop 34 used by ops: 25, 87
+Prop 35 used by ops: 35, 40, 2325, 2592, 3643, 4448, 5035, 5059, 6460
+Prop 36 used by ops: 35
+Prop 37 used by ops: 35, 3771, 3790
+Prop 38 used by ops: 35
+Prop 39 used by ops: 39, 92
+Prop 41 used by ops: 40, 50, 788, 4106, 4448, 4784, 4828, 5035, 5643, 5964, 6942
+Prop 42 used by ops: 40, 50, 139, 144, 788, 1562, 1685, 1841, 1842, 2592, 3558, 3643, 3781, 3847, 4106, 4446, 4448, 4553, 4784, 4998, 5035, 5207, 5224, 5643, 5722, 5964, 6118, 6931, 6942, 7584
+Prop 43 used by ops: 40, 139, 1685, 1841, 1842, 2592, 4784, 5722
+Prop 44 used by ops: 40, 1841, 5643, 5722
+Prop 45 used by ops: 40, 50, 1841, 1842, 4448, 5722
+Prop 46 used by ops: 40, 1841, 1842, 3270, 3586, 3941, 4106, 5035, 5133, 5722
+Prop 47 used by ops: 40, 50, 108, 128, 1841, 1842, 2325, 3643, 4015, 4448, 7584, 7732
+Prop 48 used by ops: 40, 1841, 1842, 2325, 4015, 5133, 5722
+Prop 49 used by ops: 40, 1841, 4448, 5035
+Prop 52 used by ops: 51, 4784, 4828, 5035
+Prop 53 used by ops: 51, 87, 4784, 5035
+Prop 54 used by ops: 51, 5035
+Prop 55 used by ops: 51
+Prop 56 used by ops: 51
+Prop 57 used by ops: 51
+Prop 58 used by ops: 51
+Prop 59 used by ops: 51
+Prop 60 used by ops: 51
+Prop 61 used by ops: 51
+Prop 62 used by ops: 51
+Prop 63 used by ops: 51
+Prop 64 used by ops: 51, 4015
+Prop 65 used by ops: 51, 153
+Prop 66 used by ops: 51, 1587
+Prop 68 used by ops: 51, 3643, 3781
+Prop 69 used by ops: 51, 128, 788, 4015, 4106
+Prop 70 used by ops: 51, 92, 135
+Prop 71 used by ops: 51, 4828
+Prop 72 used by ops: 51
+Prop 73 used by ops: 51, 788, 5321
+Prop 74 used by ops: 51, 92, 144, 151, 153, 3643, 3660, 3771, 3781, 4015, 4998, 5321, 6024, 6118, 7584, 7732
+Prop 75 used by ops: 51, 92, 144, 151, 153, 2325, 3070, 3643, 3771, 3781, 3940, 4015, 4784, 4998, 5207, 5321, 6024, 6118, 6931
+Prop 76 used by ops: 51, 92
+Prop 78 used by ops: 51, 4784
+Prop 79 used by ops: 51, 2855, 4344
+Prop 80 used by ops: 51
+Prop 81 used by ops: 25, 51, 144, 183, 788, 2366, 3586, 3643, 4106, 4344, 4784, 6942
+Prop 82 used by ops: 51
+Prop 84 used by ops: 51, 86
+Prop 85 used by ops: 51
+Prop 89 used by ops: 87, 4784, 4828
+Prop 93 used by ops: 92, 151, 1470, 2325, 5476, 5964
+Prop 95 used by ops: 94
+Prop 96 used by ops: 94, 3790
+Prop 97 used by ops: 94
+Prop 98 used by ops: 94
+Prop 99 used by ops: 94
+Prop 102 used by ops: 151, 153, 2592, 2598, 3270, 3436, 3586, 3643, 3660, 4784, 6931
+Prop 104 used by ops: 4784
+Prop 105 used by ops: 788, 2366, 3790, 4106, 4784, 4828, 5643, 6942
+Prop 106 used by ops: 4828
+Prop 109 used by ops: 4784, 5964
+Prop 110 used by ops: 109, 798, 3586
+Prop 112 used by ops: 111
+Prop 113 used by ops: 111
+Prop 114 used by ops: 51, 111, 135, 139, 1562, 1841, 1842, 4446, 5722
+Prop 117 used by ops: 3070, 3643, 3771, 3910, 6024, 7584, 7771
+Prop 119 used by ops: 4828
+Prop 122 used by ops: 3515
+Prop 123 used by ops: 3515
+Prop 129 used by ops: 128
+Prop 130 used by ops: 128
+Prop 131 used by ops: 128
+Prop 132 used by ops: 128, 3294, 3781, 4344, 4828
+Prop 134 used by ops: 135, 182
+Prop 136 used by ops: 135, 182
+Prop 140 used by ops: 139, 3558
+Prop 145 used by ops: 144, 171
+Prop 147 used by ops: 2325, 4516
+Prop 148 used by ops: 2325, 2592, 3586, 4784
+Prop 149 used by ops: 2325, 2592
+Prop 150 used by ops: 2325, 2592
+Prop 172 used by ops: 171, 4828
+Prop 175 used by ops: 171
+Prop 185 used by ops: 51
+Prop 187 used by ops: 2493, 4828
+Prop 188 used by ops: 798, 1470, 4784, 5224
+Prop 995 used by ops: 4784
+Prop 997 used by ops: 788, 6942
+Prop 1025 used by ops: 788
+Prop 1026 used by ops: 788
+Prop 1102 used by ops: 51
+Prop 1123 used by ops: 40, 4448, 4828
+Prop 1231 used by ops: 25
+Prop 1232 used by ops: 25
+Prop 1286 used by ops: 51, 1587
+Prop 1341 used by ops: 135, 2366
+Prop 1417 used by ops: 35
+Prop 1432 used by ops: 94, 4344
+Prop 1433 used by ops: 51, 1587
+Prop 1434 used by ops: 51
+Prop 1458 used by ops: 51
+Prop 1484 used by ops: 51, 4015
+Prop 1490 used by ops: 788, 4828
+Prop 1503 used by ops: 39
+Prop 1649 used by ops: 135
+Prop 1657 used by ops: 51
+Prop 1686 used by ops: 2592
+Prop 1688 used by ops: 1685, 2592, 4106, 4828
+Prop 1689 used by ops: 4106, 4828
+Prop 1690 used by ops: 4106, 4828
+Prop 1791 used by ops: 92
+Prop 1793 used by ops: 171, 2592
+Prop 1794 used by ops: 171
+Prop 1796 used by ops: 171
+Prop 1807 used by ops: 788
+Prop 1818 used by ops: 1623
+Prop 1833 used by ops: 94, 3790
+Prop 1834 used by ops: 94
+Prop 1957 used by ops: 94
+Prop 1959 used by ops: 788
+Prop 1994 used by ops: 788
+Prop 1997 used by ops: 788
+Prop 1999 used by ops: 788, 4106, 4344
+Prop 2000 used by ops: 788
+Prop 2060 used by ops: 3643, 4784, 4828
+Prop 2061 used by ops: 1825, 7801
+Prop 2062 used by ops: 1825, 7801
+Prop 2063 used by ops: 1825, 7801
+Prop 2064 used by ops: 1825, 7801
+Prop 2065 used by ops: 1825, 7801
+Prop 2066 used by ops: 1825, 7801
+Prop 2067 used by ops: 1825, 7801
+Prop 2068 used by ops: 1825, 7801
+Prop 2069 used by ops: 1825, 7801
+Prop 2153 used by ops: 135
+Prop 2211 used by ops: 1
+Prop 2227 used by ops: 40, 4448
+Prop 2259 used by ops: 788, 4106
+Prop 2260 used by ops: 788, 4106
+Prop 2296 used by ops: 1
+Prop 2311 used by ops: 135
+Prop 2318 used by ops: 3660
+Prop 2319 used by ops: 788
+Prop 2351 used by ops: 1, 2493
+Prop 2359 used by ops: 25, 87
+Prop 2367 used by ops: 2366
+Prop 2368 used by ops: 1
+Prop 2396 used by ops: 51
+Prop 2397 used by ops: 51
+Prop 2413 used by ops: 2325, 3515
+Prop 2414 used by ops: 2325
+Prop 2420 used by ops: 135
+Prop 2430 used by ops: 40, 1841, 1842, 2493, 4015, 5722
+Prop 2528 used by ops: 788
+Prop 2529 used by ops: 788
+Prop 2575 used by ops: 1841, 1842
+Prop 2593 used by ops: 2493, 3790
+Prop 2599 used by ops: 2598, 3586
+Prop 2630 used by ops: 2598
+Prop 2798 used by ops: 25
+Prop 2799 used by ops: 25
+Prop 2856 used by ops: 1, 4828
+Prop 2857 used by ops: 2855
+Prop 2859 used by ops: 2855
+Prop 2860 used by ops: 2855
+Prop 2906 used by ops: 1587
+Prop 2919 used by ops: 153
+Prop 2920 used by ops: 153
+Prop 2921 used by ops: 153
+Prop 3077 used by ops: 3070
+Prop 3078 used by ops: 788, 4344, 5035, 6942
+Prop 3079 used by ops: 788
+Prop 3113 used by ops: 3070, 4274
+Prop 3114 used by ops: 3070, 4274
+Prop 3115 used by ops: 3070, 4274
+Prop 3116 used by ops: 3070, 4274
+Prop 3171 used by ops: 2855
+Prop 3172 used by ops: 2855
+Prop 3176 used by ops: 3176
+Prop 3349 used by ops: 139
+Prop 3362 used by ops: 788, 5035, 6942
+Prop 3363 used by ops: 788
+Prop 3431 used by ops: 4106, 4828
+Prop 3432 used by ops: 4106
+Prop 3434 used by ops: 3433, 3940, 5068
+Prop 3440 used by ops: 3433, 3771, 3790, 5068
+Prop 3441 used by ops: 3433, 3771, 3940, 5068
+Prop 3497 used by ops: 2855
+Prop 3498 used by ops: 2855
+Prop 3499 used by ops: 2855, 4015
+Prop 3513 used by ops: 1
+Prop 3544 used by ops: 1, 4015
+Prop 3605 used by ops: 1
+Prop 3606 used by ops: 1, 4344
+Prop 3608 used by ops: 3433, 3771, 5068
+Prop 3609 used by ops: 3433, 5068
+Prop 3658 used by ops: 788
+Prop 3659 used by ops: 788, 4106, 4828, 5643, 5964
+Prop 3681 used by ops: 788, 4106
+Prop 3691 used by ops: 3433, 5068
+Prop 3692 used by ops: 3433
+Prop 3693 used by ops: 3433
+Prop 3694 used by ops: 3070, 4274
+Prop 3695 used by ops: 3070
+Prop 3696 used by ops: 3070
+Prop 3721 used by ops: 92, 4015
+Prop 3722 used by ops: 1, 4784
+Prop 3746 used by ops: 92
+Prop 3747 used by ops: 92
+Prop 3782 used by ops: 3781, 4106, 5964
+Prop 3785 used by ops: 182
+Prop 3791 used by ops: 1825, 7801
+Prop 3802 used by ops: 182
+Prop 3848 used by ops: 2325, 3847, 4784, 5133
+Prop 3856 used by ops: 3847, 4784, 5133
+Prop 3872 used by ops: 788
+Prop 3897 used by ops: 3877
+Prop 3898 used by ops: 3877
+Prop 3899 used by ops: 3877
+Prop 3900 used by ops: 3877
+Prop 3901 used by ops: 3877
+Prop 3903 used by ops: 3515
+Prop 3906 used by ops: 788
+Prop 3907 used by ops: 128, 2325
+Prop 3912 used by ops: 3910
+Prop 3916 used by ops: 51
+Prop 3938 used by ops: 51
+Prop 3970 used by ops: 788
+Prop 4002 used by ops: 2855
+Prop 4008 used by ops: 3515, 3847
+Prop 4010 used by ops: 51
+Prop 4011 used by ops: 51
+Prop 4014 used by ops: 2855
+Prop 4060 used by ops: 171
+Prop 4071 used by ops: 3176
+Prop 4094 used by ops: 1
+Prop 4101 used by ops: 1, 25, 51, 6453, 6931, 7584, 7771, 7808
+Prop 4102 used by ops: 1, 51, 87, 1587, 6453, 6931, 7584, 7771, 7808
+Prop 4103 used by ops: 51
+Prop 4107 used by ops: 3643, 4106
+Prop 4128 used by ops: 1, 139, 171, 4106
+Prop 4132 used by ops: 40, 788
+Prop 4135 used by ops: 135
+Prop 4136 used by ops: 51
+Prop 4142 used by ops: 51
+Prop 4143 used by ops: 51
+Prop 4144 used by ops: 51
+Prop 4165 used by ops: 3941
+Prop 4243 used by ops: 25
+Prop 4244 used by ops: 25
+Prop 4258 used by ops: 135
+Prop 4262 used by ops: 4106
+Prop 4263 used by ops: 4106
+Prop 4275 used by ops: 4274
+Prop 4276 used by ops: 4274
+Prop 4277 used by ops: 128, 4344, 4784
+Prop 4278 used by ops: 1587
+Prop 4279 used by ops: 1587
+Prop 4282 used by ops: 4106
+Prop 4291 used by ops: 4106
+Prop 4293 used by ops: 4106
+Prop 4294 used by ops: 4106
+Prop 4295 used by ops: 4106
+Prop 4296 used by ops: 171
+Prop 4297 used by ops: 4106
+Prop 4298 used by ops: 4106
+Prop 4327 used by ops: 94
+Prop 4343 used by ops: 94
+Prop 4387 used by ops: 94
+Prop 4402 used by ops: 109
+Prop 4427 used by ops: 788
+Prop 4436 used by ops: 3643
+Prop 4442 used by ops: 4106
+Prop 4443 used by ops: 4106
+Prop 4447 used by ops: 4446
+Prop 4509 used by ops: 788
+Prop 4540 used by ops: 4106
+Prop 4614 used by ops: 4015
+Prop 4774 used by ops: 109
+Prop 4785 used by ops: 39, 94
+Prop 4786 used by ops: 94
+Prop 4829 used by ops: 788
+Prop 4832 used by ops: 4106
+Prop 4833 used by ops: 4106
+Prop 4845 used by ops: 3847
+Prop 4846 used by ops: 3847, 4784
+Prop 4847 used by ops: 3847
+Prop 4848 used by ops: 3847
+Prop 4999 used by ops: 4998, 5964
+Prop 5000 used by ops: 4998, 5964
+Prop 5034 used by ops: 3940
+Prop 5036 used by ops: 5035
+Prop 5037 used by ops: 5035
+Prop 5038 used by ops: 5035
+Prop 5039 used by ops: 5035
+Prop 5040 used by ops: 5035
+Prop 5041 used by ops: 5035
+Prop 5119 used by ops: 51
+Prop 5120 used by ops: 4015
+Prop 5125 used by ops: 788
+Prop 5142 used by ops: 3433
+Prop 5143 used by ops: 3433
+Prop 5274 used by ops: 40, 788, 4448, 7584
+Prop 5275 used by ops: 40, 788, 4448, 7584
+Prop 5322 used by ops: 5321
+Prop 5324 used by ops: 5321
+Prop 5325 used by ops: 5321
+Prop 5326 used by ops: 5321
+Prop 5327 used by ops: 5321
+Prop 5355 used by ops: 5321
+Prop 5356 used by ops: 5321
+Prop 5525 used by ops: 5321
+Prop 5642 used by ops: 135
+Prop 5671 used by ops: 94
+Prop 5683 used by ops: 5643
+Prop 5684 used by ops: 5643
+Prop 5685 used by ops: 3433
+Prop 5747 used by ops: 4828
+Prop 5799 used by ops: 3433
+Prop 5838 used by ops: 5476, 6931
+Prop 5839 used by ops: 5476
+Prop 5841 used by ops: 2855
+Prop 5904 used by ops: 4015
+Prop 5932 used by ops: 4828
+Prop 5945 used by ops: 51
+Prop 5947 used by ops: 135
+Prop 5958 used by ops: 4828
+Prop 5959 used by ops: 25
+Prop 5970 used by ops: 5964
+Prop 5971 used by ops: 5964
+Prop 5972 used by ops: 5964
+Prop 5973 used by ops: 5964
+Prop 5974 used by ops: 5964
+Prop 5989 used by ops: 1825, 7801
+Prop 6050 used by ops: 6024
+Prop 6053 used by ops: 5643
+Prop 6056 used by ops: 25, 87
+Prop 6087 used by ops: 5643, 5964
+Prop 6088 used by ops: 5643, 5964
+Prop 6089 used by ops: 5643
+Prop 6090 used by ops: 5643
+Prop 6107 used by ops: 109
+Prop 6115 used by ops: 4998
+Prop 6119 used by ops: 6118
+Prop 6120 used by ops: 6118
+Prop 6121 used by ops: 6118
+Prop 6122 used by ops: 6118
+Prop 6135 used by ops: 5133
+Prop 6137 used by ops: 94
+Prop 6170 used by ops: 135
+Prop 6179 used by ops: 182
+Prop 6180 used by ops: 5643
+Prop 6184 used by ops: 182
+Prop 6202 used by ops: 51
+Prop 6203 used by ops: 5964
+Prop 6204 used by ops: 5964
+Prop 6208 used by ops: 6024
+Prop 6257 used by ops: 5964
+Prop 6265 used by ops: 6264
+Prop 6270 used by ops: 1623
+Prop 6271 used by ops: 1623
+Prop 6272 used by ops: 1623
+Prop 6273 used by ops: 1623
+Prop 6274 used by ops: 1623
+Prop 6275 used by ops: 1623
+Prop 6276 used by ops: 5964
+Prop 6277 used by ops: 5964
+Prop 6287 used by ops: 3643
+Prop 6299 used by ops: 788
+Prop 6339 used by ops: 3771
+Prop 6340 used by ops: 3771
+Prop 6376 used by ops: 788
+Prop 6383 used by ops: 51
+Prop 6454 used by ops: 7801
+Prop 6459 used by ops: 3643, 6460
+Prop 6471 used by ops: 3771
+Prop 6474 used by ops: 6473
+Prop 6475 used by ops: 6473
+Prop 6484 used by ops: 1
+Prop 6515 used by ops: 3771
+Prop 6516 used by ops: 3771
+Prop 6596 used by ops: 51
+Prop 6600 used by ops: 51
+Prop 6685 used by ops: 135
+Prop 6745 used by ops: 92
+Prop 6776 used by ops: 1
+Prop 6825 used by ops: 1
+Prop 6826 used by ops: 1
+Prop 6831 used by ops: 3643
+Prop 6851 used by ops: 6846
+Prop 6913 used by ops: 51
+Prop 6925 used by ops: 6846
+Prop 6926 used by ops: 6846
+Prop 6927 used by ops: 6846
+Prop 6928 used by ops: 6846
+Prop 6988 used by ops: 1
+Prop 7037 used by ops: 51
+Prop 7039 used by ops: 7038
+Prop 7099 used by ops: 94
+Prop 7102 used by ops: 3176
+Prop 7121 used by ops: 788
+Prop 7231 used by ops: 94
+Prop 7585 used by ops: 7584
+Prop 7586 used by ops: 7584
+Prop 7587 used by ops: 7584
+Prop 7588 used by ops: 7584
+Prop 7691 used by ops: 2493
+Prop 7791 used by ops: 25
+Prop 7799 used by ops: 1825
+Prop 7809 used by ops: 7808
+Prop 7811 used by ops: 51
+Prop 7812 used by ops: 7584
+Prop 7813 used by ops: 25
+
+//----------------- Magic File Info
+# chara/c1001/magic/c1001_101.magic
+Uses magic ids:
+- MagicID 706
+- MagicID 707
+- MagicID 708
+- MagicID 710
+- MagicID 711
+- MagicID 712
+- MagicID 713
+- MagicID 840
+- MagicID 841
+- MagicID 842
+- MagicID 843
+- MagicID 1289
+- MagicID 1290
+- MagicID 1291
+- MagicID 1292
+- MagicID 1293
+- MagicID 1310
+- MagicID 1311
+- MagicID 1312
+- MagicID 1433
+- MagicID 1434
+- MagicID 1435
+- MagicID 1436
+- MagicID 1693
+- MagicID 1694
+- MagicID 1994
+- MagicID 1995
+- MagicID 2000
+- MagicID 2001
+- MagicID 2002
+- MagicID 2003
+- MagicID 2004
+- MagicID 2005
+- MagicID 2006
+- MagicID 2007
+- MagicID 2010
+- MagicID 2011
+- MagicID 2012
+- MagicID 2013
+- MagicID 2015
+- MagicID 2016
+- MagicID 2017
+
+# chara/c1001/magic/c1001.magic
+Uses magic ids:
+- MagicID 1
+- MagicID 2
+- MagicID 3
+- MagicID 4
+- MagicID 5
+- MagicID 6
+- MagicID 7
+- MagicID 210
+- MagicID 211
+- MagicID 212
+- MagicID 213
+- MagicID 214
+- MagicID 215
+- MagicID 216
+- MagicID 217
+- MagicID 218
+- MagicID 219
+- MagicID 220
+- MagicID 221
+- MagicID 348
+- MagicID 349
+- MagicID 350
+- MagicID 351
+- MagicID 352
+- MagicID 353
+- MagicID 354
+- MagicID 355
+- MagicID 356
+- MagicID 452
+- MagicID 457
+- MagicID 480
+- MagicID 500
+- MagicID 524
+- MagicID 582
+- MagicID 583
+- MagicID 607
+- MagicID 620
+- MagicID 621
+- MagicID 623
+- MagicID 624
+- MagicID 625
+- MagicID 627
+- MagicID 631
+- MagicID 632
+- MagicID 633
+- MagicID 634
+- MagicID 646
+- MagicID 649
+- MagicID 652
+- MagicID 653
+- MagicID 669
+- MagicID 670
+- MagicID 671
+- MagicID 672
+- MagicID 673
+- MagicID 674
+- MagicID 702
+- MagicID 804
+- MagicID 805
+- MagicID 806
+- MagicID 807
+- MagicID 815
+- MagicID 816
+- MagicID 817
+- MagicID 818
+- MagicID 819
+- MagicID 820
+- MagicID 821
+- MagicID 822
+- MagicID 838
+- MagicID 912
+- MagicID 913
+- MagicID 914
+- MagicID 915
+- MagicID 916
+- MagicID 917
+- MagicID 981
+- MagicID 982
+- MagicID 983
+- MagicID 992
+- MagicID 995
+- MagicID 1024
+- MagicID 1025
+- MagicID 1026
+- MagicID 1083
+- MagicID 1084
+- MagicID 1085
+- MagicID 1086
+- MagicID 1102
+- MagicID 1103
+- MagicID 1108
+- MagicID 1109
+- MagicID 1144
+- MagicID 1145
+- MagicID 1146
+- MagicID 1147
+- MagicID 1185
+- MagicID 1186
+- MagicID 1187
+- MagicID 1188
+- MagicID 1189
+- MagicID 1190
+- MagicID 1321
+- MagicID 1359
+- MagicID 1360
+- MagicID 1543
+- MagicID 1552
+- MagicID 1553
+- MagicID 1554
+- MagicID 1555
+- MagicID 1558
+- MagicID 1559
+- MagicID 1560
+- MagicID 1561
+- MagicID 1562
+- MagicID 1563
+- MagicID 1564
+- MagicID 1565
+- MagicID 1566
+- MagicID 1567
+- MagicID 1568
+- MagicID 1569
+- MagicID 1570
+- MagicID 1571
+- MagicID 1572
+- MagicID 1573
+- MagicID 1574
+- MagicID 1575
+- MagicID 1576
+- MagicID 1577
+- MagicID 1578
+- MagicID 1579
+- MagicID 1580
+- MagicID 1599
+- MagicID 1602
+- MagicID 1603
+- MagicID 1604
+- MagicID 1605
+- MagicID 1607
+- MagicID 1608
+- MagicID 1609
+- MagicID 1610
+- MagicID 1612
+- MagicID 1621
+- MagicID 1646
+- MagicID 1647
+- MagicID 1648
+- MagicID 1650
+- MagicID 1651
+- MagicID 1652
+- MagicID 1697
+- MagicID 1698
+- MagicID 1721
+- MagicID 1722
+- MagicID 1723
+- MagicID 1766
+- MagicID 1792
+- MagicID 1811
+- MagicID 1943
+- MagicID 1997
+- MagicID 1998
+- MagicID 1999
+
+# chara/c2001/magic/c2001_2.magic
+Uses magic ids:
+- MagicID 38
+- MagicID 39
+- MagicID 40
+- MagicID 42
+- MagicID 43
+- MagicID 44
+- MagicID 45
+- MagicID 46
+- MagicID 50
+- MagicID 51
+- MagicID 52
+- MagicID 59
+- MagicID 60
+- MagicID 61
+- MagicID 63
+- MagicID 64
+- MagicID 65
+- MagicID 67
+- MagicID 68
+- MagicID 686
+- MagicID 780
+- MagicID 853
+- MagicID 984
+- MagicID 1038
+- MagicID 1039
+- MagicID 1040
+
+# chara/c2001/magic/c2001.magic
+Uses magic ids:
+- MagicID 13
+- MagicID 14
+- MagicID 15
+- MagicID 23
+- MagicID 26
+- MagicID 34
+- MagicID 1035
+- MagicID 1036
+- MagicID 1037
+
+# chara/c2002/magic/c2002.magic
+Uses magic ids:
+- MagicID 676
+- MagicID 677
+- MagicID 678
+- MagicID 681
+- MagicID 690
+- MagicID 1551
+
+# chara/c2003/magic/c2003.magic
+Uses magic ids:
+- MagicID 735
+- MagicID 736
+- MagicID 737
+- MagicID 738
+- MagicID 739
+- MagicID 740
+- MagicID 741
+- MagicID 742
+- MagicID 889
+- MagicID 1141
+- MagicID 1143
+- MagicID 1148
+- MagicID 1151
+- MagicID 1152
+- MagicID 1153
+- MagicID 1154
+- MagicID 1155
+- MagicID 1156
+- MagicID 1157
+- MagicID 1160
+- MagicID 1163
+- MagicID 1164
+
+# chara/c2004/magic/c2004.magic
+Uses magic ids:
+- MagicID 9
+- MagicID 69
+- MagicID 70
+- MagicID 872
+- MagicID 873
+- MagicID 874
+- MagicID 875
+- MagicID 876
+- MagicID 877
+- MagicID 878
+- MagicID 879
+
+# chara/c2006/magic/c2006.magic
+Uses magic ids:
+- MagicID 1011
+- MagicID 1012
+- MagicID 1013
+- MagicID 1014
+- MagicID 1027
+
+# chara/c2007/magic/c2007.magic
+Uses magic ids:
+- MagicID 374
+- MagicID 375
+- MagicID 377
+
+# chara/c2008/magic/c2008_101.magic
+Uses magic ids:
+- MagicID 440
+- MagicID 442
+- MagicID 444
+- MagicID 445
+- MagicID 446
+- MagicID 454
+- MagicID 750
+- MagicID 752
+- MagicID 755
+- MagicID 756
+- MagicID 763
+- MagicID 766
+- MagicID 767
+- MagicID 768
+- MagicID 769
+- MagicID 803
+- MagicID 809
+- MagicID 810
+- MagicID 985
+- MagicID 1020
+- MagicID 1098
+- MagicID 1099
+- MagicID 1101
+- MagicID 1110
+- MagicID 1111
+- MagicID 1112
+- MagicID 1139
+- MagicID 1140
+- MagicID 1165
+- MagicID 1166
+- MagicID 1316
+- MagicID 1320
+- MagicID 1327
+
+# chara/c2024/magic/c2024.magic
+Uses magic ids:
+- MagicID 300
+- MagicID 301
+- MagicID 304
+- MagicID 400
+- MagicID 401
+- MagicID 402
+- MagicID 403
+
+# chara/c2031/magic/c2031.magic
+Uses magic ids:
+- MagicID 1346
+- MagicID 1347
+- MagicID 1351
+- MagicID 1355
+- MagicID 1356
+- MagicID 1400
+- MagicID 1401
+- MagicID 1404
+- MagicID 1460
+- MagicID 1461
+- MagicID 1462
+- MagicID 1463
+- MagicID 1464
+- MagicID 1471
+- MagicID 1490
+- MagicID 1493
+
+# chara/c3010/magic/c3010.magic
+Uses magic ids:
+- MagicID 71
+- MagicID 72
+- MagicID 73
+- MagicID 455
+- MagicID 837
+- MagicID 1333
+- MagicID 1381
+
+# chara/c5001/magic/c5001_2.magic
+Uses magic ids:
+- MagicID 74
+- MagicID 78
+- MagicID 366
+- MagicID 367
+- MagicID 368
+
+# chara/c5001/magic/c5001.magic
+Uses magic ids:
+- MagicID 74
+- MagicID 75
+- MagicID 76
+- MagicID 78
+- MagicID 1227
+- MagicID 1334
+
+# chara/c5002/magic/c5002.magic
+Uses magic ids:
+- MagicID 71
+
+# chara/c5003/magic/c5003_201.magic
+Uses magic ids:
+- MagicID 1902
+- MagicID 1903
+
+# chara/c5003/magic/c5003.magic
+Uses magic ids:
+- MagicID 192
+- MagicID 193
+- MagicID 194
+- MagicID 195
+- MagicID 196
+- MagicID 197
+- MagicID 242
+- MagicID 243
+- MagicID 244
+- MagicID 245
+- MagicID 246
+- MagicID 247
+- MagicID 248
+- MagicID 249
+
+# chara/c5004/magic/c5004.magic
+Uses magic ids:
+- MagicID 79
+- MagicID 80
+- MagicID 680
+
+# chara/c5005/magic/c5005_101.magic
+Uses magic ids:
+- MagicID 1828
+- MagicID 1829
+- MagicID 1830
+- MagicID 1831
+- MagicID 1853
+- MagicID 1854
+- MagicID 1869
+- MagicID 1889
+- MagicID 1954
+
+# chara/c5005/magic/c5005_2.magic
+Uses magic ids:
+- MagicID 689
+- MagicID 827
+- MagicID 828
+- MagicID 884
+- MagicID 885
+
+# chara/c5006/magic/c5006.magic
+Uses magic ids:
+- MagicID 82
+- MagicID 84
+- MagicID 87
+- MagicID 703
+- MagicID 704
+- MagicID 996
+- MagicID 1309
+- MagicID 1313
+- MagicID 1314
+- MagicID 1328
+
+# chara/c5007/magic/c5007_1001.magic
+Uses magic ids:
+- MagicID 252
+- MagicID 779
+
+# chara/c5007/magic/c5007.magic
+Uses magic ids:
+- MagicID 88
+- MagicID 856
+- MagicID 857
+- MagicID 858
+
+# chara/c5008/magic/c5008.magic
+Uses magic ids:
+- MagicID 790
+- MagicID 791
+- MagicID 1534
+
+# chara/c5009/magic/c5009_1001.magic
+Uses magic ids:
+- MagicID 91
+- MagicID 994
+
+# chara/c5009/magic/c5009_jump.magic
+Uses magic ids:
+- MagicID 663
+- MagicID 980
+- MagicID 1205
+- MagicID 1284
+- MagicID 1285
+
+# chara/c5009/magic/c5009.magic
+Uses magic ids:
+- MagicID 89
+- MagicID 90
+- MagicID 927
+- MagicID 928
+- MagicID 929
+
+# chara/c5010/magic/c5010_hammer.magic
+Uses magic ids:
+- MagicID 668
+
+# chara/c5010/magic/c5010.magic
+Uses magic ids:
+- MagicID 95
+- MagicID 97
+- MagicID 98
+- MagicID 615
+- MagicID 616
+- MagicID 705
+- MagicID 709
+- MagicID 918
+- MagicID 919
+- MagicID 1370
+- MagicID 1437
+
+# chara/c5011/magic/c5011.magic
+Uses magic ids:
+- MagicID 99
+- MagicID 901
+- MagicID 1535
+
+# chara/c5012/magic/c5012.magic
+Uses magic ids:
+- MagicID 100
+
+# chara/c5013/magic/c5013.magic
+Uses magic ids:
+- MagicID 660
+- MagicID 1852
+
+# chara/c5014/magic/c5014_1001.magic
+Uses magic ids:
+- MagicID 376
+- MagicID 579
+- MagicID 592
+- MagicID 825
+- MagicID 826
+- MagicID 834
+- MagicID 835
+- MagicID 844
+- MagicID 890
+- MagicID 933
+- MagicID 935
+- MagicID 936
+- MagicID 1182
+- MagicID 1183
+- MagicID 1408
+- MagicID 1512
+- MagicID 1528
+- MagicID 1529
+- MagicID 1530
+- MagicID 1531
+
+# chara/c5014/magic/c5014.magic
+Uses magic ids:
+- MagicID 103
+- MagicID 183
+- MagicID 371
+- MagicID 932
+- MagicID 1041
+- MagicID 1042
+- MagicID 1136
+
+# chara/c5015/magic/c5015_1001.magic
+Uses magic ids:
+- MagicID 1990
+- MagicID 1993
+
+# chara/c5015/magic/c5015.magic
+Uses magic ids:
+- MagicID 104
+- MagicID 105
+- MagicID 106
+- MagicID 1536
+
+# chara/c5016/magic/c5016_frostbomb.magic
+Uses magic ids:
+- MagicID 1842
+- MagicID 1843
+- MagicID 1844
+
+# chara/c5016/magic/c5016.magic
+Uses magic ids:
+- MagicID 198
+- MagicID 199
+- MagicID 201
+- MagicID 202
+- MagicID 203
+- MagicID 233
+- MagicID 234
+- MagicID 930
+
+# chara/c5017/magic/c5017.magic
+Uses magic ids:
+- MagicID 325
+- MagicID 326
+- MagicID 332
+- MagicID 333
+- MagicID 334
+- MagicID 338
+- MagicID 340
+- MagicID 1204
+- MagicID 1492
+
+# chara/c5018/magic/c5018_2.magic
+Uses magic ids:
+- MagicID 378
+- MagicID 439
+- MagicID 456
+- MagicID 1044
+- MagicID 1045
+- MagicID 1127
+- MagicID 1286
+- MagicID 1508
+- MagicID 1509
+- MagicID 1510
+- MagicID 1521
+- MagicID 1522
+- MagicID 1523
+
+# chara/c5018/magic/c5018.magic
+Uses magic ids:
+- MagicID 343
+- MagicID 1120
+- MagicID 1122
+- MagicID 1123
+- MagicID 1124
+- MagicID 1308
+- MagicID 1322
+- MagicID 1323
+- MagicID 1336
+- MagicID 1397
+- MagicID 1398
+- MagicID 1416
+- MagicID 1417
+- MagicID 1418
+- MagicID 1419
+- MagicID 1442
+- MagicID 1443
+- MagicID 1444
+- MagicID 1445
+- MagicID 1539
+- MagicID 1540
+
+# chara/c5019/magic/c5019.magic
+Uses magic ids:
+- MagicID 296
+- MagicID 297
+- MagicID 298
+- MagicID 299
+- MagicID 496
+- MagicID 497
+- MagicID 498
+- MagicID 499
+- MagicID 692
+- MagicID 693
+- MagicID 694
+- MagicID 695
+- MagicID 696
+- MagicID 697
+- MagicID 698
+- MagicID 699
+- MagicID 862
+- MagicID 863
+- MagicID 864
+- MagicID 865
+
+# chara/c5020/magic/c5020.magic
+Uses magic ids:
+- MagicID 185
+- MagicID 1537
+
+# chara/c5021/magic/c5021_1001.magic
+Uses magic ids:
+- MagicID 1049
+
+# chara/c5021/magic/c5021.magic
+Uses magic ids:
+- MagicID 782
+- MagicID 783
+- MagicID 1048
+
+# chara/c5022/magic/c5022.magic
+Uses magic ids:
+- MagicID 115
+- MagicID 122
+- MagicID 235
+- MagicID 322
+- MagicID 324
+- MagicID 327
+- MagicID 328
+- MagicID 369
+- MagicID 382
+- MagicID 1410
+
+# chara/c5023/magic/c5023.magic
+Uses magic ids:
+- MagicID 205
+- MagicID 222
+- MagicID 280
+- MagicID 281
+- MagicID 595
+- MagicID 1420
+- MagicID 1517
+
+# chara/c5024/magic/c5024.magic
+Uses magic ids:
+- MagicID 543
+- MagicID 544
+- MagicID 545
+- MagicID 546
+- MagicID 547
+- MagicID 664
+- MagicID 682
+- MagicID 743
+- MagicID 1374
+- MagicID 1514
+- MagicID 1515
+- MagicID 1518
+- MagicID 1520
+- MagicID 1524
+- MagicID 1525
+- MagicID 1526
+- MagicID 1527
+- MagicID 2023
+- MagicID 2024
+- MagicID 2025
+
+# chara/c5025/magic/c5025.magic
+Uses magic ids:
+- MagicID 683
+- MagicID 684
+- MagicID 700
+- MagicID 714
+- MagicID 715
+- MagicID 728
+- MagicID 729
+- MagicID 731
+- MagicID 829
+- MagicID 830
+- MagicID 832
+- MagicID 833
+
+# chara/c5026/magic/c5026_101.magic
+Uses magic ids:
+- MagicID 1625
+- MagicID 1626
+- MagicID 1627
+- MagicID 1628
+- MagicID 1629
+- MagicID 1630
+- MagicID 1684
+- MagicID 1685
+- MagicID 1686
+- MagicID 1690
+- MagicID 1695
+- MagicID 1724
+- MagicID 1725
+- MagicID 1726
+- MagicID 1727
+- MagicID 1728
+- MagicID 1729
+- MagicID 1730
+- MagicID 1731
+- MagicID 1732
+- MagicID 1733
+- MagicID 1734
+- MagicID 1735
+- MagicID 1736
+- MagicID 1739
+- MagicID 1740
+
+# chara/c5026/magic/c5026.magic
+Uses magic ids:
+- MagicID 548
+- MagicID 549
+- MagicID 550
+- MagicID 551
+- MagicID 854
+- MagicID 855
+- MagicID 975
+
+# chara/c5027/magic/c5027.magic
+Uses magic ids:
+- MagicID 718
+- MagicID 719
+- MagicID 720
+- MagicID 721
+- MagicID 722
+- MagicID 723
+- MagicID 724
+- MagicID 725
+- MagicID 726
+- MagicID 734
+- MagicID 745
+- MagicID 746
+- MagicID 787
+- MagicID 788
+- MagicID 1264
+- MagicID 1276
+- MagicID 1277
+- MagicID 1288
+- MagicID 1295
+- MagicID 1297
+- MagicID 1557
+
+# chara/c5028/magic/c5028.magic
+Uses magic ids:
+- MagicID 1338
+- MagicID 1339
+- MagicID 1340
+- MagicID 1341
+- MagicID 1342
+- MagicID 1382
+- MagicID 1395
+- MagicID 1396
+- MagicID 1402
+- MagicID 1403
+- MagicID 1405
+- MagicID 1406
+- MagicID 1407
+- MagicID 1409
+- MagicID 1411
+- MagicID 1421
+- MagicID 1422
+- MagicID 1423
+- MagicID 1424
+- MagicID 1438
+- MagicID 1448
+- MagicID 1450
+- MagicID 1451
+- MagicID 1452
+- MagicID 1453
+- MagicID 1472
+- MagicID 1494
+- MagicID 1499
+- MagicID 1500
+- MagicID 1501
+- MagicID 1506
+- MagicID 1507
+- MagicID 1516
+- MagicID 1532
+- MagicID 1533
+- MagicID 1538
+- MagicID 1541
+- MagicID 1542
+- MagicID 1544
+- MagicID 1545
+- MagicID 1546
+- MagicID 1873
+- MagicID 1874
+
+# chara/c5032/magic/c5032_2.magic
+Uses magic ids:
+- MagicID 1616
+- MagicID 1617
+- MagicID 1618
+- MagicID 1619
+- MagicID 1620
+- MagicID 1642
+- MagicID 1692
+- MagicID 1696
+- MagicID 1715
+- MagicID 1716
+- MagicID 1717
+- MagicID 1718
+- MagicID 1719
+- MagicID 1720
+- MagicID 1767
+- MagicID 1768
+- MagicID 1769
+
+# chara/c5032/magic/c5032.magic
+Uses magic ids:
+- MagicID 1130
+- MagicID 1131
+- MagicID 1149
+- MagicID 1150
+- MagicID 1161
+- MagicID 1162
+- MagicID 1385
+
+# chara/c5033/magic/c5033.magic
+Uses magic ids:
+- MagicID 1215
+- MagicID 1216
+- MagicID 1446
+- MagicID 1447
+
+# chara/c5035/magic/c5035.magic
+Uses magic ids:
+- MagicID 1128
+- MagicID 1129
+- MagicID 1386
+
+# chara/c5036/magic/c5036.magic
+Uses magic ids:
+- MagicID 1221
+- MagicID 1222
+- MagicID 1223
+- MagicID 1224
+- MagicID 1225
+- MagicID 1324
+- MagicID 1325
+- MagicID 1399
+- MagicID 1426
+- MagicID 1441
+- MagicID 1454
+- MagicID 1455
+- MagicID 1491
+
+# chara/c5037/magic/c5037.magic
+Uses magic ids:
+- MagicID 1631
+- MagicID 1644
+- MagicID 1645
+- MagicID 1681
+- MagicID 1824
+- MagicID 1826
+- MagicID 1827
+
+# chara/c5102/magic/c5102.magic
+Uses magic ids:
+- MagicID 124
+- MagicID 125
+- MagicID 421
+- MagicID 886
+- MagicID 888
+- MagicID 931
+- MagicID 1082
+- MagicID 1737
+- MagicID 1738
+
+# chara/c5808/magic/c5808.magic
+Uses magic ids:
+- MagicID 450
+- MagicID 594
+
+# chara/c5851/magic/c5851.magic
+Uses magic ids:
+- MagicID 437
+- MagicID 441
+
+# chara/c6001/magic/c6001_2.magic
+Uses magic ids:
+- MagicID 1065
+- MagicID 1097
+- MagicID 1100
+- MagicID 1113
+
+# chara/c6001/magic/c6001_3.magic
+Uses magic ids:
+- MagicID 414
+- MagicID 418
+- MagicID 760
+- MagicID 761
+- MagicID 773
+- MagicID 880
+- MagicID 881
+- MagicID 882
+- MagicID 883
+- MagicID 976
+- MagicID 977
+- MagicID 1019
+- MagicID 1081
+- MagicID 1914
+- MagicID 1915
+- MagicID 1916
+- MagicID 1917
+- MagicID 1918
+- MagicID 1919
+
+# chara/c6001/magic/c6001_4.magic
+Uses magic ids:
+- MagicID 618
+- MagicID 619
+- MagicID 792
+- MagicID 793
+- MagicID 794
+- MagicID 795
+- MagicID 796
+- MagicID 797
+- MagicID 798
+- MagicID 799
+- MagicID 824
+- MagicID 942
+- MagicID 943
+- MagicID 944
+- MagicID 999
+- MagicID 1000
+- MagicID 1001
+- MagicID 1002
+- MagicID 1003
+- MagicID 1004
+
+# chara/c6001/magic/c6001.magic
+Uses magic ids:
+- MagicID 679
+
+# chara/c6002/magic/c6002_2.magic
+Uses magic ids:
+- MagicID 156
+- MagicID 158
+- MagicID 159
+- MagicID 160
+
+# chara/c6002/magic/c6002.magic
+Uses magic ids:
+- MagicID 148
+- MagicID 581
+- MagicID 598
+- MagicID 599
+- MagicID 608
+
+# chara/c6003/magic/c6003.magic
+Uses magic ids:
+- MagicID 255
+- MagicID 261
+- MagicID 265
+- MagicID 266
+- MagicID 267
+- MagicID 268
+- MagicID 269
+- MagicID 270
+- MagicID 271
+- MagicID 272
+- MagicID 316
+- MagicID 317
+- MagicID 318
+- MagicID 319
+- MagicID 336
+- MagicID 337
+- MagicID 365
+- MagicID 429
+- MagicID 504
+- MagicID 505
+- MagicID 506
+- MagicID 507
+- MagicID 861
+- MagicID 946
+
+# chara/c6004/magic/c6004_2.magic
+Uses magic ids:
+- MagicID 1168
+- MagicID 1169
+- MagicID 1170
+- MagicID 1171
+- MagicID 1172
+- MagicID 1173
+- MagicID 1174
+- MagicID 1175
+- MagicID 1176
+- MagicID 1177
+
+# chara/c6004/magic/c6004.magic
+Uses magic ids:
+- MagicID 1
+- MagicID 161
+- MagicID 162
+- MagicID 163
+
+# chara/c6007/magic/c6007_golden.magic
+Uses magic ids:
+- MagicID 1345
+- MagicID 1352
+- MagicID 1353
+- MagicID 1354
+- MagicID 1357
+- MagicID 1363
+- MagicID 1364
+- MagicID 1365
+- MagicID 1366
+- MagicID 1367
+- MagicID 1368
+- MagicID 1369
+- MagicID 1372
+- MagicID 1373
+- MagicID 1375
+- MagicID 1379
+- MagicID 1383
+- MagicID 1384
+- MagicID 1432
+
+# chara/c6007/magic/c6007.magic
+Uses magic ids:
+- MagicID 1028
+- MagicID 1029
+- MagicID 1030
+- MagicID 1043
+- MagicID 1055
+- MagicID 1060
+- MagicID 1061
+- MagicID 1062
+- MagicID 1063
+- MagicID 1069
+- MagicID 1070
+- MagicID 1071
+- MagicID 1072
+- MagicID 1073
+- MagicID 1074
+- MagicID 1075
+- MagicID 1076
+- MagicID 1077
+- MagicID 1078
+- MagicID 1087
+- MagicID 1088
+- MagicID 1089
+- MagicID 1092
+- MagicID 1093
+- MagicID 1095
+- MagicID 1096
+- MagicID 1105
+- MagicID 1106
+- MagicID 1107
+- MagicID 1115
+- MagicID 1117
+- MagicID 1119
+- MagicID 1133
+- MagicID 1134
+- MagicID 1137
+- MagicID 1138
+- MagicID 1226
+- MagicID 1228
+- MagicID 1229
+- MagicID 1230
+- MagicID 1232
+- MagicID 1233
+- MagicID 1234
+- MagicID 1235
+- MagicID 1237
+- MagicID 1238
+- MagicID 1239
+- MagicID 1240
+- MagicID 1241
+- MagicID 1244
+- MagicID 1245
+- MagicID 1246
+- MagicID 1247
+- MagicID 1248
+- MagicID 1249
+- MagicID 1250
+- MagicID 1251
+- MagicID 1252
+- MagicID 1253
+- MagicID 1254
+- MagicID 1255
+- MagicID 1256
+- MagicID 1258
+- MagicID 1259
+- MagicID 1260
+- MagicID 1262
+- MagicID 1263
+- MagicID 1266
+- MagicID 1267
+- MagicID 1268
+- MagicID 1269
+- MagicID 1270
+- MagicID 1271
+- MagicID 1272
+- MagicID 1273
+- MagicID 1274
+- MagicID 1275
+- MagicID 1278
+
+# chara/c6012/magic/c6012.magic
+Uses magic ids:
+- MagicID 1425
+- MagicID 1427
+- MagicID 1430
+- MagicID 1457
+- MagicID 1458
+- MagicID 1459
+- MagicID 1465
+- MagicID 1466
+- MagicID 1467
+- MagicID 1468
+- MagicID 1469
+- MagicID 1473
+- MagicID 1474
+- MagicID 1475
+- MagicID 1476
+- MagicID 1477
+- MagicID 1483
+- MagicID 1484
+- MagicID 1485
+- MagicID 1486
+- MagicID 1487
+- MagicID 1488
+- MagicID 1489
+
+# chara/c6013/magic/c6013_3.magic
+Uses magic ids:
+- MagicID 1158
+- MagicID 1159
+
+# chara/c6013/magic/c6013.magic
+Uses magic ids:
+- MagicID 1178
+- MagicID 1179
+- MagicID 1180
+- MagicID 1181
+- MagicID 1196
+- MagicID 1206
+- MagicID 1213
+- MagicID 1294
+- MagicID 1315
+- MagicID 1348
+- MagicID 1349
+
+# chara/c6014/magic/c6014.magic
+Uses magic ids:
+- MagicID 1197
+- MagicID 1198
+- MagicID 1200
+- MagicID 1201
+- MagicID 1211
+- MagicID 1214
+- MagicID 1217
+- MagicID 1218
+- MagicID 1219
+- MagicID 1279
+- MagicID 1280
+- MagicID 1282
+- MagicID 1287
+- MagicID 1350
+- MagicID 1606
+
+# chara/c6701/magic/c6701.magic
+Uses magic ids:
+- MagicID 307
+- MagicID 308
+- MagicID 321
+- MagicID 329
+- MagicID 387
+- MagicID 430
+- MagicID 469
+- MagicID 470
+- MagicID 471
+- MagicID 472
+- MagicID 473
+- MagicID 493
+- MagicID 539
+- MagicID 540
+- MagicID 553
+- MagicID 554
+- MagicID 555
+- MagicID 556
+- MagicID 557
+- MagicID 558
+- MagicID 560
+- MagicID 561
+- MagicID 562
+- MagicID 563
+- MagicID 564
+- MagicID 565
+- MagicID 566
+- MagicID 567
+- MagicID 568
+- MagicID 569
+- MagicID 570
+- MagicID 571
+- MagicID 572
+- MagicID 573
+- MagicID 574
+- MagicID 575
+- MagicID 585
+- MagicID 588
+- MagicID 602
+- MagicID 609
+- MagicID 610
+- MagicID 611
+- MagicID 612
+- MagicID 613
+- MagicID 774
+- MagicID 775
+- MagicID 776
+- MagicID 839
+- MagicID 847
+- MagicID 848
+- MagicID 849
+- MagicID 850
+- MagicID 851
+- MagicID 859
+- MagicID 860
+- MagicID 867
+- MagicID 868
+- MagicID 869
+- MagicID 870
+- MagicID 902
+- MagicID 903
+- MagicID 904
+- MagicID 905
+- MagicID 920
+- MagicID 921
+- MagicID 922
+- MagicID 923
+- MagicID 924
+- MagicID 925
+- MagicID 934
+- MagicID 1022
+- MagicID 1023
+- MagicID 1870
+
