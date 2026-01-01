@@ -109,30 +109,4 @@ public class MagicInjectionApi
             return entries;
         return null;
     }
-
-    /// <summary>
-    /// Fires projectiles using the modifications from a previously loaded JSON.
-    /// </summary>
-    public bool FireModifiedProjectiles(string modificationName, int count = 1)
-    {
-        if (!_cachedModifications.TryGetValue(modificationName, out var entries))
-        {
-            _logger.WriteLine($"[{_modId}] [MagicInjectionApi] Modification '{modificationName}' not found in cache", _logger.ColorRed);
-            return false;
-        }
-
-        _logger.WriteLine($"[{_modId}] [MagicInjectionApi] Firing {count} projectiles with '{modificationName}' modifications", _logger.ColorYellow);
-
-        // Set temporary overrides
-        _magicCastApi.TemporaryFuzzerEntries = entries;
-
-        try
-        {
-            return _magicCastApi.FireDiaProjectiles(count);
-        }
-        finally
-        {
-            _magicCastApi.TemporaryFuzzerEntries = null;
-        }
-    }
 }

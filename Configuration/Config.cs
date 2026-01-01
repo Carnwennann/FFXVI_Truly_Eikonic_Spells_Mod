@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using ff16.gameplay.truly_eikonic_spells.Template.Configuration;
+using ff16.gameplay.truly_eikonic_spells.Utils;
 
 namespace ff16.gameplay.truly_eikonic_spells.Configuration;
 
@@ -189,173 +190,106 @@ public class Config : Configurable<Config>
     [Category("Darkra System")]
     public float ShadowHitJuggleVerticalInterpolation { get; set; } = 0.2f;
 
-    // ==================== MAGIC EXPERIMENTS ====================
-
-    [DisplayName("a5 param from SetupMagic")]
-    [Description("a5 (-999 = original)")]
-    [DefaultValue(-999)]
-    [Category("Magic Experiments")]
-    public int a5_experiment { get; set; } = -999;
-
-    [DisplayName("a6 param from SetupMagic")]
-    [Description("a6 (-999 = original)")]
-    [DefaultValue(-999)]
-    [Category("Magic Experiments")]
-    public int a6_experiment { get; set; } = -999;
-
-    [DisplayName("Op35 Duration Override")]
-    [Description("Override for Operation 35 Property 35 (Duration/Speed). -999 = original.")]
-    [DefaultValue(-999.0f)]
-    [Category("Magic Experiments")]
-    public float Op35SpeedOverride { get; set; } = -999.0f;
-
-    [DisplayName("Op35 MoveType Override")]
-    [Description("Override for Operation 35 Property 37 (MoveType). -999 = original.")]
-    [DefaultValue(-999)]
-    [Category("Magic Experiments")]
-    public int Op35MoveTypeOverride { get; set; } = -999;
-
-    [DisplayName("Op35 Homing Override")]
-    [Description("Override for Operation 35 Property 38 (Homing). Default = original.")]
-    [DefaultValue(TriState.Default)]
-    [Category("Magic Experiments")]
-    public TriState Op35HomingOverride { get; set; } = TriState.Default;
-
-    // ==================== UNIVERSAL PROPERTY FUZZER ====================
-    
-    [DisplayName("Enable Universal Fuzzer")]
-    [Description("Enable the universal property override system")]
-    [DefaultValue(false)]
-    [Category("Magic - Universal Fuzzer")]
-    public bool EnableUniversalFuzzer { get; set; } = false;
-
-    [DisplayName("Fuzzer Entries")]
-    [Description("List of property overrides to apply")]
-    [Category("Magic - Universal Fuzzer")]
-    public List<FuzzerEntry> FuzzerEntries { get; set; } = new();
-
-    // ==================== MAGIC STRUCT OVERRIDES ====================
-    // These modify the BattleMagic struct fields before CastMagic executes
-    // Use -999 to keep the original value
-    
-    [DisplayName("Enable Magic Struct Overrides")]
-    [Description("Whether to apply the struct field overrides below")]
-    [DefaultValue(false)]
-    [Category("Magic Struct Overrides")]
-    public bool EnableMagicStructOverrides { get; set; } = false;
-    
-    [DisplayName("+0x18 Timing Override")]
-    [Description("Timing/delay float (-999 = original, Dia~4-6, Diara~3.9, Impulse~7.1)")]
-    [DefaultValue(-999.0f)]
-    [Category("Magic Struct Overrides")]
-    public float MagicTimingOverride { get; set; } = -999.0f;
-    
-    [DisplayName("+0x90 Scale Override")]
-    [Description("Scale float (-999 = original, Dia=0, Diara=-19.82, Impulse=1.0)")]
-    [DefaultValue(-999.0f)]
-    [Category("Magic Struct Overrides")]
-    public float MagicScaleOverride { get; set; } = -999.0f;
-    
-    [DisplayName("+0xD8 Aim Angle Override (degrees)")]
-    [Description("Horizontal aim angle in degrees (-999 = original). Auto-calculates Y/W to maintain unit quaternion. 0=forward, 90=right, -90=left, 180=backward")]
-    [DefaultValue(-999.0f)]
-    [Category("Magic Struct Overrides")]
-    public float MagicAimAngleOverride { get; set; } = -999.0f;
-    
-    // ==================== POSITION STRUCT OVERRIDES ====================
-    // These modify the PositionStruct passed to SetupMagic
-    // Offsets +0x30, +0x34, +0x38 appear to be position (X, Y, Z)
-    
-    [DisplayName("Enable Position Overrides")]
-    [Description("Whether to apply position overrides to the PositionStruct")]
-    [DefaultValue(false)]
-    [Category("Position Struct Overrides")]
-    public bool EnablePositionOverrides { get; set; } = false;
-    
-    [DisplayName("+0x30 Position X Offset")]
-    [Description("Add this value to X position (-999 = don't modify)")]
-    [DefaultValue(-999.0f)]
-    [Category("Position Struct Overrides")]
-    public float PositionXOffset { get; set; } = -999.0f;
-    
-    [DisplayName("+0x34 Position Y Offset")]
-    [Description("Add this value to Y position (height) (-999 = don't modify)")]
-    [DefaultValue(-999.0f)]
-    [Category("Position Struct Overrides")]
-    public float PositionYOffset { get; set; } = -999.0f;
-    
-    [DisplayName("+0x38 Position Z Offset")]
-    [Description("Add this value to Z position (-999 = don't modify)")]
-    [DefaultValue(-999.0f)]
-    [Category("Position Struct Overrides")]
-    public float PositionZOffset { get; set; } = -999.0f;
-
-
     // ==================== PHYSICS EXPERIMENTS ====================
-    
+
     [DisplayName("Enable Physics Modification")]
-    [Description("Whether to modify knockback physics parameters")]
+    [Description("Whether to enable manual physics/knockback overrides")]
     [DefaultValue(false)]
     [Category("Physics Experiments")]
     public bool EnablePhysicsModification { get; set; } = false;
-    
-    [DisplayName("Dump All SystemMove Columns")]
-    [Description("Log ALL columns from SystemMove NEX table with names (for reverse engineering)")]
-    [DefaultValue(false)]
-    [Category("Physics Experiments")]
-    public bool PhysicsDumpAllColumns { get; set; } = false;
-    
-    // === SystemMove Column Overrides (4 CONFIRMED COLUMNS) ===
-    // All values: -999 = don't modify (use original)
-    // Positive values push away/up, negative values pull/push down
-    
-    [DisplayName("+0x04 ForwardPush")]
-    [Description("Horizontal knockback force (-999 = original, positive = push away, negative = pull toward)")]
-    [DefaultValue(-999.0f)]
-    [Category("Physics - SystemMove Columns")]
-    public float PhysicsForwardPushOverride { get; set; } = -999.0f;
-    
-    [DisplayName("+0x08 ForwardDuration")]
-    [Description("Duration of forward movement (0-1, 0 = stays in place, 1 = travels full distance)")]
-    [DefaultValue(-999.0f)]
-    [Category("Physics - SystemMove Columns")]
-    public float PhysicsForwardDurationOverride { get; set; } = -999.0f;
-    
-    [DisplayName("+0x0C VerticalPush")]
-    [Description("Vertical knockback force (-999 = original, positive = up, negative = down)")]
-    [DefaultValue(-999.0f)]
-    [Category("Physics - SystemMove Columns")]
-    public float PhysicsVerticalPushOverride { get; set; } = -999.0f;
-    
-    [DisplayName("+0x10 VerticalInterpolation")]
-    [Description("Speed of vertical movement (0-1, 0 = instant, 1 = very slow)")]
-    [DefaultValue(-999.0f)]
-    [Category("Physics - SystemMove Columns")]
-    public float PhysicsVerticalInterpolationOverride { get; set; } = -999.0f;
-    [DisplayName("Force Push Direction")]
-    [Description("Force all attacks to use this PushDirection (-1 = disabled, 21 = Launch up strong, see ReactionTypes.cs)")]
+
+    [DisplayName("Force PushDirection")]
+    [Description("Force a specific PushDirection ID (-1 to disable)")]
     [DefaultValue(-1)]
     [Category("Physics Experiments")]
     public int PhysicsForcePushDirection { get; set; } = -1;
 
-    [DisplayName("Flag 0x2800 (Reaction Enable)")]
-    [Description("Controls knockback physics - Default=unchanged, On=force enable (works on bosses), Off=force disable")]
+    [DisplayName("Forward Push Override")]
+    [Description("Override ForwardPush value (-1.0 to 1.0)")]
+    [DefaultValue(0.0f)]
+    [Category("Physics Experiments")]
+    public float PhysicsForwardPushOverride { get; set; } = 0.0f;
+
+    [DisplayName("Forward Duration Override")]
+    [Description("Override ForwardDuration value (0.0 to 1.0)")]
+    [DefaultValue(0.0f)]
+    [Category("Physics Experiments")]
+    public float PhysicsForwardDurationOverride { get; set; } = 0.0f;
+
+    [DisplayName("Vertical Push Override")]
+    [Description("Override VerticalPush value (-1.0 to 1.0)")]
+    [DefaultValue(0.0f)]
+    [Category("Physics Experiments")]
+    public float PhysicsVerticalPushOverride { get; set; } = 0.0f;
+
+    [DisplayName("Vertical Interpolation Override")]
+    [Description("Override VerticalInterpolation value (0.0 to 1.0)")]
+    [DefaultValue(0.0f)]
+    [Category("Physics Experiments")]
+    public float PhysicsVerticalInterpolationOverride { get; set; } = 0.0f;
+
+    [DisplayName("Flag 0x2800")]
+    [Description("Force flag 0x2800 in reaction data")]
     [DefaultValue(TriState.Default)]
-    [Category("Physics Flags")]
+    [Category("Physics Experiments")]
     public TriState PhysicsFlag0x2800 { get; set; } = TriState.Default;
 
-    [DisplayName("Flag 0x10 (bit4)")]
-    [Description("Unknown effect - Default=unchanged, On=force enable, Off=force disable")]
+    [DisplayName("Flag Bit 4 (0x10)")]
+    [Description("Force bit 4 (0x10) in reaction data")]
     [DefaultValue(TriState.Default)]
-    [Category("Physics Flags")]
+    [Category("Physics Experiments")]
     public TriState PhysicsFlagBit4 { get; set; } = TriState.Default;
 
-    [DisplayName("Flag 0x1000 (bit12) - Stagger Reaction")]
-    [Description("Will Break/Stagger reaction animation with camera zoom - Default=unchanged, On=force enable, Off=force disable")]
+    [DisplayName("Flag Bit 12 (0x1000)")]
+    [Description("Force bit 12 (0x1000) in reaction data")]
     [DefaultValue(TriState.Default)]
-    [Category("Physics Flags")]
+    [Category("Physics Experiments")]
     public TriState PhysicsFlagBit12 { get; set; } = TriState.Default;
 
+    [DisplayName("Dump All Columns")]
+    [Description("Dump all columns of the SystemMove row on hit")]
+    [DefaultValue(false)]
+    [Category("Physics Experiments")]
+    public bool PhysicsDumpAllColumns { get; set; } = false;
+
+    // ==================== POSITION OVERRIDES ====================
+
+    [DisplayName("Enable Position Overrides")]
+    [Description("Whether to override the spawn position of magic spells")]
+    [DefaultValue(false)]
+    [Category("Position Overrides")]
+    public bool EnablePositionOverrides { get; set; } = false;
+
+    [DisplayName("X Offset")]
+    [Description("Horizontal offset (left/right)")]
+    [DefaultValue(0.0f)]
+    [Category("Position Overrides")]
+    public float PositionXOffset { get; set; } = 0.0f;
+
+    [DisplayName("Y Offset")]
+    [Description("Vertical offset (up/down)")]
+    [DefaultValue(0.0f)]
+    [Category("Position Overrides")]
+    public float PositionYOffset { get; set; } = 0.0f;
+
+    [DisplayName("Z Offset")]
+    [Description("Forward offset (front/back)")]
+    [DefaultValue(0.0f)]
+    [Category("Position Overrides")]
+    public float PositionZOffset { get; set; } = 0.0f;
+
+    // ==================== UNIVERSAL FUZZER ====================
+
+    [DisplayName("Enable Universal Fuzzer")]
+    [Description("Whether to enable the universal magic property fuzzer/injector")]
+    [DefaultValue(false)]
+    [Category("Universal Fuzzer")]
+    public bool EnableUniversalFuzzer { get; set; } = false;
+
+    [DisplayName("Fuzzer Entries")]
+    [Description("List of properties to fuzz or inject")]
+    [Category("Universal Fuzzer")]
+    public List<FuzzerEntry> FuzzerEntries { get; set; } = new List<FuzzerEntry>();
 
     // ==================== DEBUG ====================
     

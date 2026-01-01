@@ -35,6 +35,7 @@ public class ImGuiConfigurator : IImGuiComponent
     {
         //if (!_isWindowOpen) return;
 
+        _imgui.SetNextWindowSize(new Vector2(600, 500), ImGuiCond.ImGuiCond_FirstUseEver);
         if (_imgui.Begin("Truly Eikonic Spells Configuration", ref _isWindowOpen, ImGuiWindowFlags.ImGuiWindowFlags_None))
         {
             if (_imgui.BeginTabBar("MainTabs", ImGuiTabBarFlags.ImGuiTabBarFlags_None))
@@ -179,20 +180,6 @@ public class ImGuiConfigurator : IImGuiComponent
 
     private void RenderMagicOverridesTab()
     {
-        _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "Magic Struct Overrides");
-        bool enableStruct = _config.EnableMagicStructOverrides;
-        if (_imgui.Checkbox("Enable Struct Overrides", ref enableStruct)) _config.EnableMagicStructOverrides = enableStruct;
-        
-        float timing = _config.MagicTimingOverride;
-        if (_imgui.InputFloat("Timing Override", ref timing)) _config.MagicTimingOverride = timing;
-        
-        float scale = _config.MagicScaleOverride;
-        if (_imgui.InputFloat("Scale Override", ref scale)) _config.MagicScaleOverride = scale;
-        
-        float angle = _config.MagicAimAngleOverride;
-        if (_imgui.InputFloat("Aim Angle (deg)", ref angle)) _config.MagicAimAngleOverride = angle;
-
-        _imgui.Separator();
         _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "Position Overrides");
         bool enablePos = _config.EnablePositionOverrides;
         if (_imgui.Checkbox("Enable Position Overrides", ref enablePos)) _config.EnablePositionOverrides = enablePos;
@@ -341,24 +328,13 @@ public class ImGuiConfigurator : IImGuiComponent
     private void RenderTriState(string label, Func<TriState> getter, Action<TriState> setter)
     {
         TriState current = getter();
-        int index = (int)current;
-        string[] items = { "Default", "On", "Off" };
+        _imgui.Text(label + ":");
+        _imgui.SameLine();
         
-        if (_imgui.BeginCombo(label, items[index], ImGuiComboFlags.ImGuiComboFlags_None))
-        {
-            for (int i = 0; i < items.Length; i++)
-            {
-                bool isSelected = (index == i);
-                if (_imgui.SelectableEx(items[i], isSelected, ImGuiSelectableFlags.ImGuiSelectableFlags_None, Vector2.Zero))
-                {
-                    setter((TriState)i);
-                }
-                if (isSelected)
-                {
-                    _imgui.SetItemDefaultFocus();
-                }
-            }
-            _imgui.EndCombo();
-        }
+        if (_imgui.RadioButton($"Default##{label}", current == TriState.Default)) setter(TriState.Default);
+        _imgui.SameLine();
+        if (_imgui.RadioButton($"On##{label}", current == TriState.On)) setter(TriState.On);
+        _imgui.SameLine();
+        if (_imgui.RadioButton($"Off##{label}", current == TriState.Off)) setter(TriState.Off);
     }
 }

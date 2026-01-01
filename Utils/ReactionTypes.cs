@@ -1,4 +1,4 @@
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.Utils;
 
 /// <summary>
 /// Centralized documentation for enemy reaction types and push directions.

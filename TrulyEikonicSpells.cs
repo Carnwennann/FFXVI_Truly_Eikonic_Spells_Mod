@@ -12,7 +12,6 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
 namespace ff16.gameplay.truly_eikonic_spells;
@@ -22,26 +21,12 @@ public class TrulyEikonicSpellsMod : ModBase
     // ============================================================
     // DEBUG FLAGS - Set to false to disable reverse engineering logs
     // ============================================================
-    private const bool DEBUG_ON_HIT = true;          // Log OnHit Action ID
-    private const bool DEBUG_MAGIC_HIT = false;      // Log detailed magic hit info + R15 dump
+    private const bool DEBUG_ON_HIT = false;          // Log OnHit Action ID
     private const bool DEBUG_BATTLE_TECHNIQUE = false; // Log BattleTechnique calls
     private const bool DEBUG_PERFECT_DODGE = true;   // Log perfect dodge events
     private const bool DEBUG_WINGS_DODGE = false;     // Log Wings of Light dodge handler
-    private const bool DEBUG_PLAYER_MODE = true;    // Log player mode changes (spammy)
-    private const bool DEBUG_COPY_ATTACK_DATA = false; // Log CopyAttackData calls (projectile creation)
-    private const bool DEBUG_PREPARE_TEMPLATE = false; // Log PrepareAttackTemplate calls
-    private const bool DEBUG_FIRE_MAGIC = true;      // Log FireMagicProjectile calls (KEY function!)
-    private const bool DEBUG_ON_REACTION = true;     // Log OnReaction calls (knockback/stagger)
-    
-    // STRUCT DUMP FLAGS - Control detailed structure dumps
-    private const bool DEBUG_DUMP_TABLE_LAYOUT = false;    // Dump NEX table layouts on load
-    private const bool DEBUG_DUMP_TIMELINE = false;        // Dump Timeline object details
-    private const bool DEBUG_DUMP_MAGIC_TEMPLATE = false;  // Dump magic attack template structure
-    private const bool DEBUG_DUMP_DEST_STRUCTURE = false;  // Dump destination attack structure
-    private const bool DEBUG_DUMP_REACTION_DATA = false;   // Dump OnReaction param structures
-    private const bool DEBUG_DUMP_MAGIC_HIT = false;       // Dump detailed magic hit info + R15
-    private const bool DEBUG_DUMP_PROJECTILE_DATA = false; // Dump projectile data structure
-    private const bool DEBUG_DUMP_R15_STRUCTURE = false;   // Dump R15 attack structure
+    private const bool DEBUG_PLAYER_MODE = false;    // Log player mode changes (spammy)
+    private const bool DEBUG_ON_REACTION = false;     // Log OnReaction calls (knockback/stagger)
     // ============================================================
     
     private readonly IModLoader _modLoader;
@@ -79,25 +64,11 @@ public class TrulyEikonicSpellsMod : ModBase
     // BattleTechnique hook - for logging and potentially spawning attacks
     public delegate char OnBattleTechniqueDelegate(long a1, uint techId, char a3);
     private IHook<OnBattleTechniqueDelegate> _onBattleTechnique;
-    private long _battleTechniqueA1; // Store the a1 pointer for potential manual invocation
     
     // CopyAttackData hook - copies attack parameters from template to attack struct
     // This is called when creating projectiles/attacks
     public unsafe delegate void CopyAttackDataDelegate(long destAttackStruct, long srcAttackTemplate);
     private IHook<CopyAttackDataDelegate> _copyAttackData;
-    private CopyAttackDataDelegate _copyAttackDataWrapper; // For calling manually
-    
-    // PrepareAttackTemplate hook - prepares the attack template from stack parameters
-    // This is called BEFORE CopyAttackData, sets up the template with ActionId etc.
-    // Offset: 0x59FB6E from base (7FF77E9AFB6E in user's session)
-    // We need to capture a1 (template) and r8 (appears to have ActionId info)
-    public unsafe delegate void PrepareAttackTemplateDelegate(long a1, long a2, long a3, long a4);
-    private IHook<PrepareAttackTemplateDelegate> _prepareAttackTemplate;
-    
-    // GetTimeline - Retrieves the Timeline/Animation object (kept for debugging)
-    // Offset: 0x4692A4
-    public unsafe delegate long GetTimelineDelegate(long param_1);
-    private IHook<GetTimelineDelegate> _getTimeline;
     
     public delegate long GetOrCreateEntityDelegate(long entityManager, out long outEntityInfo, long entityIdPtr);
     private GetOrCreateEntityDelegate _getOrCreateEntity;
@@ -118,25 +89,6 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Current active Eikon tracking
     private uint _currentEikonMode = 0;
-    private long _modeA1 = 0;  // Player mode structure pointer
-    
-    // Magic template pointer - for spawning our own projectiles
-    private long _lastMagicTemplatePtr = 0;
-    private long _lastDestStructPtr = 0;  // Destination attack struct (reused)
-    private int _lastMagicActionId = 0;   // Store the last created magic ID to identify it in FireMagic
-    
-    // Legacy buffers (kept for debugging, may be removed later)
-    private IntPtr _projectileDataBuffer = IntPtr.Zero;
-    private const int PROJECTILE_DATA_SIZE = 0x500;
-    private IntPtr _shadowVTableBuffer = IntPtr.Zero;
-    private const int VTABLE_SIZE = 0x800;
-    
-    // Cache the param_1 from GetTimeline during normal shots for comparison (debugging)
-    private long _cachedTimelineParam1 = 0;
-    private long _cachedTimelinePtr = 0;
-    
-    // Wings of Light context - store a1 from when it's called normally
-    private long _wingsA1Context = 0;
     
     // Systems
     private DiaSystem _diaSystem;
@@ -224,8 +176,6 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             throw new Exception($"[{_modConfig.ModId}] Could not get INextExcelDBApi!");
         }
-        
-        managedApi.OnNexLoaded += OnNexLoaded;
     }
 
     private void SetupImGui()
@@ -301,23 +251,9 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _darkraSystem.DebugLogging = _configuration.DebugLogging;
-        
-        // Allocate memory for legacy buffers (some may be removed later)
-        _projectileDataBuffer = Marshal.AllocHGlobal(PROJECTILE_DATA_SIZE);
-        _shadowVTableBuffer = Marshal.AllocHGlobal(VTABLE_SIZE);
     }
     
-    private void OnNexLoaded()
-    {
-        _logger.WriteLine($"[{_modConfig.ModId}] NEX loaded, setting up tables...", _logger.ColorGreen);
-        // Dump layouts to discover fields
-        if (DEBUG_DUMP_TABLE_LAYOUT)
-        {
-            LogDumpStructs.DumpTableLayout(_logger, _modConfig.ModId, "charatimeline");
-            LogDumpStructs.DumpTableLayout(_logger, _modConfig.ModId, "charatimelinevariation");
-        }
-    }
-    
+
     private unsafe void SetupScans(IStartupScanner scans)
     {
         
@@ -429,24 +365,14 @@ public class TrulyEikonicSpellsMod : ModBase
         scans.AddScan("48 89 5C 24 ?? 57 48 83 EC 20 48 8D 59 58 48 8B FA", address =>
         {
             _copyAttackData = _hooks!.CreateHook<CopyAttackDataDelegate>(CopyAttackDataImpl, address).Activate();
-            _copyAttackDataWrapper = _hooks!.CreateWrapper<CopyAttackDataDelegate>(address, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
         
         // Initialize MagicCastApi hooks (MagicExecute, CastMagic)
         _magicCastApi.SetupScans(scans, _hooks!);
         
-        // Initialize FireMagicProjectile (uses hardcoded offset)
-        var baseAddr = Process.GetCurrentProcess().MainModule!.BaseAddress.ToInt64();
-        _magicCastApi.InitializeFireMagicProjectile(_hooks!, baseAddr);
-        
         // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
         _magicCastApi.InitializeUniversalMagicHooks(_hooks!);
-        
-        // GetTimeline Hook (0x4692A4) - kept for debugging/logging
-        //var getTimelineAddr = baseAddr + 0x4692A4;
-        //_getTimeline = _hooks!.CreateHook<GetTimelineDelegate>(GetTimelineImpl, getTimelineAddr).Activate();
-        //_logger.WriteLine($"[{_modConfig.ModId}] Hooked GetTimeline at 0x{getTimelineAddr:X}", _logger.ColorGreen);
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
@@ -566,18 +492,6 @@ public class TrulyEikonicSpellsMod : ModBase
             }
         }
         
-        if (DEBUG_ON_REACTION && DEBUG_DUMP_REACTION_DATA)
-        {
-            try
-            {
-                LogDumpStructs.DumpOnReactionData(_logger, _modConfig.ModId, param1, param2);
-            }
-            catch (Exception ex)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Error dumping: {ex.Message}", _logger.ColorRed);
-            }
-        }
-        
         // Call original function
         _onReaction.OriginalFunction(param1, param2);
     }
@@ -604,9 +518,6 @@ public class TrulyEikonicSpellsMod : ModBase
     // === MaybeHandleWingsPerfectDodge Handler - for Wings of Light effects ===
     private unsafe long MaybeHandleWingsPerfectDodgeImpl(long a1, long a2)
     {
-        // Store the a1 context for later use (when we want to trigger wings during Diara)
-        _wingsA1Context = a1;
-        
         // === DEBUG: Reverse Engineering - Wings Dodge Handler ===
         if (DEBUG_WINGS_DODGE)
         {
@@ -625,9 +536,6 @@ public class TrulyEikonicSpellsMod : ModBase
     // === BattleTechnique Handler (for logging special abilities only) ===
     private char OnBattleTechniqueImpl(long a1, uint techId, char a3)
     {
-        // Store the a1 pointer for potential manual invocation
-        _battleTechniqueA1 = a1;
-        
         // === DEBUG: Reverse Engineering - Battle Technique calls ===
         if (DEBUG_BATTLE_TECHNIQUE)
         {
@@ -645,35 +553,12 @@ public class TrulyEikonicSpellsMod : ModBase
     // === CopyAttackData Handler - Called when creating attacks/projectiles ===
     private unsafe void CopyAttackDataImpl(long destAttackStruct, long srcAttackTemplate)
     {
-        // === DEBUG: Reverse Engineering - Attack Data Copy ===
-        if (DEBUG_COPY_ATTACK_DATA)
-        {
-            int actionId = LogDumpStructs.DumpCopyAttackData(
-                _logger, 
-                _modConfig.ModId, 
-                destAttackStruct, 
-                srcAttackTemplate,
-                DEBUG_DUMP_MAGIC_TEMPLATE,
-                DEBUG_DUMP_DEST_STRUCTURE);
-            
-            // Store magic projectile data for potential reuse
-            if (actionId == 218 || actionId == 219 || actionId == 227)
-            {
-                _lastMagicActionId = actionId;
-                _lastMagicTemplatePtr = srcAttackTemplate;
-                _lastDestStructPtr = destAttackStruct;
-            }
-        }
-        
         // Call original function
         _copyAttackData.OriginalFunction(destAttackStruct, srcAttackTemplate);
     }
     
     private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)
     {
-        // Save the player mode structure pointer
-        _modeA1 = a1;
-        
         // Track potential Eikon mode changes
         _currentEikonMode = playerMode;
         
@@ -720,58 +605,6 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Delegate to shared EikonUtils for Eikon detection
     private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
-    
-    // ============================================================
-    // DEBUG FUNCTIONS - Reverse Engineering Helpers
-    // Set DEBUG_* flags at top of file to enable/disable
-    // ============================================================
-    #region Debug Functions (Reverse Engineering)
-    
-    /// <summary>
-    /// Log detailed magic hit information for CheatEngine investigation
-    /// </summary>
-    private unsafe void LogMagicHitDebug(AttackInfo info, long R15, long* bnpcRow, long a3, long a4)
-    {
-        if (DEBUG_DUMP_MAGIC_HIT)
-        {
-            LogDumpStructs.LogMagicHitDebug(_logger, _modConfig.ModId, info, R15, bnpcRow, a3, a4);
-        }
-    }
-    
-    /// <summary>
-    /// Dump ProjectileData structure (RDX in FireMagicProjectile)
-    /// </summary>
-    private unsafe void DumpProjectileData(long ptr)
-    {
-        if (DEBUG_DUMP_PROJECTILE_DATA)
-        {
-            LogDumpStructs.DumpProjectileData(_logger, _modConfig.ModId, ptr);
-        }
-    }
-
-    /// <summary>
-    /// Dump R15 attack structure for reverse engineering
-    /// </summary>
-    private unsafe void DumpR15Structure(long R15)
-    {
-        if (DEBUG_DUMP_R15_STRUCTURE)
-        {
-            LogDumpStructs.DumpR15Structure(_logger, _modConfig.ModId, R15);
-        }
-    }
-    
-    /// <summary>
-    /// Dump magic template structure for reverse engineering
-    /// </summary>
-    private unsafe void DumpMagicTemplate(long template)
-    {
-        if (DEBUG_DUMP_MAGIC_TEMPLATE)
-        {
-            LogDumpStructs.DumpMagicTemplate(_logger, _modConfig.ModId, template);
-        }
-    }
-    
-    #endregion
     
     #region Standard Overrides
     

@@ -1,9 +1,8 @@
-using System.Data.Common;
 using System.Diagnostics;
-using System.Security.Principal;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.Utils;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -198,30 +197,6 @@ public class DiaraSystem
             if (_MagicCastApi.CastSpells(MagicID, DiaSpellsPerDodge))
             {
                 LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
-                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-                return DiaSpellsPerDodge;
-            }
-        }
-
-        // 3. Try Modified Projectile (FireMagicProjectile)
-        if (_magicInjectionApi != null && _MagicCastApi != null && _MagicCastApi.HasProjectileContext)
-        {
-            LogDebug("Attempting Modified Projectile Fire via MagicInjectionApi...");
-            if (_magicInjectionApi.FireModifiedProjectiles("DiaModified", DiaSpellsPerDodge))
-            {
-                LogInfo($"Successfully fired {DiaSpellsPerDodge} MODIFIED Dia projectiles!");
-                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-                return DiaSpellsPerDodge;
-            }
-        }
-
-        // 4. Try Normal Projectile (Fallback)
-        if (_MagicCastApi != null && _MagicCastApi.HasProjectileContext)
-        {
-            LogDebug("Falling back to Normal Projectile Fire via MagicCastApi...");
-            if (_MagicCastApi.FireDiaProjectiles(DiaSpellsPerDodge))
-            {
-                LogInfo($"Successfully fired {DiaSpellsPerDodge} Dia projectiles (Normal)!");
                 OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
                 return DiaSpellsPerDodge;
             }

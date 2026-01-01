@@ -1,4 +1,4 @@
-namespace ff16.gameplay.truly_eikonic_spells;
+namespace ff16.gameplay.truly_eikonic_spells.Utils;
 
 /// <summary>
 /// Shared utilities and constants for Eikon-related functionality
