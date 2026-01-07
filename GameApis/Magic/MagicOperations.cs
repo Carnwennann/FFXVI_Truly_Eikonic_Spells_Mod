@@ -30,7 +30,7 @@ internal static class MagicOperations
 
     public static string GetName(int opType) => opType switch
     {
-        1 => "Operation_1_linearTrajectory?",
+        1 => "Operation_1_LinearSlightlyHomingTrajectory",
         25 => "Operation_25_VFX",
         35 => "Operation_35",
         39 => "Operation_39",

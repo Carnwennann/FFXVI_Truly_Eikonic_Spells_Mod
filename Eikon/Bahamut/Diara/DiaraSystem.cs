@@ -52,7 +52,7 @@ public class DiaraSystem
     // Reference to MagicApi for spawning projectiles
     private MagicApi? _magicApi;
     
-    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 1, float fanAngleStep = 15.0f, ILogger? logger = null, string modId = "")
+    public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 214, float fanAngleStep = 15.0f, ILogger? logger = null, string modId = "")
     {
         BuffDurationSeconds = buffDurationSeconds;
         DiaSpellsPerDodge = diaSpellsPerDodge;
@@ -289,7 +289,7 @@ public class DiaraSystem
         var fanModifications = new List<List<FuzzerEntry>>();
         
         // Calculate start angle to center the fan
-        // For 5 spells with 15 deg step: -30, -15, 0, 15, 30
+        // For 5 spells with 7.5 deg step: -15, -7.5, 0, 7.5, 15
         float startAngle = -(DiaSpellsPerDodge - 1) * FanAngleStep / 2f;
 
         for (int i = 0; i < DiaSpellsPerDodge; i++)
@@ -297,6 +297,23 @@ public class DiaraSystem
             float currentAngle = startAngle + (i * FanAngleStep);
             var modifiedEntries = new List<FuzzerEntry>();
             
+            // Add Property 69 = 0 for "slave" projectiles (i > 0)
+            // This makes them "jointly managed" like Blind Justice (no extra audio/visual clutter)
+            if (i > 0)
+            {
+                modifiedEntries.Add(new FuzzerEntry
+                {
+                    OpType = 51,
+                    Ocurrence = 0,
+                    PropertyId = 69,
+                    IntValue = 0,
+                    UseFloat = false,
+                    Enabled = true,
+                    IsInjection = true, // Ensure it's applied even if not in original data
+                    TargetOperationGroupId = 0 // Usually Op 51 is in Group 0
+                });
+            }
+
             foreach (var entry in baseEntries)
             {
                 var newEntry = entry.Clone();
@@ -304,25 +321,11 @@ public class DiaraSystem
                 // Apply fan angle to trajectory (Op 2493, Prop 2430)
                 if (newEntry.OpType == 2493 && newEntry.PropertyId == 2430 && newEntry.UseVec3)
                 {
-                    // The user said: "Vec3Y es izquierda y Vec3Z es derecha"
-                    // This implies they might be separate positive-only axes.
-                    if (currentAngle > 0)
-                    {
-                        newEntry.Vec3Y = currentAngle; // Left
-                        newEntry.Vec3Z = 0;
-                    }
-                    else if (currentAngle < 0)
-                    {
-                        newEntry.Vec3Y = 0;
-                        newEntry.Vec3Z = -currentAngle; // Right (positive value)
-                    }
-                    else
-                    {
-                        newEntry.Vec3Y = 0;
-                        newEntry.Vec3Z = 0;
-                    }
+                    // Based on Blind Justice logs, Vec3Y is the rotation axis for the fan
+                    newEntry.Vec3Y = currentAngle;
+                    newEntry.Vec3Z = 0;
                     
-                    LogDebug($"Projectile {i}: Angle {currentAngle:F2} -> Vec3Y={newEntry.Vec3Y:F2}, Vec3Z={newEntry.Vec3Z:F2}");
+                    LogDebug($"Projectile {i}: Angle {currentAngle:F2} -> Vec3Y={newEntry.Vec3Y:F2}");
                 }
                 
                 modifiedEntries.Add(newEntry);
