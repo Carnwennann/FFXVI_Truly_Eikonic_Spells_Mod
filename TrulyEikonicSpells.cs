@@ -96,6 +96,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
+    private FunctionApi _functionApi;
     private MagicGameSystem _magicGameSystem;
     private MagicApi _magicApi;
     private PlayerApi _playerApi;
@@ -150,12 +151,18 @@ public class TrulyEikonicSpellsMod : ModBase
         _globalPlayerStatePtr = baseAddress + 0x1816608;  // Same as globalUnk in combo_meter
     }
 
-    private void SetupGameApis()
+    private unsafe void SetupGameApis()
     {
+        // Initialize FunctionApi (low-level game function wrappers)
+        _functionApi = new FunctionApi(_logger, _modConfig);
+        _functionApi.SetupScans(_startupScanner, _hooks);
+        
         // Initialize MagicGameSystem (handles all magic projectile spawning)
-        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner);
+        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner, _functionApi);
         // Setup MagicGameSystem callbacks
         _magicGameSystem.GetActiveEikon = GetActiveEikon;
+        _magicGameSystem.GetPlayerStaticActorInfo = () => _playerApi.GetPlayerStaticActorInfo();
+        _magicGameSystem.GetPlayerActorReference = () => (long)_playerApi.GetPlayerActorReference();
 
         // Initialize MagicApi
         _magicApi = new MagicApi(_logger, _modConfig.ModId, _magicGameSystem);
@@ -380,6 +387,10 @@ public class TrulyEikonicSpellsMod : ModBase
         _currentEikonMode = 0;
         
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
+        
+        // Notify FunctionApi that level has loaded (enables ActorManager capture)
+        _functionApi.OnLevelLoaded();
+        
         return _onLevelLoad.OriginalFunction(a1, a2, a3, a4);
     }
 
@@ -499,48 +510,47 @@ public class TrulyEikonicSpellsMod : ModBase
         if (DEBUG_PERFECT_DODGE)
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [DODGE] Perfect Dodge detected! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
+            
+            // Try to find ActorReference in these structures
+            // Based on pseudocode, ActorReference might be at specific offsets
+            try
+            {
+                // Try reading potential ActorReference from a1 (might be player structure)
+                if (a1 != 0 && a1 > 0x10000)
+                {
+                    uint potentialActorRef_a1_0 = *(uint*)a1;
+                    uint potentialActorRef_a1_8 = *(uint*)(a1 + 8);
+                    uint potentialActorRef_a1_16 = *(uint*)(a1 + 16);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [DODGE-DEBUG] a1+0x00: 0x{potentialActorRef_a1_0:X8}, a1+0x08: 0x{potentialActorRef_a1_8:X8}, a1+0x10: 0x{potentialActorRef_a1_16:X8}", _logger.ColorYellow);
+                }
+                
+                // Try reading potential ActorReference from a2 (might be target/enemy structure)
+                if (a2 != 0 && a2 > 0x10000)
+                {
+                    uint potentialActorRef_a2_0 = *(uint*)a2;
+                    uint potentialActorRef_a2_8 = *(uint*)(a2 + 8);
+                    uint potentialActorRef_a2_16 = *(uint*)(a2 + 16);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [DODGE-DEBUG] a2+0x00: 0x{potentialActorRef_a2_0:X8}, a2+0x08: 0x{potentialActorRef_a2_8:X8}, a2+0x10: 0x{potentialActorRef_a2_16:X8}", _logger.ColorYellow);
+                }
+            }
+            catch { }
         }
         
-        // Update Diara system (check for buff timeout)
-        _diaraSystem.Update();
-        
-        // Process perfect dodge through Diara system
-        // DiaraSystem handles projectile spawning via MagicApi
-        _diaraSystem.OnPerfectDodge();
+        // Trigger Diara system (spawns 5 modified Dia projectiles in a fan pattern)
+        // a1 is the Player ActorReference
+        _diaraSystem.OnPerfectDodge(a1);
         
         return _onPerfectDodge.OriginalFunction(a1, a2, a3, a4);
     }
     
-    // === MaybeHandleWingsPerfectDodge Handler - for Wings of Light effects ===
-    private unsafe long MaybeHandleWingsPerfectDodgeImpl(long a1, long a2)
+    // === BattleTechnique Handler ===
+    private unsafe char OnBattleTechniqueImpl(long a1, uint techId, char a3)
     {
-        // === DEBUG: Reverse Engineering - Wings Dodge Handler ===
-        if (DEBUG_WINGS_DODGE)
+        // Only log non-Ifrit special abilities (BattleTechnique is only called for special moves, not normal attacks)
+        // Ifrit moves are 10000-20000 range - skip those as they spam the log
+        if (techId < 10000 || techId > 20000)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] MaybeHandleWingsPerfectDodge called! a1=0x{a1:X}, a2=0x{a2:X}", _logger.ColorYellow);
-            _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Captured wings context a1=0x{a1:X}", _logger.ColorGreen);
-            
-            if (_diaraSystem.IsBuffActive)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [WINGS_DODGE] Diara buff active during wings!", _logger.ColorGreen);
-            }
-        }
-        
-        return _maybeHandleWingsPerfectDodge.OriginalFunction(a1, a2);
-    }
-    
-    // === BattleTechnique Handler (for logging special abilities only) ===
-    private char OnBattleTechniqueImpl(long a1, uint techId, char a3)
-    {
-        // === DEBUG: Reverse Engineering - Battle Technique calls ===
-        if (DEBUG_BATTLE_TECHNIQUE)
-        {
-            // Only log non-Ifrit special abilities (BattleTechnique is only called for special moves, not normal attacks)
-            // Ifrit moves are 10000-20000 range - skip those as they spam the log
-            if (techId < 10000 || techId > 20000)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [TECH] Special Ability techId: {techId}, a1: 0x{a1:X}", _logger.ColorYellow);
-            }
+            _logger.WriteLine($"[{_modConfig.ModId}] [TECH] Special Ability techId: {techId}, a1: 0x{a1:X}", _logger.ColorYellow);
         }
         
         return _onBattleTechnique.OriginalFunction(a1, techId, a3);
@@ -551,6 +561,13 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         // Call original function
         _copyAttackData.OriginalFunction(destAttackStruct, srcAttackTemplate);
+    }
+    
+    // === MaybeHandleWingsPerfectDodge Handler ===
+    private unsafe long MaybeHandleWingsPerfectDodgeImpl(long a1, long a2)
+    {
+        // Passthrough for now - not currently used
+        return _maybeHandleWingsPerfectDodge.OriginalFunction(a1, a2);
     }
     
     private unsafe char StartPlayerModeImpl(long a1, uint playerMode, long a3)

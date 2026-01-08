@@ -62,14 +62,30 @@ public unsafe class PlayerApi
     
     /// <summary>
     /// Get current player's actor ID from the singleton.
-    /// Returns 0 if not available.
+    /// Returns 1 (Clive) as fallback if not available.
     /// </summary>
     public uint GetPlayerActorId()
     {
-        if (_hooks.UnkSingletonPlayerOrCameraRelated == 0)
-            return 0;
-        
-        return *(uint*)(_hooks.UnkSingletonPlayerOrCameraRelated + 0xC8);
+        try {
+            if (_hooks.UnkSingletonPlayerOrCameraRelated == 0)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] UnkSingleton is 0, using fallback ActorId=1", _logger.ColorYellow);
+                return 1; // Fallback to Clive
+            }
+            
+            uint id = *(uint*)(_hooks.UnkSingletonPlayerOrCameraRelated + 0xC8);
+            if (id == 0)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] ActorId at +0xC8 is 0, using fallback ActorId=1", _logger.ColorYellow);
+                return 1;
+            }
+            
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] Current ActorId: {id}", _logger.ColorBlue);
+            return id;
+        } catch (Exception ex) {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] GetPlayerActorId failed: {ex.Message}", _logger.ColorRed);
+            return 1;
+        }
     }
     
     /// <summary>
@@ -87,6 +103,7 @@ public unsafe class PlayerApi
     
     /// <summary>
     /// Get the ActorReference pointer for the player.
+    /// This requires ActorManager to be captured first.
     /// </summary>
     public FunctionApi.ActorReference* GetPlayerActorReference()
     {
@@ -94,6 +111,7 @@ public unsafe class PlayerApi
         if (actorId == 0)
             return null;
         
+        // This will return null if ActorManager hasn't been captured yet
         return _hooks.GetActorByKey(actorId);
     }
     
@@ -107,7 +125,22 @@ public unsafe class PlayerApi
         if (actorId == 0)
             return 0;
         
-        return _hooks.GetStaticActorInfo(actorId);
+        var staticInfo = _hooks.GetStaticActorInfo(actorId);
+        
+        if (staticInfo == 0)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] GetStaticActorInfo returned 0 for ActorId={actorId}", _logger.ColorRed);
+        }
+        else if (staticInfo > 0x0000700000000000)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] WARNING: StaticActorInfo (0x{staticInfo:X}) looks like a code address! ActorId={actorId}", _logger.ColorRed);
+        }
+        else
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [PlayerApi] StaticActorInfo: 0x{staticInfo:X} for ActorId={actorId}", _logger.ColorBlue);
+        }
+        
+        return staticInfo;
     }
     
     // ============================================================

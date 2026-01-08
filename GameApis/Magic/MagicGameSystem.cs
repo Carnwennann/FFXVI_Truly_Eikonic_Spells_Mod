@@ -84,6 +84,8 @@ internal unsafe class MagicGameSystem
     private const string MAGIC_FILE_PROCESS_SIG = "48 8B C4 48 89 58 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 ?? 48 81 EC ?? ?? ?? ?? C5 F8 29 70 ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 45 33 F6 48 89 55";
     private const string MAGIC_FILE_HANDLE_SUB_ENTRY_SIG = "40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC ?? 48 8D 59";
     private const string FIRE_MAGIC_PROJECTILE_SIG = "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8d 6C 24 90 48 81 EC 70 01 00 00 48 8B 05 2D 0F 1A 01 48 33 C4 48 89 45 60 48 8B 51 38 4C 8B E1 44 8B 42 10 41 83 E8 01 0F 84 B6 01 00 00";
+    private const string INSERT_NEW_MAGIC_SIG = "40 53 48 83 EC 20 48 8B DA 4C 8B D9 8B 92 EC 00";
+    private const int BATTLE_MAGIC_EXECUTOR_OFFSET = 0x18168E8;
 
     // Buffer sizes
     private const int MAGIC_STRUCT_SIZE = 0x108;      // 264 bytes (8 + 32*8)
@@ -121,6 +123,7 @@ internal unsafe class MagicGameSystem
     private byte _setupMagic_flag = 0;             // Flag byte
     private long _castMagic_a1 = 0;
     private bool _hasMagicContext = false;
+    private bool _hasReportedContextFailure = false;
     private int _currentlyCastingMagicId = 0;
     
     // Queue for deferred magic processing (CastMagic is often asynchronous)
@@ -144,30 +147,36 @@ internal unsafe class MagicGameSystem
     private readonly IModConfig _modConfig;
     private readonly IStartupScanner _scanner;
     private Config _configuration;
+    private FunctionApi _functionApi;
+    private long _baseAddress;
     
     // ============================================================
     // PROPERTIES
     // ============================================================
     
     /// <summary>
-    /// True if we have valid cached SetupMagic/CastMagic context.
+    /// True if we have valid cached SetupMagic/CastMagic context OR we can resolve it globally.
     /// </summary>
-    public bool HasMagicContext => _hasMagicContext;
+    public bool HasMagicContext => _hasMagicContext || (*(long*)(_baseAddress + BATTLE_MAGIC_EXECUTOR_OFFSET) != 0);
 
     // External callbacks
     public Func<int>? GetActiveEikon { get; set; }
+    public Func<nint>? GetPlayerStaticActorInfo { get; set; }
+    public Func<long>? GetPlayerActorReference { get; set; }
     public Func<int, long, long, bool>? OnChargedShotDetected { get; set; }
     
     // ============================================================
     // CONSTRUCTOR
     // ============================================================
     
-    public MagicGameSystem(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
+    public MagicGameSystem(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner, FunctionApi functionApi)
     {
         _logger = logger;
         _modConfig = modConfig;
         _configuration = configuration;
         _scanner = scanner;
+        _functionApi = functionApi;
+        _baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
         
         // Initialize operation names from metadata
         _operationNames = MagicOperations.GetDefaultNames();
@@ -205,6 +214,13 @@ internal unsafe class MagicGameSystem
             _castMagicHook = hooks.CreateHook<CastMagicDelegate>(CastMagicImpl, address).Activate();
             _castMagicWrapper = hooks.CreateWrapper<CastMagicDelegate>(address, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Hooked CastMagic at 0x{address:X}", _logger.ColorGreen);
+        });
+
+        // InsertNewMagic - Direct call for magic spawning without context
+        scans.AddScan(INSERT_NEW_MAGIC_SIG, address =>
+        {
+            _castMagicWrapper = hooks.CreateWrapper<CastMagicDelegate>(address, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [MagicGameSystem] Resolved InsertNewMagic at 0x{address:X}", _logger.ColorGreen);
         });
 
         // FireMagicProjectile - For detecting and suppressing charged shots
@@ -394,50 +410,94 @@ internal unsafe class MagicGameSystem
 
     /// <summary>
     /// Spawn a magic spell by ID using the SetupMagic/CastMagic system.
-    /// Requires HasMagicContext to be true (fire a normal spell first to capture context).
     /// </summary>
-    public bool CastMagicSpell(int magicId)
+    public bool CastMagicSpell(int magicId, long explicitActorRef = 0)
     {
-        if (!_hasMagicContext || _castMagic_a1 == 0)
+        long executor = *(long*)(_baseAddress + BATTLE_MAGIC_EXECUTOR_OFFSET);
+        
+        if (executor == 0 && (_castMagic_a1 == 0))
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: No magic context! Fire a normal shot first.", _logger.ColorRed);
-            return false;
+            if (!_hasReportedContextFailure)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] No BattleMagicExecutor context yet.", _logger.ColorYellow);
+                _hasReportedContextFailure = true;
+            }
+        }
+
+        // 1. Prioritize explicit actorRef (from hooks)
+        long actorRef = explicitActorRef;
+        nint posStruct = 0;
+        
+        if (actorRef != 0)
+        {
+            posStruct = _functionApi.GetPositionStructFromActorRef((nint)actorRef);
+        }
+
+        // 2. Fallback to captured context (from SetupMagicImpl)
+        if (actorRef == 0 || posStruct == 0)
+        {
+            actorRef = _setupMagic_casterActorRef;
+            posStruct = (nint)_setupMagic_positionStruct;
         }
         
+        if (posStruct == 0 || actorRef == 0)
+        {
+            if (!_hasReportedContextFailure)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] Failed to resolve player context. Fire a magic spell once to sync.", _logger.ColorYellow);
+                _hasReportedContextFailure = true;
+            }
+            return false;
+        }
+
+        // Validate pointers are heap addresses, not code addresses
+        if (actorRef > 0x0000700000000000 || posStruct > 0x0000700000000000)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] ABORT: Invalid pointers (ActorRef=0x{actorRef:X}, Pos=0x{posStruct:X})", _logger.ColorRed);
+            return false;
+        }
+
         if (_magicStructBuffer == IntPtr.Zero)
         {
             _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: Missing buffers!", _logger.ColorRed);
             return false;
         }
-
-        if (_setupMagic_casterActorRef == 0 || _setupMagic_positionStruct == 0)
+        
+        if (_setupMagicHook == null)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: Incomplete context (Caster=0x{_setupMagic_casterActorRef:X}, Pos=0x{_setupMagic_positionStruct:X})!", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: SetupMagic hook not initialized!", _logger.ColorRed);
             return false;
         }
         
-        if (_setupMagicHook == null || _castMagicHook == null)
+        if (_castMagicWrapper == null)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: Hooks not initialized!", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] FAIL: CastMagic wrapper not initialized!", _logger.ColorRed);
             return false;
         }
         
         _currentlyCastingMagicId = magicId;
         try
         {
+            // Use captured parameters from last normal spell cast
+            int cmdId = _setupMagic_commandId != 0 ? _setupMagic_commandId : 101;
+            int actId = _setupMagic_actionID != 0 ? _setupMagic_actionID : 218;
+            byte flag = _setupMagic_flag != 0 ? _setupMagic_flag : (byte)1;
+
+            _logger.WriteLine($"[{_modConfig.ModId}] [CastMagicSpell] Calling SetupMagic(magic={magicId}, ref=0x{actorRef:X}, pos=0x{(long)posStruct:X}, cmd={cmdId}, act={actId})", _logger.ColorBlue);
+
             // Call SetupMagic with our cached struct and new magicId
             var execResult = _setupMagicHook.OriginalFunction(
                 (long)_magicStructBuffer, 
                 magicId, 
-                _setupMagic_casterActorRef, 
-                _setupMagic_positionStruct, 
-                _setupMagic_commandId, 
-                _setupMagic_actionID, 
-                _setupMagic_flag
+                actorRef, 
+                (long)posStruct, 
+                cmdId, 
+                actId, 
+                flag
             );
             
-            // Call CastMagic to actually spawn the spell
-            var castResult = _castMagicHook.OriginalFunction(_castMagic_a1, (long)_magicStructBuffer);
+            // Call CastMagic/InsertNewMagic to actually spawn the spell
+            var castResult = _castMagicWrapper(executor != 0 ? executor : _castMagic_a1, (long)_magicStructBuffer);
             
             return true;
         }
@@ -464,6 +524,31 @@ internal unsafe class MagicGameSystem
         _setupMagic_commandId = commandId;             // Command ID (101 for Dia)
         _setupMagic_actionID = actionID;               // Action ID (218-219)
         _setupMagic_flag = flag;                       // Flag byte
+        
+        // Capture VALID player context when game casts magic normally
+        // This gives us the CORRECT ActorReference and Position pointers
+        if (casterActorRef != 0 && positionStruct != 0)
+        {
+            // Validate that these are heap pointers, not code addresses
+            if (casterActorRef > 0x10000 && casterActorRef < 0x0000700000000000 &&
+                positionStruct > 0x10000 && positionStruct < 0x0000700000000000)
+            {
+                _validPlayerActorRef = casterActorRef;
+                _validPlayerPosStruct = positionStruct;
+                
+                // Extract ActorId from ActorReference struct (+0x4)
+                try
+                {
+                    uint actorId = *(uint*)(casterActorRef + 0x4);
+                    if (actorId > 0 && actorId < 1000) // Sanity check (Clive = 1)
+                    {
+                        _validPlayerActorId = actorId;
+                        _logger.WriteLine($"[{_modConfig.ModId}] [CONTEXT] Captured valid player context: ActorRef=0x{casterActorRef:X}, Pos=0x{positionStruct:X}, ActorId={actorId}", _logger.ColorGreen);
+                    }
+                }
+                catch { }
+            }
+        }
         
         // Deep copy the magic struct
         if (_magicStructBuffer != IntPtr.Zero && battleMagicPtr != 0)

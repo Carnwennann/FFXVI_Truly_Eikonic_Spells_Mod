@@ -91,9 +91,9 @@ public class MagicApi
     /// Casts a magic spell using the modifications from a previously loaded JSON.
     /// Falls back to normal cast if the modification profile is not found.
     /// </summary>
-    public bool CastModifiedMagic(string modificationName, int magicId, int count = 1)
+    public bool CastModifiedMagic(string modificationName, int magicId, int count = 1, long explicitActorRef = 0)
     {
-        if (!_magicGameSystem.HasMagicContext) return false;
+        if (!_magicGameSystem.HasMagicContext && explicitActorRef == 0) return false;
 
         if (_cachedModifications.TryGetValue(modificationName, out var entries))
         {
@@ -108,16 +108,16 @@ public class MagicApi
             _logger.WriteLine($"[{_modId}] [MagicApi] Profile '{modificationName}' not found, falling back to normal cast", _logger.ColorYellow);
         }
 
-        return CastSpells(magicId, count);
+        return CastSpells(magicId, count, explicitActorRef);
     }
 
     /// <summary>
     /// Casts magic spells using a list of pre-adapted modification sets.
     /// Each list in the outer list represents one projectile's modifications.
     /// </summary>
-    public bool CastModifiedMagic(int magicId, List<List<FuzzerEntry>> modifications)
+    public bool CastModifiedMagic(int magicId, List<List<FuzzerEntry>> modifications, long explicitActorRef = 0)
     {
-        if (!_magicGameSystem.HasMagicContext) return false;
+        if (!_magicGameSystem.HasMagicContext && explicitActorRef == 0) return false;
 
         _logger.WriteLine($"[{_modId}] [MagicApi] CastModifiedMagic: Applying {modifications.Count} custom modification sets", _logger.ColorYellow);
 
@@ -126,15 +126,15 @@ public class MagicApi
             _magicGameSystem.EnqueueModifications(magicId, modSet);
         }
 
-        return CastSpells(magicId, modifications.Count);
+        return CastSpells(magicId, modifications.Count, explicitActorRef);
     }
 
     /// <summary>
     /// Cast magic spells using the internal game system.
     /// </summary>
-    public bool CastSpells(int magicId, int count = 1)
+    public bool CastSpells(int magicId, int count = 1, long explicitActorRef = 0)
     {
-        if (!_magicGameSystem.HasMagicContext)
+        if (!_magicGameSystem.HasMagicContext && explicitActorRef == 0)
         {
             _logger.WriteLine($"[{_modId}] [MagicApi] FAIL: No magic context! Fire a normal shot first.", _logger.ColorRed);
             return false;
@@ -145,7 +145,7 @@ public class MagicApi
         int successCount = 0;
         for (int i = 0; i < count; i++)
         {
-            if (_magicGameSystem.CastMagicSpell(magicId))
+            if (_magicGameSystem.CastMagicSpell(magicId, explicitActorRef))
                 successCount++;
         }
         

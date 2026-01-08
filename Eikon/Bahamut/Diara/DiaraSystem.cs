@@ -156,7 +156,7 @@ public class DiaraSystem
     /// Spawns Dia projectiles using the MagicApi for modified properties.
     /// Returns the number of Dia spells spawned (0 if buff not active).
     /// </summary>
-    public int OnPerfectDodge()
+    public int OnPerfectDodge(long explicitActorRef = 0)
     {
         if (!IsBuffActive || _magicApi == null)
             return 0;
@@ -170,7 +170,7 @@ public class DiaraSystem
             LogDebug("Attempting Modified Fan Cast via MagicApi...");
             var fanModifications = GenerateFanModifications(baseEntries);
             
-            if (_magicApi.CastModifiedMagic(MagicID, fanModifications))
+            if (_magicApi.CastModifiedMagic(MagicID, fanModifications, explicitActorRef))
             {
                 LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells in a fan!");
                 OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
@@ -180,7 +180,7 @@ public class DiaraSystem
 
         // 2. Fallback to Normal Cast (API handles context check internally)
         LogDebug("Falling back to Normal Cast via MagicApi...");
-        if (_magicApi.CastSpells(MagicID, DiaSpellsPerDodge))
+        if (_magicApi.CastSpells(MagicID, DiaSpellsPerDodge, explicitActorRef))
         {
             LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
             OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
@@ -304,7 +304,7 @@ public class DiaraSystem
                 modifiedEntries.Add(new FuzzerEntry
                 {
                     OpType = 51,
-                    Ocurrence = 0,
+                    Occurrence = 0,
                     PropertyId = 69,
                     IntValue = 0,
                     UseFloat = false,
