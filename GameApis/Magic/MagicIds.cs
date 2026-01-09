@@ -27,13 +27,13 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(1, "Fire"),
-            new(212, "Fire (duplicate?)"),
-            new(1564, "Fira"),
+            new(212, "Fire (unused fire? SFX missing)"),
+            new(4, "Fira (base)"),
+            new(1564, "Fira (upgraded)"),
             new(348, "Fira  (precision shot)"),
-            new(4, "Fira (duplicate?)"),
-            new(218, "Fira (duplicate?)"),
-            new(353, "Fira (duplicate?)"),
-            new(1569, "Fira  (duplicate?)"),
+            new(218, "Fira (unused fire? SFX missing)"),
+            new(353, "Fira (unused fire? SFX missing)"),
+            new(1569, "Fira  (unused fire? SFX missing)"),
             new(912, "Heatwave (base - 1st slash)"),
             new(913, "Heatwave (base - 2nd slash counter)"),
             new(914, "Heatwave (upgrade - 1st slash)"),
@@ -52,9 +52,9 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(2, "Aero"),
-            new(1565, "Aerora"),
+            new(5, "Aerora (base)"),
+            new(1565, "Aerora (upgraded)"),
             new(349, "Aerora (precision shot)"),
-            new(5, "Aerora (duplicate?)"),
             new(7, "Deadly Embrace (base)"),
             new(1321, "Deadly Embrace (upgraded)"),
             new(1997, "Deadly Embrace (duplicated?)"),
@@ -69,9 +69,9 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(3, "Stone"),
-            new(1566, "Stonera"),
+            new(6, "Stonera (base)"),
+            new(1566, "Stonera (upgraded)"),
             new(350, "Stonera (precision shot)"),
-            new(6, "Stonera (duplicate?)"),
             new(500, "Earthen Fury (base - End2End)"),
             new(995, "Earthen Fury (upgraded - End2End)"),
             new(1154, "Earthen Fury (1)"),
@@ -108,7 +108,7 @@ public static class MagicIds
             new(807, "Thunderstorm (upgraded - final thunderbolt)"),
             new(821, "Lightning Rod (base - object)"),
             new(819, "Lightning Rod (base - proc player hit)"),
-            new(1102, "Lightning Rod (upgraded - proc enemy hit)"),
+            new(1102, "Lightning Rod (base - proc enemy hit)"),
             new(822, "Lightning Rod (upgraded - object)"),
             new(820, "Lightning Rod (upgraded - proc player hit)"),
             new(1103, "Lightning Rod (upgraded - proc enemy hit)"),
@@ -123,39 +123,38 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(214, "Dia"),
-            new(1571, "Diara"),
-            new(220, "Diara (duplicate?)"),
-            new(1185, "Diara (knockback reaction)"),
-            new(1186, "Diara (knockback reaction - duplicate?)"),
-            new(1187, "Diara (knockback reaction - duplicate?)"),
-            new(1188, "Diara (fall down reaction)"),
-            new(1189, "Diara (fall down reaction - duplicate?)"),
-            new(1190, "Diara (fall down reaction - duplicate?)"),
+            new(220, "Diara (base)"),
+            new(1571, "Diara (upgraded)"),
             new(355, "Diara (precision shot)"),
             new(1083, "Megaflare (lvl 1)"),
             new(1084, "Megaflare (lvl 2)"),
             new(1085, "Megaflare (lvl 3)"),
             new(1086, "Megaflare (lvl 4)"),
             new(623, "Gigaflare (GAME CRASHES)"),
-            new(631, "Impulse (1st projectile - base?)"),
-            new(632, "Impulse (2nd projectile - base?)"),
-            new(633, "Impulse (3rd projectile - base?)"),
-            new(634, "Impulse (4th projectile - base?)"),
+            new(631, "Impulse (1st projectile - base)"),
+            new(632, "Impulse (2nd projectile - base)"),
+            new(633, "Impulse (3rd projectile - base - not used?)"),
+            new(634, "Impulse (4th projectile - base - not used?)"),
             new(702, "Impulse (projectile orbit enemy)"),
-            new(815, "Impulse (1st projectile - upgraded?)"),
-            new(816, "Impulse (2nd projectile - upgraded?)"),
-            new(817, "Impulse (3rd projectile - upgraded?)"),
-            new(818, "Impulse (4th projectile - upgraded?)"),
-            new(452, "Satellite (base?)"),
-            new(1108, "Satellite (L)"),
-            new(1109, "Satellite (R)"),
+            new(815, "Impulse (1st projectile - upgraded)"),
+            new(816, "Impulse (2nd projectile - upgraded)"),
+            new(817, "Impulse (3rd projectile - upgraded)"),
+            new(818, "Impulse (4th projectile - upgraded)"),
+            new(452, "Satellite Dia (base)"),
+            new(1108, "Satellite Dia (upgraded - L)"),
+            new(1109, "Satellite Dia (upgraded - R)"),
             new(1558, "Satellite Magic Burst (base)"),
             new(1559, "Satellite Magic Burst (upgraded - R)"),
             new(1560, "Satellite Magic Burst (upgraded - L)"),
-            new(582, "Flare Breath (stream - base?)"),
-            new(583, "Flare Breath (stream - upgraded?)"),
-            new(1360, "Flare Breath (last hit - base?)"),
-            new(1360, "Flare Breath (last hit - upgraded?)")
+            new(1185, "Satellite Diara (base)"),
+            new(1186, "Satellite Diara (upgraded - R)"),
+            new(1187, "Satellite Diara (upgraded - L)"),
+            new(1188, "Satellite Diara (base - precision shot)"),
+            new(1189, "Satellite Diara (upgraded - R - precision shot)"),
+            new(1190, "Satellite Diara (upgraded - L - precision shot)"),
+            new(582, "Flare Breath (stream - base)"),
+            new(583, "Flare Breath (stream - upgraded)"),
+            new(1360, "Flare Breath (last hit)")
         };
     }
 
@@ -164,8 +163,8 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(213, "Blizzard"),
-            new(1570, "Blizzara"),
-            new(219, "Blizzara (duplicate?)"),
+            new(219, "Blizzara (base)"),
+            new(1570, "Blizzara (upgraded)"),
             new(354, "Blizzara (precision shot)"),
             new(992, "Cold Snap (base - frostbite)"),
             new(1999, "Cold Snap (upgraded - frostbite not used ingame?)"),
@@ -187,8 +186,8 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(211, "Dark"),
-            new(1568, "Darkra"),
-            new(217, "Darkra (duplicate?)"),
+            new(217, "Darkra (base)"),
+            new(1568, "Darkra (upgraded)"),
             new(352, "Darkra (precision shot)"),
         };
     }
@@ -198,8 +197,8 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(215, "Water"),
-            new(1572, "Watera"),
-            new(221, "Watera (duplicate?)"),
+            new(221, "Watera (base)"),
+            new(1572, "Watera (upgraded)"),
             new(356, "Watera (precision shot)"),
             new(1574, "Tidal Torrent"),
             new(1575, "Charged Torrent"),
@@ -227,12 +226,13 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(1561, "Ruin"),
-            new(1573, "Ruinra"),
+            new(1562, "Ruinra (base)"),
+            new(1573, "Ruinra (upgraded)"),
             new(1563, "Ruinra (precision shot)"),
             new(1697, "Purge (ascend mode - burning blade)"),
             new(1646, "Rampant Ruin (ascend mode - ruin)"),
-            new(1647, "Rampant Ruinra (ascend mode - ruinra)?"),
-            new(1648, "Rampant Ruinra (ascend mode - ruinra)"),
+            new(1647, "Rampant Ruinra (base - ascend mode - ruinra)"),
+            new(1648, "Rampant Ruinra (upgrade - ascend mode - ruinra)"),
             new(1599, "Ruination (ascend mode - precision shot)"),
             new(1766, "Ruination (ascend mode - precision shot - duplicated?)"),
             new(1612, "Proselytize"),
@@ -249,7 +249,6 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(607, "Unknown (GAME CRASHES)"),
-            new(1562, "Unknown (duplicate of Ruinra?)"),
             new(1602, "Unknown (Ramuh related?)"),
             new(1603, "Unknown (Ramuh related?)")
 
