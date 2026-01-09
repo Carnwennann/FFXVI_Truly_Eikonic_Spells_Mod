@@ -1,4 +1,5 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using NenTools.ImGui.Interfaces;
 using NenTools.ImGui.Interfaces.Shell;
 using System.Numerics;
@@ -13,12 +14,14 @@ public class ImGuiConfigurator : IImGuiComponent
     private readonly IImGui _imgui;
     private Config _config;
     private readonly Action<Config> _onConfigChanged;
+    private readonly MagicApi _magicApi;
 
-    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged)
+    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, MagicApi magicApi)
     {
         _imgui = imgui;
         _config = config;
         _onConfigChanged = onConfigChanged;
+        _magicApi = magicApi;
     }
 
     public void RenderMenu(IImGuiShell imGuiShell)
@@ -62,6 +65,12 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.BeginTabItem("Magic Overrides", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
                 {
                     RenderMagicOverridesTab();
+                    _imgui.EndTabItem();
+                }
+
+                if (_imgui.BeginTabItem("Magic Tester", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
+                {
+                    RenderMagicTesterTab();
                     _imgui.EndTabItem();
                 }
 
@@ -323,6 +332,81 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "General Debug");
         bool debugLog = _config.DebugLogging;
         if (_imgui.Checkbox("Enable Debug Logging", ref debugLog)) _config.DebugLogging = debugLog;
+    }
+
+    private void RenderMagicTesterTab()
+    {
+        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Magic Spawning Tester");
+        _imgui.TextWrapped("Use this panel to test different Magic IDs. You MUST have fired at least one magic spell in-game during this session to capture the player's context.");
+        
+        _imgui.Separator();
+
+        int testId = _config.TestMagicID;
+        if (_imgui.InputInt("Magic ID To Spawn", ref testId)) _config.TestMagicID = testId;
+        
+        int testCount = _config.TestMagicCount;
+        if (_imgui.InputInt("Number of Projectiles", ref testCount)) _config.TestMagicCount = testCount;
+
+        _imgui.Separator();
+
+        if (!_magicApi.HasMagicContext)
+        {
+            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "STATUS: NO CONTEXT - Fire a spell in-game first!");
+        }
+        else
+        {
+            _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "STATUS: Context Ready");
+        }
+
+        if (_imgui.Button("CAST MAGIC NOW"))
+        {
+            if (_magicApi.HasMagicContext)
+            {
+                _magicApi.CastSpells(_config.TestMagicID, _config.TestMagicCount);
+            }
+        }
+        
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Force spawns the specified Magic ID at Clive's location.");
+        }
+
+        _imgui.Separator();
+        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Identified Magic IDs (Click to set ID):");
+
+        // We don't have BeginChild in this wrapper likely, or it's not used. 
+        // I'll just use CollapsingHeaders directly.
+        
+        RenderEikonMagicGroup("Phoenix", MagicIds.Phoenix.All);
+        RenderEikonMagicGroup("Garuda", MagicIds.Garuda.All);
+        RenderEikonMagicGroup("Titan", MagicIds.Titan.All);
+        RenderEikonMagicGroup("Ramuh", MagicIds.Ramuh.All);
+        RenderEikonMagicGroup("Bahamut", MagicIds.Bahamut.All);
+        RenderEikonMagicGroup("Shiva", MagicIds.Shiva.All);
+        RenderEikonMagicGroup("Odin", MagicIds.Odin.All);
+        RenderEikonMagicGroup("Leviathan", MagicIds.Leviathan.All);
+        RenderEikonMagicGroup("Ultima", MagicIds.Ultima.All);
+        RenderEikonMagicGroup("Ifrit", MagicIds.Ifrit.All);
+    }
+
+    private void RenderEikonMagicGroup(string eikonName, List<MagicIds.MagicEntry> entries)
+    {
+        if (_imgui.CollapsingHeader($"{eikonName}##Group", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_None))
+        {
+            foreach (var entry in entries)
+            {
+                if (_imgui.Button($"{entry.Name} (ID: {entry.Id})##{eikonName}_{entry.Id}"))
+                {
+                    _config.TestMagicID = entry.Id;
+                    
+                    // Auto-cast if clicked and context is available
+                    if (_magicApi.HasMagicContext)
+                    {
+                        _magicApi.CastSpells(entry.Id, _config.TestMagicCount);
+                    }
+                }
+            }
+        }
     }
 
     private void RenderTriState(string label, Func<TriState> getter, Action<TriState> setter)

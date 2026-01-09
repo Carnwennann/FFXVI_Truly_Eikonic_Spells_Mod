@@ -114,6 +114,20 @@ public class Config : Configurable<Config>
     [Category("Diara System")]
     public float DiaFanAngleStep { get; set; } = 15.0f;
 
+    // ==================== MAGIC TESTER ====================
+
+    [DisplayName("Test Magic ID")]
+    [Description("ID of the magic spell to test")]
+    [DefaultValue(214)]
+    [Category("Magic Tester")]
+    public int TestMagicID { get; set; } = 214;
+
+    [DisplayName("Test Magic Count")]
+    [Description("Number of projectiles to spawn when testing")]
+    [DefaultValue(1)]
+    [Category("Magic Tester")]
+    public int TestMagicCount { get; set; } = 1;
+
     // ==================== DARKRA SYSTEM ====================
     
     [DisplayName("Enable Darkra System")]

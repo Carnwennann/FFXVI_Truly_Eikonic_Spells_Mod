@@ -1,12 +1,14 @@
 using System.Text.Json;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.Utils;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
 /// <summary>
 /// High-level API for casting magic and applying modifications.
 /// This is the main interface for other mod systems to trigger magic effects.
+/// See <see cref="MagicIds"/> for known magic IDs.
 /// </summary>
 public class MagicApi
 {

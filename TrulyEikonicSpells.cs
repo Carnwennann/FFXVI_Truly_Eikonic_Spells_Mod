@@ -96,6 +96,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
+    private FunctionApi _functionApi;
     private MagicGameSystem _magicGameSystem;
     private MagicApi _magicApi;
     private PlayerApi _playerApi;
@@ -152,8 +153,11 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private void SetupGameApis()
     {
+        // Initialize FunctionApi
+        _functionApi = new FunctionApi(_logger, _modConfig);
+
         // Initialize MagicGameSystem (handles all magic projectile spawning)
-        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner);
+        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner, _functionApi);
         // Setup MagicGameSystem callbacks
         _magicGameSystem.GetActiveEikon = GetActiveEikon;
 
@@ -187,7 +191,7 @@ public class TrulyEikonicSpellsMod : ModBase
         if (imGuiController != null && imGuiShellController != null && 
             imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
         {
-            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated);
+            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApi);
             imGuiShell.AddComponent(_imGuiConfigurator);
             _logger.WriteLine($"[{_modConfig.ModId}] ImGui Configurator initialized", _logger.ColorGreen);
         }

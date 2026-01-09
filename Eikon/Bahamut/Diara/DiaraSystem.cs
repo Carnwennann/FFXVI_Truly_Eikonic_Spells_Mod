@@ -304,7 +304,7 @@ public class DiaraSystem
                 modifiedEntries.Add(new FuzzerEntry
                 {
                     OpType = 51,
-                    Ocurrence = 0,
+                    Occurrence = 0,
                     PropertyId = 69,
                     IntValue = 0,
                     UseFloat = false,
