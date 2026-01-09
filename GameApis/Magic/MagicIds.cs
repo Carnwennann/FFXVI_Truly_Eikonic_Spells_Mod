@@ -27,14 +27,23 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(1, "Fire"),
+            new(212, "Fire (duplicate?)"),
             new(1564, "Fira"),
-            new(914, "Heatwave (1st slash)"),
-            new(915, "Heatwave (2nd slash)"),
-            new(916, "Heatwave (3rd slash counter)"),
-            new(917, "Heatwave (4th slash counter)"),
-            new(1146, "Flames of Rebirth (1)"),
-            new(1147, "Flames of Rebirth (2)"),
-            new(1144, "Flames of Rebirth (3)")
+            new(348, "Fira  (precision shot)"),
+            new(4, "Fira (duplicate?)"),
+            new(218, "Fira (duplicate?)"),
+            new(353, "Fira (duplicate?)"),
+            new(1569, "Fira  (duplicate?)"),
+            new(912, "Heatwave (base - 1st slash)"),
+            new(913, "Heatwave (base - 2nd slash counter)"),
+            new(914, "Heatwave (upgrade - 1st slash)"),
+            new(915, "Heatwave (upgrade - 2nd slash)"),
+            new(916, "Heatwave (upgrade - 3rd slash counter)"),
+            new(917, "Heatwave (upgrade - 4th slash counter)"),
+            new(1145, "Flames of Rebirth (base - 1)"),
+            new(1146, "Flames of Rebirth (upgraded - 1)"),
+            new(1147, "Flames of Rebirth (upgraded - 2)"),
+            new(1144, "Flames of Rebirth (base/upgraded - end hit)")
         };
     }
 
@@ -44,8 +53,14 @@ public static class MagicIds
         { 
             new(2, "Aero"),
             new(1565, "Aerora"),
-            new(1321, "Deadly Embrace"),
-            new(480, "Aerial Blast")
+            new(349, "Aerora (precision shot)"),
+            new(5, "Aerora (duplicate?)"),
+            new(7, "Deadly Embrace (base)"),
+            new(1321, "Deadly Embrace (upgraded)"),
+            new(1997, "Deadly Embrace (duplicated?)"),
+            new(1998, "Deadly Embrace (duplicated?)"),
+            new(457, "Aerial Blast (base)"),
+            new(480, "Aerial Blast (upgraded)")
         };
     }
 
@@ -55,9 +70,17 @@ public static class MagicIds
         { 
             new(3, "Stone"),
             new(1566, "Stonera"),
+            new(350, "Stonera (precision shot)"),
+            new(6, "Stonera (duplicate?)"),
+            new(500, "Earthen Fury (base - End2End)"),
+            new(995, "Earthen Fury (upgraded - End2End)"),
             new(1154, "Earthen Fury (1)"),
             new(1155, "Earthen Fury (2)"),
-            new(1153, "Earthen Fury (3)")
+            new(1153, "Earthen Fury (3)"),
+            new(1552, "Earthen Fury (small single pilar)"),
+            new(1553, "Earthen Fury (medium single pilar)"),
+            new(1554, "Earthen Fury (big single pilar)"),
+            new(1555, "Earthen Fury (biggest single pilar)"),
         };
     }
 
@@ -67,16 +90,31 @@ public static class MagicIds
         { 
             new(210, "Thunder"),
             new(1567, "Thundara"),
-            new(674, "Blind Justice (L)"),
-            new(673, "Blind Justice (R)"),
-            new(653, "Thunderstorm (End2End)"),
-            new(649, "Thunderstorm (thunderbolts)"),
-            new(806, "Thunderstorm (thunderbolts alt)"),
-            new(807, "Thunderstorm (final thunderbolt)"),
-            new(822, "Lightning Rod (Object)"),
-            new(820, "Lightning Rod (Proc Hits)"),
-            new(1025, "Judgement Bolt (1st hit)"),
-            new(1026, "Judgement Bolt (2nd hit)")
+            new(351, "Thundara (precision shot)"),
+            new(216, "Thundara (duplicate?)"),
+            new(670, "Blind Justice (uncharged - master?)"),
+            new(669, "Blind Justice (uncharged - slave?)"),
+            new(672, "Blind Justice (base - master?)"),
+            new(671, "Blind Justice (base - slave?)"),
+            new(674, "Blind Justice (upgraded - master?)"),
+            new(673, "Blind Justice (upgraded - slave?)"),
+            new(652, "Thunderstorm (base - End2End)"),
+            new(646, "Thunderstorm (base - thunderbolts)"),
+            new(804, "Thunderstorm (base - thunderbolts alt)"),
+            new(805, "Thunderstorm (base - final thunderbolt)"),
+            new(653, "Thunderstorm (upgraded - End2End)"),
+            new(649, "Thunderstorm (upgraded - thunderbolts)"),
+            new(806, "Thunderstorm (upgraded - thunderbolts alt)"),
+            new(807, "Thunderstorm (upgraded - final thunderbolt)"),
+            new(821, "Lightning Rod (base - object)"),
+            new(819, "Lightning Rod (base - proc player hit)"),
+            new(1102, "Lightning Rod (upgraded - proc enemy hit)"),
+            new(822, "Lightning Rod (upgraded - object)"),
+            new(820, "Lightning Rod (upgraded - proc player hit)"),
+            new(1103, "Lightning Rod (upgraded - proc enemy hit)"),
+            new(1024, "Judgement Bolt (base - hit)"),
+            new(1025, "Judgement Bolt (upgraded - 1st hit)"),
+            new(1026, "Judgement Bolt (upgraded - 2nd hit)")
         };
     }
 
@@ -86,18 +124,38 @@ public static class MagicIds
         { 
             new(214, "Dia"),
             new(1571, "Diara"),
-            new(1083, "Megaflare"),
-            new(623, "Gigaflare (crashes!)"),
-            new(815, "Impulse (1st projectile)"),
-            new(816, "Impulse (2nd projectile)"),
-            new(817, "Impulse (3rd projectile)"),
-            new(818, "Impulse (4th projectile)"),
+            new(220, "Diara (duplicate?)"),
+            new(1185, "Diara (knockback reaction)"),
+            new(1186, "Diara (knockback reaction - duplicate?)"),
+            new(1187, "Diara (knockback reaction - duplicate?)"),
+            new(1188, "Diara (fall down reaction)"),
+            new(1189, "Diara (fall down reaction - duplicate?)"),
+            new(1190, "Diara (fall down reaction - duplicate?)"),
+            new(355, "Diara (precision shot)"),
+            new(1083, "Megaflare (lvl 1)"),
+            new(1084, "Megaflare (lvl 2)"),
+            new(1085, "Megaflare (lvl 3)"),
+            new(1086, "Megaflare (lvl 4)"),
+            new(623, "Gigaflare (GAME CRASHES)"),
+            new(631, "Impulse (1st projectile - base?)"),
+            new(632, "Impulse (2nd projectile - base?)"),
+            new(633, "Impulse (3rd projectile - base?)"),
+            new(634, "Impulse (4th projectile - base?)"),
+            new(702, "Impulse (projectile orbit enemy)"),
+            new(815, "Impulse (1st projectile - upgraded?)"),
+            new(816, "Impulse (2nd projectile - upgraded?)"),
+            new(817, "Impulse (3rd projectile - upgraded?)"),
+            new(818, "Impulse (4th projectile - upgraded?)"),
+            new(452, "Satellite (base?)"),
             new(1108, "Satellite (L)"),
             new(1109, "Satellite (R)"),
-            new(1558, "Satellite Magic Burst (L)"),
-            new(1559, "Satellite Magic Burst (R)"),
-            new(583, "Flare Breath (Stream)"),
-            new(1360, "Flare Breath (End)")
+            new(1558, "Satellite Magic Burst (base)"),
+            new(1559, "Satellite Magic Burst (upgraded - R)"),
+            new(1560, "Satellite Magic Burst (upgraded - L)"),
+            new(582, "Flare Breath (stream - base?)"),
+            new(583, "Flare Breath (stream - upgraded?)"),
+            new(1360, "Flare Breath (last hit - base?)"),
+            new(1360, "Flare Breath (last hit - upgraded?)")
         };
     }
 
@@ -107,13 +165,20 @@ public static class MagicIds
         { 
             new(213, "Blizzard"),
             new(1570, "Blizzara"),
-            new(992, "Cold Snap (Permafrost)"),
+            new(219, "Blizzara (duplicate?)"),
+            new(354, "Blizzara (precision shot)"),
+            new(992, "Cold Snap (base - frostbite)"),
+            new(1999, "Cold Snap (upgraded - frostbite not used ingame?)"),
             new(624, "Ice Age (undershooted)"),
             new(627, "Ice Age (overshooted)"),
             new(1543, "Ice Age (timed)"),
-            new(981, "Rime"),
-            new(625, "Diamond Dust (1)"),
-            new(982, "Diamond Dust (2)")
+            new(620, "Mesmerized (individual projectile)"),
+            new(621, "Rime (base)"),
+            new(1604, "Rime (base - recast)"),
+            new(981, "Rime (upgraded)"),
+            new(1605, "Rime (upgraded - recast)"),
+            new(625, "Diamond Dust (1st hit)"),
+            new(982, "Diamond Dust (2nd hit)")
         };
     }
 
@@ -122,7 +187,9 @@ public static class MagicIds
         public static readonly List<MagicEntry> All = new() 
         { 
             new(211, "Dark"),
-            new(1568, "Darkra")
+            new(1568, "Darkra"),
+            new(217, "Darkra (duplicate?)"),
+            new(352, "Darkra (precision shot)"),
         };
     }
 
@@ -132,19 +199,26 @@ public static class MagicIds
         { 
             new(215, "Water"),
             new(1572, "Watera"),
+            new(221, "Watera (duplicate?)"),
+            new(356, "Watera (precision shot)"),
             new(1574, "Tidal Torrent"),
             new(1575, "Charged Torrent"),
+            new(1607, "Precision Torrent"),
             new(1576, "Tidal Stream"),
             new(1943, "Charged Stream"),
-            new(1578, "Deluge (Stream)"),
-            new(1792, "Deluge (End)"),
-            new(1580, "Cross Swell"),
+            new(1608, "Precision Stream"),
+            new(1577, "Tidal Bomb"),
+            new(1578, "Deluge (stream)"),
+            new(1792, "Deluge (end)"),
+            new(1579, "Cross Swell (base)"),
+            new(1580, "Cross Swell (upgraded)"),
             new(1621, "Abyssal Tear (vent lvl 1)"),
             new(1650, "Abyssal Tear (vent lvl 2)"),
             new(1651, "Abyssal Tear (vent lvl 3)"),
             new(1652, "Abyssal Tear (vent lvl 4)"),
-            new(983, "Tsunami (1)"),
-            new(1811, "Tsunami (2)")
+            new(838, "Tsunami (base)"),
+            new(983, "Tsunami (upgraded - 1)"),
+            new(1811, "Tsunami (upgraded - 2)")
         };
     }
 
@@ -154,13 +228,19 @@ public static class MagicIds
         { 
             new(1561, "Ruin"),
             new(1573, "Ruinra"),
-            new(1697, "Purge"),
-            new(1646, "Rampant Ruin"),
-            new(1648, "Rampant Ruinra"),
+            new(1563, "Ruinra (precision shot)"),
+            new(1697, "Purge (ascend mode - burning blade)"),
+            new(1646, "Rampant Ruin (ascend mode - ruin)"),
+            new(1647, "Rampant Ruinra (ascend mode - ruinra)?"),
+            new(1648, "Rampant Ruinra (ascend mode - ruinra)"),
+            new(1599, "Ruination (ascend mode - precision shot)"),
+            new(1766, "Ruination (ascend mode - precision shot - duplicated?)"),
             new(1612, "Proselytize"),
-            new(1722, "Dominion"),
+            new(1721, "Dominion (base)"),
+            new(1722, "Dominion (upgraded)"),
             new(1609, "Voice of God"),
-            new(1610, "Ultimate Demise")
+            new(1723, "Ultimate Demise (casting)"),
+            new(1610, "Ultimate Demise (AoE)"),
         };
     }
 
@@ -168,29 +248,11 @@ public static class MagicIds
     {
         public static readonly List<MagicEntry> All = new() 
         { 
-            new(4, "Unknown 4"),
-            new(5, "Unknown 5"),
-            new(6, "Unknown 6"),
-            new(7, "Unknown 7"),
-            new(212, "Unknown 212 (Shiva/Odin Gap)"),
-            new(216, "Unknown 216"),
-            new(525, "Unknown 525 (Post Wykes)"),
-            new(600, "Unknown 600"),
-            new(700, "Unknown 700"),
-            new(800, "Unknown 800"),
-            new(900, "Unknown 900"),
-            new(1000, "Unknown 1000"),
-            new(1100, "Unknown 1100"),
-            new(1200, "Unknown 1200"),
-            new(1300, "Unknown 1300"),
-            new(1400, "Unknown 1400"),
-            new(1500, "Unknown 1500"),
-            new(1569, "Unknown 1569 (-ra Gap?)"),
-            new(1600, "Unknown 1600"),
-            new(1700, "Unknown 1700"),
-            new(1800, "Unknown 1800"),
-            new(1900, "Unknown 1900"),
-            new(2000, "Unknown 2000")
+            new(607, "Unknown (GAME CRASHES)"),
+            new(1562, "Unknown (duplicate of Ruinra?)"),
+            new(1602, "Unknown (Ramuh related?)"),
+            new(1603, "Unknown (Ramuh related?)")
+
         };
     }
 }
