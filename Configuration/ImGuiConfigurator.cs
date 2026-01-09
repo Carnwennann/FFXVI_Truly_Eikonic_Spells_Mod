@@ -387,6 +387,9 @@ public class ImGuiConfigurator : IImGuiComponent
         RenderEikonMagicGroup("Leviathan", MagicIds.Leviathan.All);
         RenderEikonMagicGroup("Ultima", MagicIds.Ultima.All);
         RenderEikonMagicGroup("Ifrit", MagicIds.Ifrit.All);
+        
+        _imgui.Separator();
+        RenderEikonMagicGroup("RESEARCH / UNKNOWN", MagicIds.Unknown.All);
     }
 
     private void RenderEikonMagicGroup(string eikonName, List<MagicIds.MagicEntry> entries)
