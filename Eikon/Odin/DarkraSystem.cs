@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
+using ff16.gameplay.truly_eikonic_spells.GameApis;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -32,7 +33,7 @@ public class DarkraSystem
     // Using Func/Action to avoid duplicate delegate definitions
     private Func<long, long, long, long, long>? _onHitOriginal;  // (bnpcRow, R15, a3, a4) -> result
     private Action<long, long>? _onReactionOriginal;              // (battleContext, R15)
-    private Func<long>? _getBattleContext;                        // Returns current battle context
+    public Func<long>? GetBattleContext { get; set; }             // Returns current battle context - Exposed for TrulyEikonicSpells
     private Action<float, float, float, float>? _applyPhysics;    // Physics system callback
     
     // === Core Configuration ===
@@ -51,6 +52,11 @@ public class DarkraSystem
     public float JuggleForwardPush { get; set; }
     public float JuggleForwardDuration { get; set; }
     public float JuggleVerticalInterpolation { get; set; }
+    
+    // === Zantetsuken Ticks Configuration ===
+    public bool ZantetsukenTicksEnabled { get; set; }
+    public int ZantetsukenTickAmount { get; set; }
+    public ZantetsukenApi? ZantetsukenApi { get; set; }
     
     #region Action IDs
     
@@ -91,6 +97,8 @@ public class DarkraSystem
         float juggleForwardPush = -0.1f,
         float juggleForwardDuration = 0.5f,
         float juggleVerticalInterpolation = 0.3f,
+        bool zantetsukenTicksEnabled = true,
+        int zantetsukenTickAmount = 35,
         ILogger? logger = null,
         string modId = "")
     {
@@ -105,6 +113,8 @@ public class DarkraSystem
         JuggleForwardPush = juggleForwardPush;
         JuggleForwardDuration = juggleForwardDuration;
         JuggleVerticalInterpolation = juggleVerticalInterpolation;
+        ZantetsukenTicksEnabled = zantetsukenTicksEnabled;
+        ZantetsukenTickAmount = zantetsukenTickAmount;
         _logger = logger;
         _modId = modId;
     }
@@ -121,7 +131,7 @@ public class DarkraSystem
     {
         _onHitOriginal = onHitOriginal;
         _onReactionOriginal = onReactionOriginal;
-        _getBattleContext = getBattleContext;
+        GetBattleContext = getBattleContext;
         _applyPhysics = applyPhysics;
     }
     
@@ -210,12 +220,28 @@ public class DarkraSystem
             _onHitOriginal(bnpcRowValue, r15Value, a3, a4);
             
             // Call OnReaction to apply knockback/stagger effects
-            long battleContext = _getBattleContext?.Invoke() ?? 0;
+            long battleContext = GetBattleContext?.Invoke() ?? 0;
             bool hadReaction = battleContext != 0;
             
             if (hadReaction && _onReactionOriginal != null)
             {
                 _onReactionOriginal(battleContext, r15Value);
+            }
+            
+            // --- Odin Zantetsuken Gauge Ticks ---
+            if (ZantetsukenTicksEnabled && ZantetsukenApi != null)
+            {
+                ZantetsukenApi.AddUnits(ZantetsukenTickAmount);
+                
+                if (DebugLogging)
+                {
+                    short currentUnits = ZantetsukenApi.GetUnits();
+                    Log($"[ZANTETSUKEN] Tick applied: +{ZantetsukenTickAmount} (Current: {currentUnits})");
+                }
+            }
+            else if (DebugLogging)
+            {
+                Log($"[ZANTETSUKEN-DEBUG] Skip: ticks={ZantetsukenTicksEnabled}, api={(ZantetsukenApi != null)}");
             }
             
             // Log result
@@ -421,6 +447,12 @@ public class DarkraSystem
         if (JuggleVerticalInterpolation != configuration.ShadowHitJuggleVerticalInterpolation)
             LogDebug($"JuggleVerticalInterpolation changed: {JuggleVerticalInterpolation} -> {configuration.ShadowHitJuggleVerticalInterpolation}");
             JuggleVerticalInterpolation = configuration.ShadowHitJuggleVerticalInterpolation;
+        if (ZantetsukenTicksEnabled != configuration.ShadowHitZantetsukenTicksEnabled)
+            LogDebug($"ZantetsukenTicksEnabled changed: {ZantetsukenTicksEnabled} -> {configuration.ShadowHitZantetsukenTicksEnabled}");
+            ZantetsukenTicksEnabled = configuration.ShadowHitZantetsukenTicksEnabled;
+        if (ZantetsukenTickAmount != configuration.ShadowHitZantetsukenTickAmount)
+            LogDebug($"ZantetsukenTickAmount changed: {ZantetsukenTickAmount} -> {configuration.ShadowHitZantetsukenTickAmount}");
+            ZantetsukenTickAmount = configuration.ShadowHitZantetsukenTickAmount;
     }
 }
 

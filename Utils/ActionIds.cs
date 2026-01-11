@@ -95,7 +95,16 @@ public static class ActionIds
     
     #region Odin Abilities
     
-    // Add Odin abilities as discovered
+    public const int GUNGNIR = 882;
+    public const int HEAVENS_CLOUD = 887;
+    public const int RIFT_SLIP = 892;
+    public const int DANCING_STEEL = 893;
+    
+    public const int ZANTETSUKEN_LVL1 = 898;
+    public const int ZANTETSUKEN_LVL2 = 899;
+    public const int ZANTETSUKEN_LVL3 = 900;
+    public const int ZANTETSUKEN_LVL4 = 901;
+    public const int ZANTETSUKEN_LVL5 = 902;
     
     #endregion
     

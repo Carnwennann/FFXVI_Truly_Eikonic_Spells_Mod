@@ -78,8 +78,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private GetBnpcIdFromEntityDelegate _getBnpcIdFromEntity;
     
     // IsSummonModeActive - checks if a specific summon mode is active
-    // bool IsSummonModeActive(long playerState, int summonModeId)
-    public delegate byte IsSummonModeActiveDelegate(long playerState, int summonModeId);
+    // returns pointer to Eikon struct if active, 0 otherwise
+    public delegate long IsSummonModeActiveDelegate(long playerState, int summonModeId);
     private IsSummonModeActiveDelegate _isSummonModeActive;
     
     // Global pointers (same as combo meter)
@@ -100,6 +100,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private MagicGameSystem _magicGameSystem;
     private MagicApi _magicApi;
     private PlayerApi _playerApi;
+    private ZantetsukenApi _zantetsukenApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
@@ -201,9 +202,17 @@ public class TrulyEikonicSpellsMod : ModBase
         }
     }
 
-    private void SetupModSystems()
+    private unsafe void SetupModSystems()
     {   
         // Initialize systems with configuration
+
+        // Initialize APIs
+        _zantetsukenApi = new ZantetsukenApi(
+            () => _globalPlayerStatePtr, 
+            () => _isSummonModeActive, 
+            _logger, 
+            _modConfig.ModId
+        );
 
         // DIA SYSTEM
         _diaSystem = new DiaSystem(
@@ -247,10 +256,16 @@ public class TrulyEikonicSpellsMod : ModBase
             juggleForwardPush: _configuration.ShadowHitJuggleForwardPush,
             juggleForwardDuration: _configuration.ShadowHitJuggleForwardDuration,
             juggleVerticalInterpolation: _configuration.ShadowHitJuggleVerticalInterpolation,
+            zantetsukenTicksEnabled: _configuration.ShadowHitZantetsukenTicksEnabled,
+            zantetsukenTickAmount: _configuration.ShadowHitZantetsukenTickAmount,
             logger: _logger,
             modId: _modConfig.ModId
         );
         _darkraSystem.DebugLogging = _configuration.DebugLogging;
+        
+        // Connect systems
+        _darkraSystem.GetBattleContext = () => _battleContextForReaction;
+        _darkraSystem.ZantetsukenApi = _zantetsukenApi;
     }
     
 

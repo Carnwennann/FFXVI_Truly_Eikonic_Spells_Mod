@@ -155,6 +155,14 @@ public class ImGuiConfigurator : IImGuiComponent
         
         float fPush = _config.ShadowHitJuggleForwardPush;
         if (_imgui.InputFloat("Forward Push", ref fPush)) _config.ShadowHitJuggleForwardPush = fPush;
+
+        _imgui.Separator();
+        _imgui.TextColored(new Vector4(0.8f, 0.4f, 1.0f, 1.0f), "Zantetsuken Ticks");
+        bool ticksEnabled = _config.ShadowHitZantetsukenTicksEnabled;
+        if (_imgui.Checkbox("Enable Ticks on Shadow Hit", ref ticksEnabled)) _config.ShadowHitZantetsukenTicksEnabled = ticksEnabled;
+        
+        int tickAmount = _config.ShadowHitZantetsukenTickAmount;
+        if (_imgui.InputInt("Gauge Per Hit", ref tickAmount)) _config.ShadowHitZantetsukenTickAmount = tickAmount;
     }
 
     private void RenderPhysicsTab()
