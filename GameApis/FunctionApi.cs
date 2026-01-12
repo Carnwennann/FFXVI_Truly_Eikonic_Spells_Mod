@@ -344,4 +344,47 @@ public unsafe class FunctionApi
         
         return _getForwardVectorFunc(staticActorInfo, outForward);
     }
+
+    /// <summary>
+    /// Detects if an entity is currently airborne (not on the ground).
+    /// Uses reverse-engineered offsets from TriggerReactionHit.
+    /// </summary>
+    /// <param name="entityPtr">Pointer to the NpcBaseEntity (bnpcRow).</param>
+    public unsafe bool IsAirborne(long bnpcRow)
+    {
+        if (bnpcRow < 0x10000 || bnpcRow > 0x00007FFFFFFFFFFF) return false;
+
+        try
+        {
+            long v9 = *(long*)(bnpcRow + 0x20);
+            long actorPtr = *(long*)bnpcRow;
+
+            if (actorPtr > 0x10000 && actorPtr < 0x00007FFFFFFFFFFF)
+            {
+                // Offset +0x158 detectado mediante ingeniería inversa de memoria:
+                // 0x02 = Suelo / Neutral
+                // > 0x02 (0x67, 0xC0, etc) = Aire / Reacción de impacto
+                byte reactionState = *(byte*)(actorPtr + 0x158);
+                bool airborne = (reactionState > 2);
+
+                return airborne;
+            }
+
+            if (v9 > 0x10000) {
+                 // Backup: Intentar vía StateList (Wrapper + 0x200) como vimos en IDA
+                 long stateListPtr = *(long*)(v9 + 0x200);
+                 if (stateListPtr > 0x10000) {
+                     uint f234 = *(uint*)(stateListPtr + 0x234);
+                     if (f234 != 0) return true;
+                 }
+            }
+            
+            _logger.WriteLine($"[{_modConfig.ModId}] [DEBUG-AIR] Could not find Entry from Row 0x{bnpcRow:X}", _logger.ColorRed);
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [DEBUG-AIR] Error: {ex.Message}", _logger.ColorRed);
+        }
+        return false;
+    }
 }

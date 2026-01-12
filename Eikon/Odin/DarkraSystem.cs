@@ -57,6 +57,7 @@ public class DarkraSystem
     public bool ZantetsukenTicksEnabled { get; set; }
     public int ZantetsukenTickAmount { get; set; }
     public ZantetsukenApi? ZantetsukenApi { get; set; }
+    public FunctionApi? FunctionApi { get; set; }
     
     #region Action IDs
     
@@ -171,10 +172,18 @@ public class DarkraSystem
         
         if (result.TriggeredShadowHit)
         {
-            Log($"Shadow hit triggered! +{result.ShadowDamage} damage");
+            // Capture airborne state NOW while pointers are guaranteed valid
+            bool isAirborneState = false;
             
-            // Schedule the shadow hit internally
-            ScheduleShadowHit((long)bnpcRow, R15, a3, a4, result.ShadowDamage);
+            // Pass the bnpcRow (RCX) directly, as FunctionApi now uses the IDA path (Row + 0x20)
+            if (FunctionApi != null)
+                isAirborneState = FunctionApi.IsAirborne((long)bnpcRow);
+
+            Log($">>> Shadow hit triggered! Target=0x{(long)bnpcRow:X}, Damage=+{result.ShadowDamage}, Airborne={isAirborneState}", _logger?.ColorGreen);
+            
+            // Reverting to use ORIGINAL R15 pointer for now but with safety checks,
+            // as using a stack-allocated or local array might not be recognized by the game's dispatcher.
+            ScheduleShadowHit((long)bnpcRow, R15, a3, a4, result.ShadowDamage, isAirborneState);
         }
     }
     
@@ -185,19 +194,19 @@ public class DarkraSystem
     /// <summary>
     /// Schedule a shadow hit to be triggered after the configured delay
     /// </summary>
-    private void ScheduleShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
+    private void ScheduleShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage, bool isAirborne)
     {
         Task.Run(() =>
         {
             Thread.Sleep(ShadowHitDelayMs);
-            ExecuteShadowHit(bnpcRowValue, r15Value, a3, a4, shadowDamage);
+            ExecuteShadowHit(bnpcRowValue, r15Value, a3, a4, shadowDamage, isAirborne);
         });
     }
     
     /// <summary>
     /// Execute the shadow hit by modifying R15 and calling OnHit/OnReaction
     /// </summary>
-    private unsafe void ExecuteShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage)
+    private unsafe void ExecuteShadowHit(long bnpcRowValue, long r15Value, long a3, long a4, int shadowDamage, bool isAirborne)
     {
         if (_onHitOriginal == null)
         {
@@ -207,46 +216,40 @@ public class DarkraSystem
         
         try
         {
-            // Prepare R15 with all shadow hit values
-            PrepareR15ForShadowHit(r15Value, shadowDamage);
+            // Range check for r15Value to prevent crash
+            if (r15Value < 0x10000 || r15Value > 0x00007FFFFFFFFFFF) return;
+
+            // Prepare R15 with shadow hit values
+            PrepareR15ForShadowHit(r15Value, shadowDamage, isAirborne);
             
-            // Apply juggle physics if enabled
-            if (JuggleEnabled && _applyPhysics != null)
+            // Apply juggle physics ONLY if airborne and enabled
+            if (isAirborne && JuggleEnabled && _applyPhysics != null)
             {
                 _applyPhysics(JuggleForwardPush, JuggleForwardDuration, JuggleVerticalPush, JuggleVerticalInterpolation);
             }
             
-            // Call OnHit with the modified R15
+            // Call OnHit
+            // We pass the original bnpcRowValue (RCX) which the game expects
             _onHitOriginal(bnpcRowValue, r15Value, a3, a4);
             
-            // Call OnReaction to apply knockback/stagger effects
+            // Call OnReaction
             long battleContext = GetBattleContext?.Invoke() ?? 0;
-            bool hadReaction = battleContext != 0;
-            
-            if (hadReaction && _onReactionOriginal != null)
+            bool hadReaction = false;
+            if (battleContext != 0 && _onReactionOriginal != null)
             {
                 _onReactionOriginal(battleContext, r15Value);
+                hadReaction = true;
             }
-            
+
             // --- Odin Zantetsuken Gauge Ticks ---
             if (ZantetsukenTicksEnabled && ZantetsukenApi != null)
             {
                 ZantetsukenApi.AddUnits(ZantetsukenTickAmount);
-                
-                if (DebugLogging)
-                {
-                    short currentUnits = ZantetsukenApi.GetUnits();
-                    Log($"[ZANTETSUKEN] Tick applied: +{ZantetsukenTickAmount} (Current: {currentUnits})");
-                }
             }
-            else if (DebugLogging)
-            {
-                Log($"[ZANTETSUKEN-DEBUG] Skip: ticks={ZantetsukenTicksEnabled}, api={(ZantetsukenApi != null)}");
-            }
-            
+
             // Log result
             if (hadReaction)
-                Log($"Shadow hit executed with reaction! Damage: {shadowDamage}");
+                Log($"Shadow hit executed with reaction! Damage: {shadowDamage}, ActionId: {ActionIds.SHADOW_HIT}");
             else
                 Log($"Shadow hit executed (no reaction context)! Damage: {shadowDamage}");
         }
@@ -296,7 +299,7 @@ public class DarkraSystem
     /// Prepare R15 structure for a shadow hit execution.
     /// Sets action ID, damage, and reaction values.
     /// </summary>
-    public unsafe void PrepareR15ForShadowHit(long r15Value, int shadowDamage)
+    public unsafe void PrepareR15ForShadowHit(long r15Value, int shadowDamage, bool isAirborne)
     {
         // Set the action ID to SHADOW_HIT to prevent recursion
         int* actionIdPtr = (int*)(r15Value + 0xB0);
@@ -310,15 +313,15 @@ public class DarkraSystem
         int* reactionTypePtr = (int*)(r15Value + 0x15c);
         int* reactionPushPtr = (int*)(r15Value + 0x160);
         
-        if (JuggleEnabled)
+        if (isAirborne && JuggleEnabled)
         {
-            // Use juggle animation ID
+            // Enemies in air take the JUGGLE reaction (to stay up)
             *reactionTypePtr = JuggleAnimId;
             *reactionPushPtr = ReactionPushDirection;
         }
         else
         {
-            // Use standard reaction values
+            // Enemies on ground take the configured LAND reaction
             *reactionTypePtr = ReactionAnimationType;
             *reactionPushPtr = ReactionPushDirection;
         }

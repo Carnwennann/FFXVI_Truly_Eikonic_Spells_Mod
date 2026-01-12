@@ -22,12 +22,12 @@ public class TrulyEikonicSpellsMod : ModBase
     // ============================================================
     // DEBUG FLAGS - Set to false to disable reverse engineering logs
     // ============================================================
-    private const bool DEBUG_ON_HIT = false;          // Log OnHit Action ID
+    private const bool DEBUG_ON_HIT = true;       
     private const bool DEBUG_BATTLE_TECHNIQUE = false; // Log BattleTechnique calls
-    private const bool DEBUG_PERFECT_DODGE = true;   // Log perfect dodge events
-    private const bool DEBUG_WINGS_DODGE = false;     // Log Wings of Light dodge handler
+    private const bool DEBUG_PERFECT_DODGE = true;  // Log perfect dodge events
+    private const bool DEBUG_WINGS_DODGE = false;    // Log Wings of Light dodge handler
     private const bool DEBUG_PLAYER_MODE = false;    // Log player mode changes (spammy)
-    private const bool DEBUG_ON_REACTION = false;     // Log OnReaction calls (knockback/stagger)
+    private const bool DEBUG_ON_REACTION = true;     // Log OnReaction calls (knockback/stagger)
     // ============================================================
     
     private readonly IModLoader _modLoader;
@@ -266,6 +266,7 @@ public class TrulyEikonicSpellsMod : ModBase
         // Connect systems
         _darkraSystem.GetBattleContext = () => _battleContextForReaction;
         _darkraSystem.ZantetsukenApi = _zantetsukenApi;
+        _darkraSystem.FunctionApi = _functionApi;
     }
     
 
@@ -406,6 +407,16 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         try
         {
+            if (DEBUG_ON_HIT)
+                _logger.WriteLine($"[{_modConfig.ModId}] [OnHit] bnpcRowPtr=0x{(long)bnpcRow:X}, actorPtr=0x{*bnpcRow:X}, R15=0x{R15:X}", _logger.ColorYellow);
+
+            // Skip processing for our own shadow hits to prevent recursion and crashes
+            // Shadow hits might use transient pointers that are no longer valid for ParseAttackInfo
+            if (*(int*)(R15 + 0xB0) == ActionIds.SHADOW_HIT)
+            {
+                return _onHit.OriginalFunction(bnpcRow, R15, a3, a4);
+            }
+
             var info = ParseAttackInfo(bnpcRow, R15);
             
             // Only process Clive's attacks against enemies
@@ -457,6 +468,17 @@ public class TrulyEikonicSpellsMod : ModBase
         // Capture the battle context for shadow hits
         _battleContextForReaction = param1;
         
+        // Don't apply general physics overrides to special shadow hits
+        // Shadow hits have their own physics configured in DarkraSystem
+        if (*(int*)(param2 + 0xB0) == ActionIds.SHADOW_HIT)
+        {
+            if (DEBUG_ON_REACTION)
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Processing Shadow Hit reaction, skipping general overrides", _logger.ColorBlue);
+            
+            _onReaction.OriginalFunction(param1, param2);
+            return;
+        }
+
         // === PHYSICS EXPERIMENT: Force PushDirection and Reaction Flags ===
         if (_configuration.EnablePhysicsModification)
         {
@@ -609,7 +631,7 @@ public class TrulyEikonicSpellsMod : ModBase
         {
             ActionId = actionId,
             Damage = rawDmg,
-            TargetId = (long)bnpcRow,
+            TargetId = *bnpcRow,
             IsCliveAttack = _cliveIds.Contains(atkSource) || (atkSource == 100 && attackTarget != 1),
             IsCliveTarget = _cliveIds.Contains(attackTarget),
             IsHealOrEffect = attackTarget == 1 && rawDmg <= 0
