@@ -100,10 +100,22 @@ public unsafe class FunctionApi
     private readonly ILogger _logger;
     private readonly IModConfig _modConfig;
     
+    // Tracking physics for more accurate airborne detection
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<long, float> _npcVerticalPush = new();
+    
     // ============================================================
     // PROPERTIES
     // ============================================================
     
+    /// <summary>
+    /// Update the vertical push recorded for an NPC.
+    /// This is used to improve airborne detection.
+    /// </summary>
+    public void UpdateNpcPhysics(long bnpcRow, float verticalPush)
+    {
+        _npcVerticalPush[bnpcRow] = verticalPush;
+    }
+
     /// <summary>
     /// Returns true if all required singletons have been captured.
     /// </summary>
@@ -347,39 +359,59 @@ public unsafe class FunctionApi
 
     /// <summary>
     /// Detects if an entity is currently airborne (not on the ground).
-    /// Uses reverse-engineered offsets from TriggerReactionHit.
+    /// Uses reverse-engineered offsets from state check logic.
     /// </summary>
-    /// <param name="entityPtr">Pointer to the NpcBaseEntity (bnpcRow).</param>
+    /// <param name="bnpcRow">Pointer to the NpcBaseEntity row.</param>
     public unsafe bool IsAirborne(long bnpcRow)
     {
         if (bnpcRow < 0x10000 || bnpcRow > 0x00007FFFFFFFFFFF) return false;
 
         try
         {
-            long v9 = *(long*)(bnpcRow + 0x20);
-            long actorPtr = *(long*)bnpcRow;
+            StaticActorInfo* info = (StaticActorInfo*)*(long*)(bnpcRow + 0x20); // Wrapper
+            
+            // MÉTODO 1: ActorPtr desde Wrapper + 0x10 (Nuevo offset descubierto en RAW dump)
+            long actorPtr = 0;
+            if (info != null && (long)info > 0x10000)
+            {
+                actorPtr = info->ActorPtr;
+            }
+            
+            // Fallback: Si info es null, intentamos leer bnpcRow + 0 directamente (método antiguo)
+            if (actorPtr == 0) 
+            {
+                actorPtr = *(long*)bnpcRow;
+            }
 
             if (actorPtr > 0x10000 && actorPtr < 0x00007FFFFFFFFFFF)
             {
-                // Offset +0x158 detectado mediante ingeniería inversa de memoria:
+                // Offset +0x158 (Byte):
                 // 0x02 = Suelo / Neutral
-                // > 0x02 (0x67, 0xC0, etc) = Aire / Reacción de impacto
+                // 0x03-0x05 = Reacciones en suelo (Step Back/Slide)
+                // > 0x05 = Aire / Reacción con lanzamiento (0x67, 0xC0, etc)
                 byte reactionState = *(byte*)(actorPtr + 0x158);
-                bool airborne = (reactionState > 2);
-
-                return airborne;
+                if (reactionState > 5) return true;
+                
+                // Si el ID es 0x02, pero tenemos registro de que ha sido lanzado verticalmente recientemente,
+                // mantenemos el estado de aire hasta que el juego lo resetee.
+                if (reactionState == 2)
+                {
+                    if (_npcVerticalPush.TryGetValue(bnpcRow, out float push) && push > 0.1f)
+                    {
+                        // Nota: El juego suele resetear +0x158 a 2 cuando toca el suelo o termina la reacción.
+                        _npcVerticalPush.TryRemove(bnpcRow, out _);
+                        return false; 
+                    }
+                    return false;
+                }
             }
-
-            if (v9 > 0x10000) {
-                 // Backup: Intentar vía StateList (Wrapper + 0x200) como vimos en IDA
-                 long stateListPtr = *(long*)(v9 + 0x200);
-                 if (stateListPtr > 0x10000) {
-                     uint f234 = *(uint*)(stateListPtr + 0x234);
-                     if (f234 != 0) return true;
-                 }
+/*
+            // MÉTODO 2: BattleBehavior (Desactivado temporalmente hasta confirmar offset RAW)
+            if (info != null && (long)info > 0x10000) {
+                 // El raw dump mostró ceros en +0x30, así que este path puede fallar si no usamos +0x58
+                 // ...
             }
-            
-            _logger.WriteLine($"[{_modConfig.ModId}] [DEBUG-AIR] Could not find Entry from Row 0x{bnpcRow:X}", _logger.ColorRed);
+*/
         }
         catch (Exception ex)
         {

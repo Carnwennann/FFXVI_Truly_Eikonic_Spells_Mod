@@ -407,36 +407,21 @@ public class TrulyEikonicSpellsMod : ModBase
     {
         try
         {
-            if (DEBUG_ON_HIT)
-                _logger.WriteLine($"[{_modConfig.ModId}] [OnHit] bnpcRowPtr=0x{(long)bnpcRow:X}, actorPtr=0x{*bnpcRow:X}, R15=0x{R15:X}", _logger.ColorYellow);
-
-            // Skip processing for our own shadow hits to prevent recursion and crashes
-            // Shadow hits might use transient pointers that are no longer valid for ParseAttackInfo
-            if (*(int*)(R15 + 0xB0) == ActionIds.SHADOW_HIT)
+            // EXPLORACIÓN PURA: Ignorar todo lo demás y volcar info del actor
+            long wrapper = *(long*)((long)bnpcRow + 0x20);
+            if (wrapper > 0x10000)
             {
-                return _onHit.OriginalFunction(bnpcRow, R15, a3, a4);
-            }
-
-            var info = ParseAttackInfo(bnpcRow, R15);
-            
-            // Only process Clive's attacks against enemies
-            if (info.IsCliveAttack && !info.IsCliveTarget && !info.IsHealOrEffect)
-            {
-                int activeEikon = GetActiveEikon();
+                string infoLog = Utils.ActorInfoLogger.LogStaticActorInfo(wrapper);
+                _logger.WriteLine(infoLog, _logger.ColorYellow);
                 
-                // === DIA SYSTEM ===
-                _diaSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDiaSystem);
-                
-                // === DIARA SYSTEM ===
-                _diaraSystem.OnHit(info.TargetId, info.ActionId, R15, _configuration.EnableDiaraSystem);
-                
-                // === DARKRA SYSTEM (handles shadow hit scheduling internally) ===
-                _darkraSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDarkraSystem, bnpcRow, a3, a4);
+                // También volcar un trozo de memoria cruda alrededor del wrapper por si los offsets de IDA bailan
+                string raw = Utils.MemoryExplorer.DumpMemory(wrapper, 0x100);
+                _logger.WriteLine($"[RAW WRAPPER]\n{raw}", _logger.ColorBlue);
             }
         }
         catch (Exception ex)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error in OnHitImpl: {ex.Message}", _logger.ColorRed);
+            _logger.WriteLine($"Error in Explorer: {ex.Message}");
         }
         
         return _onHit.OriginalFunction(bnpcRow, R15, a3, a4);
@@ -468,9 +453,15 @@ public class TrulyEikonicSpellsMod : ModBase
         // Capture the battle context for shadow hits
         _battleContextForReaction = param1;
         
+        // Read reaction info
+        int actionId = *(int*)(param2 + 0xB0);
+        int reactionIntensity = *(int*)(param2 + 0x160); // PushDirection / SystemMove Key
+        
+        if (DEBUG_ON_REACTION)
+            _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Action=0x{actionId:X}, Intensity={reactionIntensity}", _logger.ColorYellow);
+        
         // Don't apply general physics overrides to special shadow hits
-        // Shadow hits have their own physics configured in DarkraSystem
-        if (*(int*)(param2 + 0xB0) == ActionIds.SHADOW_HIT)
+        if (actionId == ActionIds.SHADOW_HIT)
         {
             if (DEBUG_ON_REACTION)
                 _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Processing Shadow Hit reaction, skipping general overrides", _logger.ColorBlue);
