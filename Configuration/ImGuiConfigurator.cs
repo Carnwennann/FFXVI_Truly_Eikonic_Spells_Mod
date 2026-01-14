@@ -1,5 +1,6 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 using NenTools.ImGui.Interfaces;
 using NenTools.ImGui.Interfaces.Shell;
 using System.Numerics;
@@ -216,6 +217,12 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Universal Property Fuzzer");
         bool enableFuzzer = _config.EnableUniversalFuzzer;
         if (_imgui.Checkbox("Enable Universal Fuzzer", ref enableFuzzer)) _config.EnableUniversalFuzzer = enableFuzzer;
+        
+        bool enableLogging = _config.EnablePropertyLogging;
+        if (_imgui.Checkbox("Enable Property Logging", ref enableLogging)) _config.EnablePropertyLogging = enableLogging;
+        _imgui.SameLine();
+        _imgui.TextDisabled("(?)");
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None)) _imgui.SetTooltip("Logs all magic property values. Can impact performance.");
         
         if (_imgui.Button("Add New Fuzzer Entry"))
         {

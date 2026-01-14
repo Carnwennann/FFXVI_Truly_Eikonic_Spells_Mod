@@ -300,6 +300,12 @@ public class Config : Configurable<Config>
     [Category("Universal Fuzzer")]
     public bool EnableUniversalFuzzer { get; set; } = false;
 
+    [DisplayName("Enable Property Logging")]
+    [Description("Whether to log all magic property values for debugging. Can cause performance impact.")]
+    [DefaultValue(false)]
+    [Category("Universal Fuzzer")]
+    public bool EnablePropertyLogging { get; set; } = false;
+
     [DisplayName("Fuzzer Entries")]
     [Description("List of properties to fuzz or inject")]
     [Category("Universal Fuzzer")]

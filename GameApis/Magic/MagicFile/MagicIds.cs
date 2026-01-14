@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 
 /// <summary>
 /// Known Magic IDs for various Eikons and abilities.
