@@ -4,6 +4,7 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
+using ff16.gameplay.truly_eikonic_spells.GameStructs;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
@@ -21,9 +22,6 @@ internal unsafe class MagicProcessor
     public delegate void MagicUnkExecuteDelegate(long magicFileInstance, int opType, int propertyId, long dataPtr);
 
     [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
-    public delegate long OperationFactoryDelegate(long a1, int opType, long a3);
-
-    [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
     public delegate long GenericMagicDelegate(long a1, long a2, long a3, long a4);
 
     // ============================================================
@@ -31,7 +29,6 @@ internal unsafe class MagicProcessor
     // ============================================================
     
     private const string MAGIC_UNK_EXECUTE_SIG = "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 49 8B F9 41 8B D8 8B F2 41 83 F8 02 75 2F 48 8D 59 10 48 8D B9 10 01 00 00 EB 1B 48 8B 0B 48 85 C9 74 0F 39 71 20 75 0A";
-    private const string OPERATION_FACTORY_SIG = "48 89 5C 24 08 57 48 83 EC 20 49 8B F8 81 FA B7 00 00 00 75 65 48 8B 01 4C 8D 4C 24 48 33 DB 48 89 5C 24 48 8D 53 48 44 8D 43 08 FF 50 30 48 8B D0 48 85 C0 74 6A 48 8B 0F 48 8D 05 04 96 E8 00 48 89 02 44 8D 43 01 41 8B C0 87 42 0C 83 4A 20 FF";
     private const string MAGIC_FILE_PROCESS_SIG = "48 8B C4 48 89 58 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D 68 ?? 48 81 EC ?? ?? ?? ?? C5 F8 29 70 ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 45 33 F6 48 89 55";
     private const string MAGIC_FILE_HANDLE_SUB_ENTRY_SIG = "40 55 53 56 57 41 54 41 56 41 57 48 8B EC 48 83 EC ?? 48 8D 59";
 
@@ -40,7 +37,6 @@ internal unsafe class MagicProcessor
     // ============================================================
     
     private IHook<MagicUnkExecuteDelegate>? _magicUnkExecuteHook;
-    private IHook<OperationFactoryDelegate>? _operationFactoryHook;
     private IHook<GenericMagicDelegate>? _magicFileProcessHook;
     private IHook<GenericMagicDelegate>? _magicFileHandleSubEntryHook;
 
@@ -57,8 +53,6 @@ internal unsafe class MagicProcessor
     private int _lastOpType = -1;
     private List<FuzzerEntry> _pendingInjections = new();
     private bool _isProcessingInjections = false;
-    
-    private readonly Dictionary<long, string> _operationNames;
 
     // ============================================================
     // DEPENDENCIES
@@ -68,9 +62,6 @@ internal unsafe class MagicProcessor
     private readonly IModConfig _modConfig;
     private readonly IStartupScanner _scanner;
     private Config _configuration;
-
-    // External state provider (from MagicGameSystem)
-    private Func<int>? _getCurrentlyCastingMagicId;
 
     // ============================================================
     // CONSTRUCTOR
@@ -82,7 +73,6 @@ internal unsafe class MagicProcessor
         _modConfig = modConfig;
         _configuration = configuration;
         _scanner = scanner;
-        _operationNames = MagicOperations.GetDefaultNames();
     }
 
     // ============================================================
@@ -92,28 +82,31 @@ internal unsafe class MagicProcessor
     /// <summary>
     /// Sets up hooks for magic file processing.
     /// </summary>
-    public void SetupScans(IReloadedHooks hooks, Func<int>? getCurrentlyCastingMagicId = null)
+    public void SetupScans(IReloadedHooks hooks)
     {
-        _getCurrentlyCastingMagicId = getCurrentlyCastingMagicId;
-
+        // Hook: MagicUnkExecute - Main property interception point
+        // Called for each property value in a .magic file during execution.
+        // Allows fuzzing/overriding values and logging property data.
         _scanner.AddScan(MAGIC_UNK_EXECUTE_SIG, address =>
         {
             _magicUnkExecuteHook = hooks.CreateHook<MagicUnkExecuteDelegate>(MagicUnkExecuteImpl, address).Activate();
             _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
         });
 
-        _scanner.AddScan(OPERATION_FACTORY_SIG, address =>
-        {
-            _operationFactoryHook = hooks.CreateHook<OperationFactoryDelegate>(OperationFactoryImpl, address).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked OperationFactory at 0x{address:X}", _logger.ColorGreen);
-        });
-
+        // Hook: MagicFile::Process - Operation group lifecycle management
+        // Called once per operation group. Resets all trackers at start.
+        // After original execution, processes any remaining pending injections
+        // and end-of-group injections (InjectAfterOp == -1).
         _scanner.AddScan(MAGIC_FILE_PROCESS_SIG, address =>
         {
             _magicFileProcessHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileProcessImpl, address).Activate();
             _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked MagicFile::Process at 0x{address:X}", _logger.ColorGreen);
         });
 
+        // Hook: MagicFile::HandleSubEntry - Operation transition detection
+        // Called when processing each sub-entry (individual operation).
+        // Detects opType changes and triggers CheckOpChange to process
+        // pending injections and queue new ones based on InjectAfterOp.
         _scanner.AddScan(MAGIC_FILE_HANDLE_SUB_ENTRY_SIG, address =>
         {
             _magicFileHandleSubEntryHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileHandleSubEntryImpl, address).Activate();
@@ -157,6 +150,22 @@ internal unsafe class MagicProcessor
     // HOOK IMPLEMENTATIONS
     // ============================================================
     
+    /// <summary>
+    /// MagicFile::Process hook implementation.
+    /// 
+    /// This function manages the complete lifecycle of processing an operation group:
+    /// 1. ENTRY: Resets all state trackers (operation counters, property counters, pending injections)
+    /// 2. EXECUTION: Calls the original function which processes all operations in the group
+    /// 3. EXIT: Processes any remaining pending injections that didn't trigger during execution
+    /// 4. CLEANUP: Injects end-of-group properties (InjectAfterOp == -1) and clears active entries
+    /// 
+    /// Flow:
+    /// MagicFile::Process (START)
+    ///   ├─ Reset trackers
+    ///   ├─ Original execution (triggers HandleSubEntry and MagicUnkExecute hooks)
+    ///   ├─ Process remaining pending injections
+    ///   └─ Inject end-of-group properties
+    /// </summary>
     private long MagicFileProcessImpl(long a1, long a2, long a3, long a4)
     {
         // Reset trackers for new process call
@@ -219,31 +228,12 @@ internal unsafe class MagicProcessor
         return _magicFileHandleSubEntryHook!.OriginalFunction(a1, a2, a3, a4);
     }
 
-    private long OperationFactoryImpl(long a1, int opType, long a3)
-    {
-        long result = _operationFactoryHook!.OriginalFunction(a1, opType, a3);
-        
-        if (result != 0)
-        {
-            long vtable = *(long*)result;
-            if (!_operationNames.ContainsKey(vtable))
-            {
-                string name = $"Operation_{opType}";
-                _operationNames[vtable] = name;
-                _logger.WriteLine($"[{_modConfig.ModId}] [VTABLE_MAP] Mapped {name} to VTable 0x{vtable:X}", _logger.ColorGreen);
-            }
-        }
-        
-        return result;
-    }
-
     private void MagicUnkExecuteImpl(long magicFileInstance, int opType, int propertyId, long dataPtr)
     {
         // Update VFX API factory context
         VfxApi.UpdateFactory(magicFileInstance);
 
-        int fallbackId = _activeInstanceMagicId != 0 ? _activeInstanceMagicId : (_getCurrentlyCastingMagicId?.Invoke() ?? 0);
-        var (magicId, groupId) = MagicReader.ResolveIds(magicFileInstance, fallbackId);
+        var (magicId, groupId) = ResolveIds(magicFileInstance);
 
         // Activate queued entries
         if (_activeInstanceEntries == null && (magicId != 0 || groupId != 0))
@@ -315,13 +305,21 @@ internal unsafe class MagicProcessor
     // INTERNAL HELPERS
     // ============================================================
     
+    /// <summary>
+    /// Performs a property injection by creating a fake data structure and calling MagicUnkExecuteImpl.
+    /// This allows adding new properties to an operation group that don't exist in the original .magic file.
+    /// </summary>
+    /// <param name="magicFileInstance">The magic file instance to inject into.</param>
+    /// <param name="entry">The fuzzer entry containing the property to inject.</param>
     private void PerformInjection(long magicFileInstance, FuzzerEntry entry)
     {
+        // Create stack-allocated buffers for the fake property data
         byte* buffer = stackalloc byte[16];
         long* fakeData = stackalloc long[2];
         fakeData[0] = 0;
         fakeData[1] = (long)buffer;
 
+        // Write the value based on the entry's type
         if (entry.UseVec3)
             *(Vector3*)buffer = new Vector3(entry.Vec3X, entry.Vec3Y, entry.Vec3Z);
         else if (entry.UseFloat)
@@ -329,16 +327,29 @@ internal unsafe class MagicProcessor
         else
             *(int*)buffer = entry.IntValue;
 
+        // Inject by calling the hook implementation directly
         MagicUnkExecuteImpl(magicFileInstance, entry.OpType, entry.PropertyId, (long)fakeData);
     }
 
+    /// <summary>
+    /// Handles operation type transitions within a magic file processing.
+    /// 
+    /// When the opType changes, this method:
+    /// 1. Executes any pending injections that were queued for "after" the previous operation
+    /// 2. Updates the operation occurrence counter
+    /// 3. Queues new injections for entries that should run after the NEW operation
+    /// 
+    /// The _isProcessingInjections flag prevents infinite recursion since injections
+    /// also call MagicUnkExecuteImpl which calls this method.
+    /// </summary>
+    /// <param name="magicFileInstance">The magic file instance being processed.</param>
+    /// <param name="opType">The new operation type.</param>
     private void CheckOpChange(long magicFileInstance, int opType)
     {
         if (_isProcessingInjections) return;
         if (opType == _lastOpType) return;
 
-        int fallbackId = _activeInstanceMagicId != 0 ? _activeInstanceMagicId : (_getCurrentlyCastingMagicId?.Invoke() ?? 0);
-        var (magicId, groupId) = MagicReader.ResolveIds(magicFileInstance, fallbackId);
+        var (magicId, groupId) = ResolveIds(magicFileInstance);
         
         // Process pending injections from previous operation
         if (_pendingInjections.Count > 0)
@@ -381,6 +392,16 @@ internal unsafe class MagicProcessor
         }
     }
 
+    /// <summary>
+    /// Checks if a fuzzer entry matches the current execution context.
+    /// Used to filter entries based on MagicId, GroupId, and occurrence number.
+    /// A value of -1 in an entry field means "match any".
+    /// </summary>
+    /// <param name="entry">The fuzzer entry to check.</param>
+    /// <param name="magicId">Current magic spell ID.</param>
+    /// <param name="groupId">Current operation group ID.</param>
+    /// <param name="occurrence">Current occurrence number (0-based).</param>
+    /// <returns>True if the entry matches the current context.</returns>
     private static bool EntryMatchesContext(FuzzerEntry entry, int magicId, int groupId, int occurrence)
     {
         if (entry.TargetMagicId != -1 && entry.TargetMagicId != magicId) return false;
@@ -389,6 +410,19 @@ internal unsafe class MagicProcessor
         return true;
     }
 
+    /// <summary>
+    /// Attempts to apply a fuzzer override to a property value in memory.
+    /// 
+    /// This method:
+    /// 1. Finds the first matching enabled fuzzer entry for the property
+    /// 2. Saves the original value from memory
+    /// 3. Writes the override value to memory
+    /// 4. Returns info needed to restore the original value later
+    /// 
+    /// The original value is restored after the game processes the property
+    /// to prevent memory corruption if the game expects the original value elsewhere.
+    /// </summary>
+    /// <returns>Tuple of (was fuzzed, matching entry, original value tuple)</returns>
     private (bool isFuzzed, FuzzerEntry? entry, (float f, int i, Vector3 v) original) ApplyFuzzerOverride(
         List<FuzzerEntry> entries, bool enabled, int opType, int propertyId,
         int magicId, int groupId, int occurrence, long valuePtr)
@@ -428,6 +462,13 @@ internal unsafe class MagicProcessor
         return (false, null, default);
     }
 
+    /// <summary>
+    /// Restores the original value in memory after fuzzing.
+    /// Called after the original function processes the fuzzed value.
+    /// </summary>
+    /// <param name="entry">The fuzzer entry that was applied.</param>
+    /// <param name="valuePtr">Pointer to the value in memory.</param>
+    /// <param name="original">The original value tuple to restore.</param>
     private void RestoreOriginalValue(FuzzerEntry entry, long valuePtr, (float f, int i, Vector3 v) original)
     {
         if (entry.UseVec3)
@@ -438,6 +479,16 @@ internal unsafe class MagicProcessor
             *(int*)valuePtr = original.i;
     }
 
+    /// <summary>
+    /// Logs a property value for debugging and reverse engineering purposes.
+    /// If the property is known (defined in MagicProperties), logs with the property name and correct type.
+    /// If unknown, logs all possible interpretations (int, float, vec3).
+    /// </summary>
+    /// <param name="magicId">Current magic spell ID.</param>
+    /// <param name="groupId">Current operation group ID.</param>
+    /// <param name="opType">Current operation type.</param>
+    /// <param name="propertyId">The property ID being logged.</param>
+    /// <param name="valuePtr">Pointer to the property value in memory.</param>
     private void LogPropertyValue(int magicId, int groupId, int opType, int propertyId, long valuePtr)
     {
         string contextStr = $"[Magic {magicId} Group {groupId}]";
@@ -465,5 +516,20 @@ internal unsafe class MagicProcessor
             _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} (UNKNOWN): " +
                 $"int={iVal}, float={fVal:F4}, vec3<f>=({v.X:F4}, {v.Y:F4}, {v.Z:F4}), vec3<i>=({iVec[0]}, {iVec[1]}, {iVec[2]})", _logger.ColorYellow);
         }
+    }
+
+    /// <summary>
+    /// Resolves MagicId and GroupId from a MagicFileInstance pointer.
+    /// </summary>
+    private static (int magicId, int groupId) ResolveIds(long instance)
+    {
+        if (!PointerValidation.IsValidPointer(instance)) return (0, 0);
+        
+        try
+        {
+            var magicFile = (MagicFileInstance*)instance;
+            return (magicFile->MagicId, magicFile->GroupId);
+        }
+        catch { return (0, 0); }
     }
 }

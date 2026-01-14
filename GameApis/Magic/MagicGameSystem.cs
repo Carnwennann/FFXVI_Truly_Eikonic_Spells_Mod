@@ -146,7 +146,7 @@ internal unsafe class MagicGameSystem
     
     public void InitializeUniversalMagicHooks(IReloadedHooks hooks)
     {
-        _processor.SetupScans(hooks, () => _currentlyCastingMagicId);
+        _processor.SetupScans(hooks);
     }
 
     // ============================================================
