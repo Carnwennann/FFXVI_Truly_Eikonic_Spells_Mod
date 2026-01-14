@@ -14,16 +14,16 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 public unsafe class FunctionApi
 {
     // ============================================================
-    // STRUCTURES (from FF16Framework)
+    // STRUCTURES (Matching FF16Framework exactly)
     // ============================================================
     
-    [StructLayout(LayoutKind.Sequential)]
+    [StructLayout(LayoutKind.Sequential, Size = 0x20)]
     public struct NodePositionPair
     {
-        public nint vtable;
-        public nint ParentNode;  // Node*
-        public Vector3 Position;
-        public int dword1C;
+        public nint vtable;     // 0x00
+        public nint ParentNode; // 0x08 - Pointer to Node, or 0 for World Space
+        public Vector3 Position;// 0x10 - X, Y, Z (12 bytes)
+        public int Unknown1C;   // 0x1C - Padding
     }
     
     [StructLayout(LayoutKind.Sequential)]
@@ -59,6 +59,7 @@ public unsafe class FunctionApi
     public delegate nint UnkSingletonPlayerOrCameraRelated_CtorDelegate(nint @this);
     public delegate nint StaticActorManager_GetOrCreateDelegate(nint @this, nint** outEntityInfo, uint entityId);
     public delegate ActorReference* ActorManager_SetupEntityDelegate(nint @this, nint entityPtr);
+    public delegate void SetControlledActorDelegate(nint @this, nint staticActorInfo);
     
     // Function delegates (wrapper only, no hook needed)
     public delegate ActorReference* ActorManager_GetActorByKeyDelegate(nint @this, uint actorId);
@@ -71,14 +72,13 @@ public unsafe class FunctionApi
     // HOOKS
     // ============================================================
     
-    private IHook<UnkSingletonPlayerOrCameraRelated_CtorDelegate>? _unkSingletonCtorHook;
     private IHook<StaticActorManager_GetOrCreateDelegate>? _staticActorManagerGetOrCreateHook;
-    private IHook<ActorManager_SetupEntityDelegate>? _actorManagerSetupEntityHook;
     
     // ============================================================
     // FUNCTION WRAPPERS
     // ============================================================
     
+    private StaticActorManager_GetOrCreateDelegate? _getOrCreateEntityFunc;
     private ActorManager_GetActorByKeyDelegate? _getActorByKeyFunc;
     private StaticActorInfo_IsValidActorDelegate? _isValidActorFunc;
     private StaticActorInfo_GetPositionDelegate? _getPositionFunc;
@@ -86,12 +86,13 @@ public unsafe class FunctionApi
     private StaticActorInfo_GetForwardVectorDelegate? _getForwardVectorFunc;
     
     // ============================================================
-    // CAPTURED SINGLETONS
+    // CAPTURED SINGLETONS & PLAYER INFO
     // ============================================================
     
-    public nint UnkSingletonPlayerOrCameraRelated { get; private set; }
-    public nint StaticActorManager { get; private set; }
-    public nint ActorManager { get; private set; }
+    public nint UnkSingletonPlayerOrCameraRelated { get; set; }
+    public nint StaticActorManager { get; set; }
+    public nint ActorManager { get; set; }
+    public nint PlayerStaticActorInfo { get; set; }
     
     // ============================================================
     // DEPENDENCIES
@@ -148,7 +149,7 @@ public unsafe class FunctionApi
     {
         // UnkSingletonPlayerOrCameraRelated_Ctor
         // This singleton is created early and contains player state at +0xC8
-        scans.AddMainModuleScan("48 89 5C 24 ?? 57 48 83 EC ?? 48 8B F9 E8 ?? ?? ?? ?? 48 8D 05 ?? ?? ?? ?? 48 89 07 33 C0", result =>
+        /* scans.AddMainModuleScan("48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 55 41 54 41 55 41 56 41 57 48 8B EC 48 83 EC ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 4C 8D 81", result =>
         {
             if (!result.Found)
             {
@@ -158,10 +159,10 @@ public unsafe class FunctionApi
             var addr = GetAddressFromResult(result.Offset);
             _unkSingletonCtorHook = hooks.CreateHook<UnkSingletonPlayerOrCameraRelated_CtorDelegate>(UnkSingletonCtorImpl, addr).Activate();
             _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked UnkSingletonPlayerOrCameraRelated_Ctor at 0x{addr:X}", _logger.ColorGreen);
-        });
+        }); */
         
         // StaticActorManager_GetOrCreate
-        // Used to get static actor info by entity ID
+        // HOOK to capture StaticActorManager singleton when called
         scans.AddMainModuleScan("48 89 5C 24 ?? 48 89 6C 24 ?? 44 89 44 24 ?? 56 57 41 54 41 56 41 57 48 83 EC ?? 45 33 E4", result =>
         {
             if (!result.Found)
@@ -171,24 +172,12 @@ public unsafe class FunctionApi
             }
             var addr = GetAddressFromResult(result.Offset);
             _staticActorManagerGetOrCreateHook = hooks.CreateHook<StaticActorManager_GetOrCreateDelegate>(StaticActorManagerGetOrCreateImpl, addr).Activate();
+            _getOrCreateEntityFunc = _staticActorManagerGetOrCreateHook.OriginalFunction;
             _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked StaticActorManager_GetOrCreate at 0x{addr:X}", _logger.ColorGreen);
         });
         
-        // ActorManager_SetupEntity - captures ActorManager
-        scans.AddMainModuleScan("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC ?? 48 8B F2 48 8B F9 E8 ?? ?? ?? ?? 48 85 C0", result =>
-        {
-            if (!result.Found)
-            {
-                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] FAILED to find ActorManager_SetupEntity", _logger.ColorRed);
-                return;
-            }
-            var addr = GetAddressFromResult(result.Offset);
-            _actorManagerSetupEntityHook = hooks.CreateHook<ActorManager_SetupEntityDelegate>(ActorManagerSetupEntityImpl, addr).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Hooked ActorManager_SetupEntity at 0x{addr:X}", _logger.ColorGreen);
-        });
-        
-        // ActorManager_GetActorByKey - wrapper only
-        scans.AddMainModuleScan("48 89 5C 24 ?? 57 48 83 EC ?? 8B FA 48 8B D9 E8 ?? ?? ?? ?? 48 85 C0 74 ?? 8B D7", result =>
+        // ActorManager_GetActorByKey
+        scans.AddMainModuleScan("89 54 24 ?? 4C 8B D1 85 D2", result =>
         {
             if (!result.Found)
             {
@@ -214,7 +203,7 @@ public unsafe class FunctionApi
         });
         
         // StaticActorInfo_GetPosition - wrapper only
-        scans.AddMainModuleScan("48 89 5C 24 ?? 57 48 83 EC ?? 48 8B DA 48 8B F9 E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 48", result =>
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B DA E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B D3 48 8B C8 E8 ?? ?? ?? ?? EB ?? 48 83 63", result =>
         {
             if (!result.Found)
             {
@@ -227,7 +216,7 @@ public unsafe class FunctionApi
         });
         
         // StaticActorInfo_GetRotation - wrapper only
-        scans.AddMainModuleScan("48 89 5C 24 ?? 57 48 83 EC ?? 48 8B DA 48 8B F9 E8 ?? ?? ?? ?? 48 85 C0 74 ?? F3 0F 10 40 ?? F3 0F 10 48 ?? F3 0F 11 03", result =>
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B DA E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 40", result =>
         {
             if (!result.Found)
             {
@@ -240,7 +229,7 @@ public unsafe class FunctionApi
         });
         
         // StaticActorInfo_GetForwardVector - wrapper only
-        scans.AddMainModuleScan("48 89 5C 24 ?? 57 48 83 EC ?? 48 8B DA 48 8B F9 E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 48 ?? E8", result =>
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B DA E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 50", result =>
         {
             if (!result.Found)
             {
@@ -253,6 +242,10 @@ public unsafe class FunctionApi
         });
     }
     
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    
     private nint GetAddressFromResult(int offset)
     {
         return System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress + offset;
@@ -262,23 +255,68 @@ public unsafe class FunctionApi
     // HOOK IMPLEMENTATIONS
     // ============================================================
     
-    private nint UnkSingletonCtorImpl(nint @this)
-    {
-        UnkSingletonPlayerOrCameraRelated = @this;
-        _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Captured UnkSingletonPlayerOrCameraRelated: 0x{@this:X}", _logger.ColorGreen);
-        return _unkSingletonCtorHook!.OriginalFunction(@this);
-    }
-    
+    /// <summary>
+    /// Hook implementation for StaticActorManager_GetOrCreate.
+    /// Captures the StaticActorManager singleton pointer.
+    /// </summary>
     private nint StaticActorManagerGetOrCreateImpl(nint @this, nint** outEntityInfo, uint entityId)
     {
-        StaticActorManager = @this;
+        // Capture the StaticActorManager singleton
+        if (StaticActorManager == 0)
+        {
+            StaticActorManager = @this;
+            _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Captured StaticActorManager: 0x{@this:X}", _logger.ColorGreen);
+        }
+        
+        // Call original function
         return _staticActorManagerGetOrCreateHook!.OriginalFunction(@this, outEntityInfo, entityId);
     }
     
-    private ActorReference* ActorManagerSetupEntityImpl(nint @this, nint entityPtr)
+    /// <summary>
+    /// Actively retrieves Clive's StaticActorInfo using Nenkai's FaithFramework logic.
+    /// Uses UnkSingleton (+0xC8) and StaticActorManager_GetOrCreate.
+    /// </summary>
+    public nint GetPlayerStaticActorInfo()
     {
-        ActorManager = @this;
-        return _actorManagerSetupEntityHook!.OriginalFunction(@this, entityPtr);
+        unsafe
+        {
+            // UnkSingleton can be read from global offset (it's written there)
+            nint baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
+            if (UnkSingletonPlayerOrCameraRelated == 0)
+            {
+                UnkSingletonPlayerOrCameraRelated = *(nint*)(baseAddress + 0x1816608);
+            }
+            
+            // StaticActorManager is captured via HOOK (not available from global offset)
+            // If we don't have it yet, we can't resolve actor info
+            if (UnkSingletonPlayerOrCameraRelated == 0 || StaticActorManager == 0)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Waiting for singletons. UnkSingleton=0x{UnkSingletonPlayerOrCameraRelated:X}, StaticActorMgr=0x{StaticActorManager:X}", _logger.ColorYellow);
+                return PlayerStaticActorInfo;
+            }
+
+            // Extract the Current Controlling Actor ID (usually Clive)
+            if (UnkSingletonPlayerOrCameraRelated < 0x10000 || UnkSingletonPlayerOrCameraRelated > 0x00007FFFFFFFFFFF)
+            {
+                return PlayerStaticActorInfo;
+            }
+
+            uint currentActorId = *(uint*)(UnkSingletonPlayerOrCameraRelated + 0xC8);
+            if (currentActorId == 0) 
+            {
+                return PlayerStaticActorInfo;
+            }
+
+            // Resolve via StaticActorManager
+            nint resolved = GetStaticActorInfo(currentActorId);
+            if (resolved != 0)
+            {
+                PlayerStaticActorInfo = resolved;
+                _logger.WriteLine($"[{_modConfig.ModId}] [FunctionApi] Resolved Clive StaticActorInfo: 0x{resolved:X} (ActorId: 0x{currentActorId:X})", _logger.ColorGreen);
+            }
+
+            return PlayerStaticActorInfo;
+        }
     }
     
     // ============================================================
@@ -301,16 +339,19 @@ public unsafe class FunctionApi
     /// </summary>
     public nint GetStaticActorInfo(uint actorId)
     {
-        if (StaticActorManager == 0 || _staticActorManagerGetOrCreateHook == null)
+        if (StaticActorManager == 0 || _getOrCreateEntityFunc == null)
             return 0;
         
-        nint* staticActorInfo = null;
-        _staticActorManagerGetOrCreateHook.OriginalFunction(StaticActorManager, &staticActorInfo, actorId);
-        
-        if (staticActorInfo == null)
-            return 0;
-        
-        return *staticActorInfo;
+        unsafe
+        {
+            nint* staticActorInfo = null;
+            _getOrCreateEntityFunc(StaticActorManager, &staticActorInfo, actorId);
+            
+            if (staticActorInfo == null)
+                return 0;
+            
+            return (nint)staticActorInfo;
+        }
     }
     
     /// <summary>
@@ -370,14 +411,14 @@ public unsafe class FunctionApi
         {
             StaticActorInfo* info = (StaticActorInfo*)*(long*)(bnpcRow + 0x20); // Wrapper
             
-            // MÉTODO 1: ActorPtr desde Wrapper + 0x10 (Nuevo offset descubierto en RAW dump)
             long actorPtr = 0;
             if (info != null && (long)info > 0x10000)
             {
-                actorPtr = info->ActorPtr;
+                // In FaithFramework, the reference to the internal game Actor object is at +0x58
+                actorPtr = info->ActorRef;
             }
             
-            // Fallback: Si info es null, intentamos leer bnpcRow + 0 directamente (método antiguo)
+            // Fallback: Si info es null o no tiene ActorRef, intentamos leer bnpcRow + 0 directamente (método antiguo)
             if (actorPtr == 0) 
             {
                 actorPtr = *(long*)bnpcRow;

@@ -4,76 +4,49 @@ using System.Runtime.InteropServices;
 namespace ff16.gameplay.truly_eikonic_spells.GameApis
 {
     /// <summary>
-    /// Represents the StaticActorInfo structure (the "Wrapper" at bnpcRow + 0x20).
-    /// Updated based on RAW memory dump analysis (Offset +0x10 is ActorPtr).
+    /// Represents the StaticActorInfo structure (known as 'Actor' in FaithFramework).
+    /// This is the wrapper found at bnpcRow + 0x20.
+    /// Updated to match Nenkai's FaithFramework structures.
     /// </summary>
-    [StructLayout(LayoutKind.Explicit, Size = 0x100)]
+    [StructLayout(LayoutKind.Explicit, Size = 0x7400)] 
     public unsafe struct StaticActorInfo
     {
         [FieldOffset(0x00)] public long* VTable;
         
-        [FieldOffset(0x08)] public int Dword8;
-        [FieldOffset(0x0C)] public int State;
-        
-        // IDA dice ActorId (uint), pero en RAW vemos el puntero completo de 64 bits
-        [FieldOffset(0x10)] public long ActorPtr;
-        
-        [FieldOffset(0x18)] public fixed long CacheBitflags[2]; 
-        
-        [FieldOffset(0x28)] public long CachedActorRef;
-        
-        [FieldOffset(0x30)] public long BattleBehaviorDataEntry31;
+        [FieldOffset(0x10)] public uint ActorId;
+        [FieldOffset(0x14)] public uint EntityId;
 
-        [FieldOffset(0x38)] public long List13Entry;
+        [FieldOffset(0x20)] public long Node; // Node*
         
-        [FieldOffset(0x40)] public long EntryData12;
+        [FieldOffset(0x28)] public long ActionActor; // ActionActor*
         
-        [FieldOffset(0x48)] public long EntryData11;
+        [FieldOffset(0x30)] public long WorldContext;
         
-        [FieldOffset(0x50)] public long EntryData46;
-        
-        [FieldOffset(0x58)] public long EntryData49;
-        
-        [FieldOffset(0x60)] public long EntryData4;
-        
-        [FieldOffset(0x68)] public long EntryData7;
+        [FieldOffset(0x58)] public long ActorRef;
 
-        [FieldOffset(0x70)] public long EntryData10;
-        [FieldOffset(0x78)] public long EntryData33;
-        [FieldOffset(0x80)] public long EntryData32;
-        [FieldOffset(0x88)] public long List19Entry;
-        
-        [FieldOffset(0x90)] public long List36Entry;
-        
-        [FieldOffset(0x98)] public long EntryData37;
-        [FieldOffset(0x0A0)] public long VatbDataEntry;
-        [FieldOffset(0x0A8)] public long EntryData3;
-        [FieldOffset(0x0B0)] public long EntryData35;
-        [FieldOffset(0x0B8)] public long EntryData45;
-        [FieldOffset(0x0C0)] public long EntryData23;
-        [FieldOffset(0x0C8)] public long EntryData42;
-        
-        // En RAW desaparecen los punteros aquí y aparecen Floats que cambian en medio del golpe
-        [FieldOffset(0x0D0)] public float ReactionValue1;
-        [FieldOffset(0x0D4)] public float ReactionValue2;
-        
-        [FieldOffset(0x0D8)] public long EidEntry;
-        [FieldOffset(0x0E0)] public long EntryData2;
-        [FieldOffset(0x0E8)] public long EntryData13;
-        [FieldOffset(0x0F0)] public long EntryData16;
-        [FieldOffset(0x0F8)] public long EntryData53;
+        /// <summary>
+        /// Global Battle Behavior entry. 
+        /// Contains the MagicFileResource (factory) at offset 0.
+        /// </summary>
+        [FieldOffset(0x7298)] public long BattleBehavior; // BattleBehavior*
     }
 
     /// <summary>
-    /// The BattleBehaviorEntityEntry structure found inside StaticActorInfo at +0x7298
+    /// Mapping of the BattleBehavior structure based on FaithFramework
     /// </summary>
-    [StructLayout(LayoutKind.Explicit)]
-    public unsafe struct BattleBehaviorEntityEntry
+    [StructLayout(LayoutKind.Explicit, Size = 0x300)]
+    public unsafe struct BattleBehavior
     {
         [FieldOffset(0x00)] public long* VTable;
         
-        // This is the pointer referenced in IDA as sub_7FF6B0970EF0(*(BBEE + 512) + 0x234)
-        // 512 decimal = 0x200
+        /// <summary>
+        /// This is the 'MagicFileInstance' or Resource Container
+        /// used for spawning projectiles and VFX.
+        /// Found at offset 0x10 in FaithFramework.
+        /// </summary>
+        [FieldOffset(0x10)] public long MagicFileInstance;
+
+        // Found at +0x200 in IDA analysis for Airborne checks
         [FieldOffset(0x200)] public long StateList;
     }
 

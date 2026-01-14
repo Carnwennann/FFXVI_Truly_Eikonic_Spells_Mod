@@ -52,47 +52,25 @@ namespace ff16.gameplay.truly_eikonic_spells.Utils
             
             // Explicit Field Dump to identify missing pointers
             sb.AppendLine("  [Fields]");
-            sb.AppendLine($"    +0x10 ActorPtr: 0x{info->ActorPtr:X}");
-            sb.AppendLine($"    +0x30 Behavior(31): 0x{info->BattleBehaviorDataEntry31:X}");
-            sb.AppendLine($"    +0x40 Data12: 0x{info->EntryData12:X}");
-            sb.AppendLine($"    +0x48 Data11: 0x{info->EntryData11:X}");
-            sb.AppendLine($"    +0x58 Data49: 0x{info->EntryData49:X}");
-            sb.AppendLine($"    +0x60 Data4: 0x{info->EntryData4:X}");
-            sb.AppendLine($"    +0x68 Data7: 0x{info->EntryData7:X}");
-            sb.AppendLine($"    +0x98 Data37: 0x{info->EntryData37:X}");
-            sb.AppendLine($"    +0xA8 Data3: 0x{info->EntryData3:X}");
+            sb.AppendLine($"    +0x10 ActorId: {info->ActorId}");
+            sb.AppendLine($"    +0x14 EntityId: {info->EntityId}");
+            sb.AppendLine($"    +0x20 Node: 0x{info->Node:X}");
+            sb.AppendLine($"    +0x28 ActionActor: 0x{info->ActionActor:X}");
+            sb.AppendLine($"    +0x30 WorldContext: 0x{info->WorldContext:X}");
+            sb.AppendLine($"    +0x58 ActorRef (Base): 0x{info->ActorRef:X}");
+            sb.AppendLine($"    +0x7298 BattleBehavior: 0x{info->BattleBehavior:X}");
 
-            // Scan ALL potential entries for Nex Rows containing HP
-            sb.AppendLine("  [SCAN] Probing all entries for Nex Stats...");
-            TryProbeNexStats(sb, "Data3 (+0xA8)", info->EntryData3);
-            TryProbeNexStats(sb, "Data4 (+0x60)", info->EntryData4);
-            TryProbeNexStats(sb, "Data7 (+0x68)", info->EntryData7);
-            TryProbeNexStats(sb, "Data11 (+0x48)", info->EntryData11);
-            TryProbeNexStats(sb, "Data12 (+0x40)", info->EntryData12);
-            TryProbeNexStats(sb, "Data37 (+0x98)", info->EntryData37);
-            TryProbeNexStats(sb, "Data49 (+0x58)", info->EntryData49);
-            TryProbeNexStats(sb, "List13 (+0x38)", info->List13Entry);
+            // Scan component pointers
+            sb.AppendLine("  [SCAN] Probing components for Nex Stats...");
+            TryProbeNexStats(sb, "WorldContext (+0x30)", info->WorldContext);
+            TryProbeNexStats(sb, "Node (+0x20)", info->Node);
+            TryProbeNexStats(sb, "ActorRef (+0x58)", info->ActorRef);
 
-            sb.AppendLine("  [SCAN] Heuristic Float Scan (Looking for HP-ish values > 5.0 in components)");
-            // Increase scan size for ActorPtr since it is a large object
-            ScanForFloats(sb, "ActorPtr", info->ActorPtr, 0x2000); 
-            ScanForInts(sb, "ActorPtr", info->ActorPtr, 0x2000);
-            ScanForShorts(sb, "Data7", info->EntryData7, 0x500); // Check for Short HP here
-            ScanForInts(sb, "Data4", info->EntryData4, 0x500);
-            ScanForInts(sb, "Data7", info->EntryData7, 0x500);
-            ScanForInts(sb, "Data12", info->EntryData12, 0x500);
-
-            // Detailed Byte Dump of Data7 around ParamGrow area (+0x200 to +0x300)
-            if (info->EntryData7 > 0x10000 && IsMemoryReadable((IntPtr)info->EntryData7, 0x300))
+            sb.AppendLine("  [SCAN] Heuristic Float Scan (Looking for HP-ish values > 5.0 in ActorRef)");
+            if (info->ActorRef > 0x10000)
             {
-                 sb.AppendLine("  [DEBUG] Byte-View Data7 (+0x200 to +0x300) for ParamGrow Alignment:");
-                 byte* b = (byte*)info->EntryData7;
-                 for(int i = 0x200; i < 0x300; i+=16)
-                 {
-                     sb.Append($"    +{i:X3}: ");
-                     for(int j=0; j<16; j++) sb.Append($"{b[i+j]:X2} ");
-                     sb.AppendLine();
-                 }
+                ScanForFloats(sb, "ActorRef", info->ActorRef, 0x2000); 
+                ScanForInts(sb, "ActorRef", info->ActorRef, 0x2000);
             }
             
             return sb.ToString();
@@ -276,79 +254,6 @@ namespace ff16.gameplay.truly_eikonic_spells.Utils
                 if (fval > 0.001f && fval < 1000000f)
                     sb.AppendLine($"    [0x08] Float: {fval:F3}");
             } catch {}
-        }
-
-        private static unsafe string LogActorData35(long address)
-        {
-            var sb = new StringBuilder();
-            float* fPtr = (float*)address;
-            int* iPtr = (int*)address;
-
-            sb.AppendLine($"  [EntryData35 @ 0x{address:X}]");
-            sb.AppendLine($"    field_8 (float): {fPtr[2]:F3}"); // offset 0x08
-            sb.AppendLine($"    unsigned_int24: {iPtr[9]}"); // offset 0x24 (24/4 = 6, but we use index 9 for 0x24)
-            // 0x24 / 4 = 9
-            sb.AppendLine($"    field_30: {iPtr[12]}"); // offset 0x30
-            
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Attempts to read HP and other stats using the NexRowInstance logic.
-        /// </summary>
-        private static unsafe float? TryReadHP(GameApis.StaticActorInfo* info, StringBuilder sb = null)
-        {
-            try
-            {
-                long entry3 = info->EntryData3;
-                if (sb != null) sb.AppendLine($"    [TryReadHP] EntryData3 (+0xA8): 0x{entry3:X}");
-
-                if (entry3 < 0x10000) return null;
-
-                // 2. Leer el puntero al contenedor de la fila en +0x60 (96 decimal en IDA)
-                // Decomp: p_NexRowInstance = *(NexRowInstance ***)(ActorData3Entry + 96);
-                long ptrToPtr = *(long*)(entry3 + 0x60);
-                if (sb != null) sb.AppendLine($"    [TryReadHP] *(EntryData3 + 0x60): 0x{ptrToPtr:X}");
-
-                if (ptrToPtr < 0x10000) return null;
-
-                // 3. Desreferenciar el contenedor para obtener la instancia de la fila (NexRowInstance)
-                long rowInstance = *(long*)ptrToPtr;
-                if (sb != null) sb.AppendLine($"    [TryReadHP] RowInstance: 0x{rowInstance:X}");
-
-                if (rowInstance < 0x10000) return null;
-
-                // 4. Obtener el puntero de datos reales usando la lógica de Nex (revertida)
-                long dataPtr = NexUtils.RowGetPtr(rowInstance);
-                if (sb != null) sb.AppendLine($"    [TryReadHP] DataPtr: 0x{dataPtr:X}");
-
-                if (dataPtr == 0) return null;
-
-                // 5. El HP está en +0x40 según el desemblado de IDA
-                float hp = *(float*)(dataPtr + 0x40);
-                
-                // Otras Stats hipotéticas
-                float maxHp = *(float*)(dataPtr + 0x44); 
-                // offset 0x48 int?
-                float will = *(float*)(dataPtr + 0x50); // Will Gauge is usually float. Will try +0x50 or +0x4C.
-
-                if (sb != null)
-                {
-                    sb.AppendLine($"    [NEX ROW] Instance: 0x{rowInstance:X} -> Data: 0x{dataPtr:X}");
-                    sb.AppendLine($"      HP: {hp:F0} / {maxHp:F0}");
-                    sb.AppendLine($"      Raw [+0x48]: {*(float*)(dataPtr+0x48):F3}");
-                    sb.AppendLine($"      Raw [+0x4C]: {*(float*)(dataPtr+0x4C):F3}");
-                    sb.AppendLine($"      Raw [+0x50]: {*(float*)(dataPtr+0x50):F3}");
-                }
-
-                if (hp < 0 || hp > 10000000) return null;
-                return hp;
-            }
-            catch (Exception ex) 
-            {
-                 if (sb != null) sb.AppendLine($"    [TryReadHP] Error: {ex.Message}");
-                 return null;
-            }
         }
     }
 }

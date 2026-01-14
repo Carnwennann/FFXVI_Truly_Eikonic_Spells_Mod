@@ -703,6 +703,9 @@ internal unsafe class MagicGameSystem
 
     private void MagicUnkExecuteImpl(long magicFileInstance, int opType, int propertyId, long dataPtr)
     {
+        // Update VFX API factory context with timestamp tracking
+        VfxApi.UpdateFactory(magicFileInstance);
+
         // 1. Resolve IDs immediately using confirmed offsets
         int magicId = 0;
         int groupId = 0;

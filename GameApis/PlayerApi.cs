@@ -37,11 +37,11 @@ public unsafe class PlayerApi
     // CONSTRUCTOR
     // ============================================================
     
-    public PlayerApi(ILogger logger, IModConfig modConfig)
+    public PlayerApi(ILogger logger, IModConfig modConfig, FunctionApi hooks)
     {
         _logger = logger;
         _modConfig = modConfig;
-        _hooks = new FunctionApi(logger, modConfig);
+        _hooks = hooks;
     }
     
     // ============================================================
@@ -53,7 +53,7 @@ public unsafe class PlayerApi
     /// </summary>
     public void SetupScans(IStartupScanner scans, IReloadedHooks hooks)
     {
-        _hooks.SetupScans(scans, hooks);
+        // Hooks are shared, no need to setup scans twice if they are shared
     }
     
     // ============================================================

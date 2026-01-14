@@ -316,4 +316,18 @@ public class Config : Configurable<Config>
     // === Magic Tester ===
     public int TestMagicID { get; set; } = 214;
     public int TestMagicCount { get; set; } = 1;
+
+    // ==================== HIT VFX OVERRIDES ====================
+
+    [DisplayName("Enable Hit VFX Override")]
+    [Description("Whether to force a specific VFX ID on every hit")]
+    [DefaultValue(false)]
+    [Category("Hit VFX")]
+    public bool EnableHitVfxOverride { get; set; } = false;
+
+    [DisplayName("Forced Hit VFX ID")]
+    [Description("The VFX ID to use (reads from R15 + 392)")]
+    [DefaultValue(0)]
+    [Category("Hit VFX")]
+    public int ForcedHitVfxId { get; set; } = 0;
 }
