@@ -2,7 +2,10 @@ using System.Collections.Generic;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 
-internal enum MagicPropertyType
+/// <summary>
+/// Enumeration of property value types used in magic properties.
+/// </summary>
+public enum MagicPropertyType
 {
     Int,
     Float,
@@ -11,10 +14,109 @@ internal enum MagicPropertyType
     Bool
 }
 
-internal record MagicPropertyInfo(string Name, MagicPropertyType Type);
+/// <summary>
+/// Information about a magic property including its name and type.
+/// </summary>
+public record MagicPropertyInfo(string Name, MagicPropertyType Type);
 
-internal static class MagicProperties
+/// <summary>
+/// Known magic property IDs with their names and types.
+/// Properties define configuration values for operations.
+/// </summary>
+public static class MagicProperties
 {
+    // ==================== COMMONLY USED PROPERTY IDS ====================
+    // Use these constants for cleaner, more readable code
+    
+    /// <summary>Projectile speed multiplier (float)</summary>
+    public const int Speed = 8;
+    
+    /// <summary>Disables tracking/homing behavior when true (bool)</summary>
+    public const int NoTracking = 13;
+    
+    /// <summary>Vertical angle offset in degrees (int)</summary>
+    public const int VerticalAngleOffset = 22;
+    
+    /// <summary>Operation group ID to execute (int)</summary>
+    public const int OperationGroupId = 26;
+    
+    /// <summary>VFX/Audio ID to play (int)</summary>
+    public const int VfxAudioId = 27;
+    
+    /// <summary>Disappear after duration expires (bool)</summary>
+    public const int DisappearAfterDuration = 30;
+    
+    /// <summary>VFX scale multiplier (float)</summary>
+    public const int VfxScale = 31;
+    
+    /// <summary>Duration in seconds before expiration (float)</summary>
+    public const int Duration = 35;
+    
+    /// <summary>Operation group to execute when projectile expires (int)</summary>
+    public const int OnExpireOperationGroupId = 37;
+    
+    /// <summary>Attack parameter ID for damage calculation (int)</summary>
+    public const int AttackParamId = 41;
+    
+    /// <summary>Hitbox/attachment size (float)</summary>
+    public const int HitboxSize = 42;
+    
+    /// <summary>Location spawn type ID (int)</summary>
+    public const int SpawnLocationType = 73;
+    
+    /// <summary>EID reference (int)</summary>
+    public const int EidId = 81;
+    
+    /// <summary>Alternative VFX/Audio ID (int)</summary>
+    public const int VfxAudioId2 = 89;
+    
+    /// <summary>Operation group to execute on target hit (int)</summary>
+    public const int OnTargetHitOperationGroupId = 95;
+    
+    /// <summary>Third VFX/Audio ID slot (int)</summary>
+    public const int VfxAudioId3 = 105;
+    
+    /// <summary>Magic ID to spawn (int)</summary>
+    public const int SpawnMagicId = 147;
+    
+    /// <summary>Second magic ID to spawn (int)</summary>
+    public const int SpawnMagicId2 = 148;
+    
+    /// <summary>Third magic ID to spawn (int)</summary>
+    public const int SpawnMagicId3 = 149;
+    
+    /// <summary>Type of trajectory ID (int)</summary>
+    public const int TrajectoryType = 187;
+    
+    /// <summary>Scaled duration - alternative to Duration (float)</summary>
+    public const int DurationScaled = 1379;
+    
+    /// <summary>Layout instance ID (int)</summary>
+    public const int LayoutInstanceId = 1458;
+    
+    /// <summary>Horizontal angle (float)</summary>
+    public const int HorizontalAngle = 1999;
+    
+    /// <summary>Vertical angle (float)</summary>
+    public const int VerticalAngle = 2000;
+    
+    /// <summary>Trajectory rotation variables (Vector3)</summary>
+    public const int TrajectoryRotation = 2430;
+    
+    /// <summary>Trajectory curve intensity (float)</summary>
+    public const int TrajectoryCurveStrength = 2593;
+    
+    /// <summary>Camera F-Curve ID (int)</summary>
+    public const int CameraFCurveId = 3848;
+    
+    /// <summary>Command ID (int)</summary>
+    public const int CommandId = 5274;
+    
+    /// <summary>Skill upgrade level (int)</summary>
+    public const int SkillUpgradeLevel = 5276;
+    
+    // ==================== FULL DEFINITIONS DICTIONARY ====================
+    
     public static readonly Dictionary<int, MagicPropertyInfo> Definitions = new()
     {
         { 2, new("Global Property?", MagicPropertyType.Int) },

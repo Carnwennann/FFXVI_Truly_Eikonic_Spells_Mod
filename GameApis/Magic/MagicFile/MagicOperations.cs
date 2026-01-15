@@ -2,8 +2,41 @@ using System.Collections.Generic;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 
-internal static class MagicOperations
+/// <summary>
+/// Known magic operation types with their names.
+/// Operations define behaviors like trajectory, VFX, damage, etc.
+/// </summary>
+public static class MagicOperations
 {
+    // ==================== COMMONLY USED OPERATION TYPE IDS ====================
+    // Use these constants for cleaner, more readable code
+    
+    /// <summary>Linear trajectory with slight homing</summary>
+    public const int LinearHomingTrajectory = 1;
+    
+    /// <summary>Play VFX effect</summary>
+    public const int PlayVfx = 25;
+    
+    /// <summary>Duration/timing operation</summary>
+    public const int Duration = 35;
+    
+    /// <summary>Apply attack/damage to target</summary>
+    public const int ApplyAttack = 40;
+    
+    /// <summary>Initialize the magic entity</summary>
+    public const int Initialize = 51;
+    
+    /// <summary>Alternative VFX operation</summary>
+    public const int PlayVfx2 = 87;
+    
+    /// <summary>On-hit callback operation</summary>
+    public const int OnTargetHit = 94;
+    
+    /// <summary>Parabolic trajectory (like grenades)</summary>
+    public const int ParabolaTrajectory = 2493;
+    
+    // ==================== ADDRESS-BASED NAMES (for debugging) ====================
+    
     public static Dictionary<long, string> GetDefaultNames() => new()
     {
         { 0x7FF6C7A69EA0, "Operation_35 (Duration)" },
@@ -27,6 +60,8 @@ internal static class MagicOperations
         { 0x7FF6C7A67C18, "Operation_4553" },
         { 0x7FF6C7A67DD8, "Operation_4446" },
     };
+
+    // ==================== NAME LOOKUP ====================
 
     public static string GetName(int opType) => opType switch
     {

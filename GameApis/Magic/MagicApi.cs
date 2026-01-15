@@ -15,7 +15,7 @@ public class MagicApi
     private readonly ILogger _logger;
     private readonly string _modId;
     private readonly MagicGameSystem _magicGameSystem;
-    private readonly Dictionary<string, List<FuzzerEntry>> _cachedModifications = new();
+    private readonly Dictionary<string, List<MagicModEntry>> _cachedModifications = new();
 
     internal MagicApi(ILogger logger, string modId, MagicGameSystem magicGameSystem)
     {
@@ -65,7 +65,7 @@ public class MagicApi
             string json = File.ReadAllText(filePath);
             _logger.WriteLine($"[{_modId}] [MagicApi] File read successfully ({json.Length} bytes)", _logger.ColorYellow);
             
-            var entries = JsonSerializer.Deserialize<List<FuzzerEntry>>(json, new JsonSerializerOptions 
+            var entries = JsonSerializer.Deserialize<List<MagicModEntry>>(json, new JsonSerializerOptions 
             { 
                 PropertyNameCaseInsensitive = true 
             });
@@ -117,7 +117,7 @@ public class MagicApi
     /// Casts magic spells using a list of pre-adapted modification sets.
     /// Each list in the outer list represents one projectile's modifications.
     /// </summary>
-    public bool CastModifiedMagic(int magicId, List<List<FuzzerEntry>> modifications)
+    public bool CastModifiedMagic(int magicId, List<List<MagicModEntry>> modifications)
     {
         if (!_magicGameSystem.HasMagicContext) return false;
 
@@ -157,7 +157,7 @@ public class MagicApi
     /// <summary>
     /// Gets the cached modifications for a given profile name.
     /// </summary>
-    public List<FuzzerEntry>? GetModifications(string name)
+    public List<MagicModEntry>? GetModifications(string name)
     {
         if (_cachedModifications.TryGetValue(name, out var entries))
             return entries;

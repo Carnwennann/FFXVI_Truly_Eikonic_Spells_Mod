@@ -98,7 +98,7 @@ internal unsafe class MagicGameSystem
         _baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
         
         // Create processor component
-        _processor = new MagicProcessor(logger, modConfig, configuration, scanner);
+        _processor = new MagicProcessor(logger, modConfig.ModId, configuration, scanner);
 
         // Allocate and zero-initialize buffer
         _magicStructBuffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
@@ -151,7 +151,7 @@ internal unsafe class MagicGameSystem
     // PUBLIC API
     // ============================================================
     
-    public void EnqueueModifications(int magicId, List<FuzzerEntry> entries)
+    public void EnqueueModifications(int magicId, List<MagicModEntry> entries)
     {
         _processor.EnqueueModifications(magicId, entries);
     }

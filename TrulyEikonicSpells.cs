@@ -99,6 +99,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private FunctionApi _functionApi;
     private MagicGameSystem _magicGameSystem;
     private MagicApi _magicApi;
+    private MagicApiV2 _magicApiV2;
     private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
     private ImGuiConfigurator? _imGuiConfigurator;
@@ -165,6 +166,16 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize MagicApi
         _magicApi = new MagicApi(_logger, _modConfig.ModId, _magicGameSystem);
         
+        // Initialize MagicApiV2 (new unified API)
+        _magicApiV2 = new MagicApiV2(_logger, _modConfig.ModId, _configuration, _startupScanner);
+        _magicApiV2.SetupScans(_startupScanner, _hooks);
+        _magicApiV2.InitializeProcessor(_hooks);
+        _magicApiV2.SetCallbacks(
+            () => _playerApi?.GetPlayerStaticActorInfo() ?? nint.Zero,
+            () => GetPlayerActorRefFromStaticInfo(),
+            GetActiveEikon
+        );
+        
         // Load Dia modifications
         string modDir = _modLoader.GetDirectoryForModId(_modConfig.ModId);
         string diaModPath = Path.Combine(modDir, "Eikon", "Bahamut", "Diara", "DiaModifications.json");
@@ -196,7 +207,7 @@ public class TrulyEikonicSpellsMod : ModBase
         if (imGuiController != null && imGuiShellController != null && 
             imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
         {
-            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApi);
+            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApi, _magicApiV2);
             imGuiShell.AddComponent(_imGuiConfigurator);
             _logger.WriteLine($"[{_modConfig.ModId}] ImGui Configurator initialized", _logger.ColorGreen);
         }
@@ -657,6 +668,18 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Delegate to shared EikonUtils for Eikon detection
     private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
+    
+    // Helper to get ActorRef from StaticActorInfo
+    private unsafe long GetPlayerActorRefFromStaticInfo()
+    {
+        if (_playerApi == null) return 0;
+        
+        nint staticInfo = _playerApi.GetPlayerStaticActorInfo();
+        if (staticInfo == nint.Zero) return 0;
+        
+        var info = (GameStructs.StaticActorInfo*)staticInfo;
+        return info->ActorRef;
+    }
     
     #region Standard Overrides
     

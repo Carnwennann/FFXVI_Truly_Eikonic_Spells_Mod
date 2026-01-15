@@ -16,13 +16,15 @@ public class ImGuiConfigurator : IImGuiComponent
     private Config _config;
     private readonly Action<Config> _onConfigChanged;
     private readonly MagicApi _magicApi;
+    private readonly IMagicApi _magicApiV2;
 
-    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, MagicApi magicApi)
+    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, MagicApi magicApi, IMagicApi magicApiV2)
     {
         _imgui = imgui;
         _config = config;
         _onConfigChanged = onConfigChanged;
         _magicApi = magicApi;
+        _magicApiV2 = magicApiV2;
     }
 
     public void RenderMenu(IImGuiShell imGuiShell)
@@ -224,23 +226,23 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.TextDisabled("(?)");
         if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None)) _imgui.SetTooltip("Logs all magic property values. Can impact performance.");
         
-        if (_imgui.Button("Add New Fuzzer Entry"))
+        if (_imgui.Button("Add New Magic Mod Entry"))
         {
-            if (_config.FuzzerEntries.Count > 0)
+            if (_config.MagicModEntries.Count > 0)
             {
                 // Copy the last entry
-                var lastEntry = _config.FuzzerEntries[_config.FuzzerEntries.Count - 1];
-                _config.FuzzerEntries.Add(lastEntry.Clone());
+                var lastEntry = _config.MagicModEntries[_config.MagicModEntries.Count - 1];
+                _config.MagicModEntries.Add(lastEntry.Clone());
             }
             else
             {
-                _config.FuzzerEntries.Add(new FuzzerEntry());
+                _config.MagicModEntries.Add(new MagicModEntry());
             }
         }
 
-        for (int i = 0; i < _config.FuzzerEntries.Count; i++)
+        for (int i = 0; i < _config.MagicModEntries.Count; i++)
         {
-            var entry = _config.FuzzerEntries[i];
+            var entry = _config.MagicModEntries[i];
             
             if (_imgui.CollapsingHeader($"Entry {i}: Prop {entry.PropertyId}##Header_{i}", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
             {
@@ -264,7 +266,7 @@ public class ImGuiConfigurator : IImGuiComponent
 
                 if (_imgui.Button($"Remove##{i}"))
                 {
-                    _config.FuzzerEntries.RemoveAt(i);
+                    _config.MagicModEntries.RemoveAt(i);
                     break;
                 }
 
@@ -351,8 +353,22 @@ public class ImGuiConfigurator : IImGuiComponent
 
     private void RenderMagicTesterTab()
     {
-        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Magic Spawning Tester");
-        _imgui.TextWrapped("Use this panel to test different Magic IDs. You MUST have fired at least one magic spell in-game during this session to capture the player's context.");
+        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Magic Spawning Tester (New API)");
+        _imgui.TextWrapped("Use this panel to test the new Magic API. Fire at least one spell in-game to capture context.");
+        
+        _imgui.Separator();
+
+        // Show API status
+        _imgui.Text("API Status:");
+        _imgui.SameLine();
+        if (_magicApiV2.IsReady)
+        {
+            _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "READY");
+        }
+        else
+        {
+            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "NO CONTEXT - Fire a spell first!");
+        }
         
         _imgui.Separator();
 
@@ -363,34 +379,68 @@ public class ImGuiConfigurator : IImGuiComponent
         if (_imgui.InputInt("Number of Projectiles", ref testCount)) _config.TestMagicCount = testCount;
 
         _imgui.Separator();
+        _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Cast Methods:");
+
+        // Simple cast button
+        if (_imgui.Button("Cast (Simple)"))
+        {
+            if (_magicApiV2.IsReady)
+            {
+                for (int i = 0; i < _config.TestMagicCount; i++)
+                {
+                    _magicApiV2.Cast(_config.TestMagicID);
+                }
+            }
+        }
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Casts the spell using default player as source.");
+        }
+        _imgui.SameLine();
+        _imgui.Separator();
+        _imgui.TextColored(new Vector4(0.8f, 0.4f, 1.0f, 1.0f), "Builder Pattern Test:");
+
+        // Cast with modifications using the builder pattern
+        if (_imgui.Button("Cast Modified (2 Speed)"))
+        {
+            if (_magicApiV2.IsReady)
+            {
+                for (int i = 0; i < _config.TestMagicCount; i++)
+                {
+                    _magicApiV2.CreateSpell(_config.TestMagicID)
+                        .SetProperty(0, MagicOperations.Initialize, MagicProperties.Speed, 2.0f)
+                        .Cast();
+                }
+            }
+        }
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Creates a spell with 2 speed using the builder pattern.");
+        }
+
+        _imgui.SameLine();
+        _imgui.Separator();
+        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Legacy API (for comparison):");
 
         if (!_magicApi.HasMagicContext)
         {
-            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "STATUS: NO CONTEXT - Fire a spell in-game first!");
+            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Legacy: NO CONTEXT");
         }
         else
         {
-            _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "STATUS: Context Ready");
+            _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "Legacy: Ready");
         }
 
-        if (_imgui.Button("CAST MAGIC NOW"))
+        if (_imgui.Button("Cast (Legacy API)"))
         {
             if (_magicApi.HasMagicContext)
             {
                 _magicApi.CastSpells(_config.TestMagicID, _config.TestMagicCount);
             }
         }
-        
-        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
-        {
-            _imgui.SetTooltip("Force spawns the specified Magic ID at Clive's location.");
-        }
 
         _imgui.Separator();
         _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Identified Magic IDs (Click to set ID):");
-
-        // We don't have BeginChild in this wrapper likely, or it's not used. 
-        // I'll just use CollapsingHeaders directly.
         
         RenderEikonMagicGroup("Phoenix", MagicIds.Phoenix.All);
         RenderEikonMagicGroup("Garuda", MagicIds.Garuda.All);
@@ -417,10 +467,13 @@ public class ImGuiConfigurator : IImGuiComponent
                 {
                     _config.TestMagicID = entry.Id;
                     
-                    // Auto-cast if clicked and context is available
-                    if (_magicApi.HasMagicContext)
+                    // Auto-cast using new API if available
+                    if (_magicApiV2.IsReady)
                     {
-                        _magicApi.CastSpells(entry.Id, _config.TestMagicCount);
+                        for (int i = 0; i < _config.TestMagicCount; i++)
+                        {
+                            _magicApiV2.Cast(entry.Id);
+                        }
                     }
                 }
             }

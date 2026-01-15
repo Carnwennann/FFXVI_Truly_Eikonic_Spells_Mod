@@ -284,9 +284,9 @@ public class DiaraSystem
     /// <summary>
     /// Generates a list of modification sets for a fan pattern.
     /// </summary>
-    private List<List<FuzzerEntry>> GenerateFanModifications(List<FuzzerEntry> baseEntries)
+    private List<List<MagicModEntry>> GenerateFanModifications(List<MagicModEntry> baseEntries)
     {
-        var fanModifications = new List<List<FuzzerEntry>>();
+        var fanModifications = new List<List<MagicModEntry>>();
         
         // Calculate start angle to center the fan
         // For 5 spells with 7.5 deg step: -15, -7.5, 0, 7.5, 15
@@ -295,13 +295,13 @@ public class DiaraSystem
         for (int i = 0; i < DiaSpellsPerDodge; i++)
         {
             float currentAngle = startAngle + (i * FanAngleStep);
-            var modifiedEntries = new List<FuzzerEntry>();
+            var modifiedEntries = new List<MagicModEntry>();
             
             // Add Property 69 = 0 for "slave" projectiles (i > 0)
             // This makes them "jointly managed" like Blind Justice (no extra audio/visual clutter)
             if (i > 0)
             {
-                modifiedEntries.Add(new FuzzerEntry
+                modifiedEntries.Add(new MagicModEntry
                 {
                     OpType = 51,
                     Occurrence = 0,

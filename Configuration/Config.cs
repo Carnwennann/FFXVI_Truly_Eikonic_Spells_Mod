@@ -14,7 +14,7 @@ public enum TriState
     Off = 2
 }
 
-public class FuzzerEntry
+public class MagicModEntry
 {
     public bool Enabled { get; set; } = true;
     public bool IsInjection { get; set; } = false; // Si es true, se inyecta aunque no exista
@@ -36,9 +36,9 @@ public class FuzzerEntry
     public int Occurrence { get; set; } = -1; // -1 para todas, 0 para la primera, 1 para la segunda...
     public int TargetOperationGroupId { get; set; } = -1; // -1 para todos, o el ID del grupo (ej: 4338)
 
-    public FuzzerEntry Clone()
+    public MagicModEntry Clone()
     {
-        return new FuzzerEntry
+        return new MagicModEntry
         {
             Enabled = this.Enabled,
             IsInjection = this.IsInjection,
@@ -306,10 +306,10 @@ public class Config : Configurable<Config>
     [Category("Universal Fuzzer")]
     public bool EnablePropertyLogging { get; set; } = false;
 
-    [DisplayName("Fuzzer Entries")]
-    [Description("List of properties to fuzz or inject")]
+    [DisplayName("Magic Mod Entries")]
+    [Description("List of properties to modify or inject")]
     [Category("Universal Fuzzer")]
-    public List<FuzzerEntry> FuzzerEntries { get; set; } = new List<FuzzerEntry>();
+    public List<MagicModEntry> MagicModEntries { get; set; } = new List<MagicModEntry>();
 
     // ==================== DEBUG ====================
     

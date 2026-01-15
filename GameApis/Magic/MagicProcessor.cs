@@ -44,14 +44,14 @@ internal unsafe class MagicProcessor
     // STATE - Queues and Trackers
     // ============================================================
     
-    private Dictionary<(int magicId, int groupId), Queue<List<FuzzerEntry>>> _groupedQueues = new();
-    private List<FuzzerEntry>? _activeInstanceEntries = null;
+    private Dictionary<(int magicId, int groupId), Queue<List<MagicModEntry>>> _groupedQueues = new();
+    private List<MagicModEntry>? _activeInstanceEntries = null;
     private int _activeInstanceMagicId = 0;
     
     private Dictionary<int, int> _opInstanceTracker = new();
     private Dictionary<long, int> _propInstanceTracker = new();
     private int _lastOpType = -1;
-    private List<FuzzerEntry> _pendingInjections = new();
+    private List<MagicModEntry> _pendingInjections = new();
     private bool _isProcessingInjections = false;
 
     // ============================================================
@@ -59,7 +59,7 @@ internal unsafe class MagicProcessor
     // ============================================================
     
     private readonly ILogger _logger;
-    private readonly IModConfig _modConfig;
+    private readonly string _modId;
     private readonly IStartupScanner _scanner;
     private Config _configuration;
 
@@ -67,10 +67,10 @@ internal unsafe class MagicProcessor
     // CONSTRUCTOR
     // ============================================================
     
-    public MagicProcessor(ILogger logger, IModConfig modConfig, Config configuration, IStartupScanner scanner)
+    public MagicProcessor(ILogger logger, string modId, Config configuration, IStartupScanner scanner)
     {
         _logger = logger;
-        _modConfig = modConfig;
+        _modId = modId;
         _configuration = configuration;
         _scanner = scanner;
     }
@@ -90,7 +90,7 @@ internal unsafe class MagicProcessor
         _scanner.AddScan(MAGIC_UNK_EXECUTE_SIG, address =>
         {
             _magicUnkExecuteHook = hooks.CreateHook<MagicUnkExecuteDelegate>(MagicUnkExecuteImpl, address).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modId}] [MagicProcessor] Hooked MagicUnkExecute at 0x{address:X}", _logger.ColorGreen);
         });
 
         // Hook: MagicFile::Process - Operation group lifecycle management
@@ -100,7 +100,7 @@ internal unsafe class MagicProcessor
         _scanner.AddScan(MAGIC_FILE_PROCESS_SIG, address =>
         {
             _magicFileProcessHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileProcessImpl, address).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked MagicFile::Process at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modId}] [MagicProcessor] Hooked MagicFile::Process at 0x{address:X}", _logger.ColorGreen);
         });
 
         // Hook: MagicFile::HandleSubEntry - Operation transition detection
@@ -110,7 +110,7 @@ internal unsafe class MagicProcessor
         _scanner.AddScan(MAGIC_FILE_HANDLE_SUB_ENTRY_SIG, address =>
         {
             _magicFileHandleSubEntryHook = hooks.CreateHook<GenericMagicDelegate>(MagicFileHandleSubEntryImpl, address).Activate();
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
+            _logger.WriteLine($"[{_modId}] [MagicProcessor] Hooked MagicFile::HandleSubEntry at 0x{address:X}", _logger.ColorGreen);
         });
     }
 
@@ -121,7 +121,7 @@ internal unsafe class MagicProcessor
     /// <summary>
     /// Enqueues modifications to be applied when a magic spell is processed.
     /// </summary>
-    public void EnqueueModifications(int magicId, List<FuzzerEntry> entries)
+    public void EnqueueModifications(int magicId, List<MagicModEntry> entries)
     {
         var grouped = entries.GroupBy(e => e.TargetOperationGroupId);
         
@@ -130,11 +130,11 @@ internal unsafe class MagicProcessor
             var key = (magicId, group.Key);
             if (!_groupedQueues.TryGetValue(key, out var queue))
             {
-                queue = new Queue<List<FuzzerEntry>>();
+                queue = new Queue<List<MagicModEntry>>();
                 _groupedQueues[key] = queue;
             }
             queue.Enqueue(group.ToList());
-            _logger.WriteLine($"[{_modConfig.ModId}] [MagicProcessor] Enqueued {group.Count()} entries for Magic {magicId} Group {group.Key}", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modId}] [MagicProcessor] Enqueued {group.Count()} entries for Magic {magicId} Group {group.Key}", _logger.ColorYellow);
         }
     }
 
@@ -188,7 +188,7 @@ internal unsafe class MagicProcessor
                 {
                     foreach (var entry in _pendingInjections)
                     {
-                        _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} (End of Group)", _logger.ColorGreen);
+                        _logger.WriteLine($"[{_modId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} (End of Group)", _logger.ColorGreen);
                         PerformInjection(a1, entry);
                     }
                     _pendingInjections.Clear();
@@ -206,7 +206,7 @@ internal unsafe class MagicProcessor
                 {
                     if (entry.Enabled && entry.IsInjection && entry.InjectAfterOp == -1)
                     {
-                        _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} at END of Group", _logger.ColorGreen);
+                        _logger.WriteLine($"[{_modId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} at END of Group", _logger.ColorGreen);
                         PerformInjection(a1, entry);
                     }
                 }
@@ -243,7 +243,7 @@ internal unsafe class MagicProcessor
             {
                 _activeInstanceEntries = queue.Dequeue();
                 _activeInstanceMagicId = magicId;
-                _logger.WriteLine($"[{_modConfig.ModId}] [ACTIVATE] Linked {_activeInstanceEntries.Count} mods to Magic {magicId} Group {groupId}", _logger.ColorGreen);
+                _logger.WriteLine($"[{_modId}] [ACTIVATE] Linked {_activeInstanceEntries.Count} mods to Magic {magicId} Group {groupId}", _logger.ColorGreen);
             }
         }
 
@@ -258,7 +258,7 @@ internal unsafe class MagicProcessor
         if (opOccurrence < 0) opOccurrence = 0;
         
         // Get active entries and check if fuzzer is enabled
-        var activeEntries = _activeInstanceEntries ?? _configuration.FuzzerEntries;
+        var activeEntries = _activeInstanceEntries ?? _configuration.MagicModEntries;
         bool fuzzerEnabled = _activeInstanceEntries != null || _configuration.EnableUniversalFuzzer;
 
         // Check for DisableOp
@@ -271,7 +271,7 @@ internal unsafe class MagicProcessor
                     int targetOcc = (entry.PropertyId == -1) ? opOccurrence : propOccurrence;
                     if (EntryMatchesContext(entry, magicId, groupId, targetOcc) && (entry.PropertyId == -1 || entry.PropertyId == propertyId))
                     {
-                        _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {magicId} Group {groupId} Op {opType} Prop {propertyId} DISABLED (Occ {targetOcc})", _logger.ColorRed);
+                        _logger.WriteLine($"[{_modId}] [FUZZER] {magicId} Group {groupId} Op {opType} Prop {propertyId} DISABLED (Occ {targetOcc})", _logger.ColorRed);
                         return;
                     }
                 }
@@ -280,8 +280,8 @@ internal unsafe class MagicProcessor
 
         long valuePtr = *(long*)(dataPtr + 8);
 
-        // Apply fuzzer override
-        var (isFuzzed, activeEntry, originalValue) = ApplyFuzzerOverride(
+        // Apply magic mod override
+        var (isFuzzed, activeEntry, originalValue) = ApplyMagicModOverride(
             activeEntries, fuzzerEnabled, opType, propertyId, 
             magicId, groupId, propOccurrence, valuePtr);
 
@@ -310,8 +310,8 @@ internal unsafe class MagicProcessor
     /// This allows adding new properties to an operation group that don't exist in the original .magic file.
     /// </summary>
     /// <param name="magicFileInstance">The magic file instance to inject into.</param>
-    /// <param name="entry">The fuzzer entry containing the property to inject.</param>
-    private void PerformInjection(long magicFileInstance, FuzzerEntry entry)
+    /// <param name="entry">The magic mod entry containing the property to inject.</param>
+    private void PerformInjection(long magicFileInstance, MagicModEntry entry)
     {
         // Create stack-allocated buffers for the fake property data
         byte* buffer = stackalloc byte[16];
@@ -359,7 +359,7 @@ internal unsafe class MagicProcessor
             {
                 foreach (var entry in _pendingInjections)
                 {
-                    _logger.WriteLine($"[{_modConfig.ModId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} in Magic {magicId} Group {groupId}", _logger.ColorGreen);
+                    _logger.WriteLine($"[{_modId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} AFTER Op {_lastOpType} in Magic {magicId} Group {groupId}", _logger.ColorGreen);
                     PerformInjection(magicFileInstance, entry);
                 }
                 _pendingInjections.Clear();
@@ -376,7 +376,7 @@ internal unsafe class MagicProcessor
         _opInstanceTracker[opType] = currentOpOccurrence + 1;
 
         // Check for injections after this operation
-        var activeEntries = _activeInstanceEntries ?? _configuration.FuzzerEntries;
+        var activeEntries = _activeInstanceEntries ?? _configuration.MagicModEntries;
         bool fuzzerEnabled = _activeInstanceEntries != null || _configuration.EnableUniversalFuzzer;
 
         if (fuzzerEnabled)
@@ -386,7 +386,7 @@ internal unsafe class MagicProcessor
                 if (entry.Enabled && entry.IsInjection && entry.InjectAfterOp == opType && EntryMatchesContext(entry, magicId, groupId, currentOpOccurrence))
                 {
                     _pendingInjections.Add(entry);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [QUEUE_INJECT] Queued Op {entry.OpType} to inject after Op {opType} (Occ {currentOpOccurrence})", _logger.ColorBlue);
+                    _logger.WriteLine($"[{_modId}] [QUEUE_INJECT] Queued Op {entry.OpType} to inject after Op {opType} (Occ {currentOpOccurrence})", _logger.ColorBlue);
                 }
             }
         }
@@ -397,12 +397,12 @@ internal unsafe class MagicProcessor
     /// Used to filter entries based on MagicId, GroupId, and occurrence number.
     /// A value of -1 in an entry field means "match any".
     /// </summary>
-    /// <param name="entry">The fuzzer entry to check.</param>
+    /// <param name="entry">The magic mod entry to check.</param>
     /// <param name="magicId">Current magic spell ID.</param>
     /// <param name="groupId">Current operation group ID.</param>
     /// <param name="occurrence">Current occurrence number (0-based).</param>
     /// <returns>True if the entry matches the current context.</returns>
-    private static bool EntryMatchesContext(FuzzerEntry entry, int magicId, int groupId, int occurrence)
+    private static bool EntryMatchesContext(MagicModEntry entry, int magicId, int groupId, int occurrence)
     {
         if (entry.TargetMagicId != -1 && entry.TargetMagicId != magicId) return false;
         if (entry.TargetOperationGroupId != -1 && entry.TargetOperationGroupId != groupId) return false;
@@ -423,8 +423,8 @@ internal unsafe class MagicProcessor
     /// to prevent memory corruption if the game expects the original value elsewhere.
     /// </summary>
     /// <returns>Tuple of (was fuzzed, matching entry, original value tuple)</returns>
-    private (bool isFuzzed, FuzzerEntry? entry, (float f, int i, Vector3 v) original) ApplyFuzzerOverride(
-        List<FuzzerEntry> entries, bool enabled, int opType, int propertyId,
+    private (bool isFuzzed, MagicModEntry? entry, (float f, int i, Vector3 v) original) ApplyMagicModOverride(
+        List<MagicModEntry> entries, bool enabled, int opType, int propertyId,
         int magicId, int groupId, int occurrence, long valuePtr)
     {
         if (!enabled) return (false, null, default);
@@ -443,19 +443,19 @@ internal unsafe class MagicProcessor
             {
                 original.v = *(Vector3*)valuePtr;
                 *(Vector3*)valuePtr = new Vector3(entry.Vec3X, entry.Vec3Y, entry.Vec3Z);
-                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Vec3) OVERRIDE: {original.v} -> {*(Vector3*)valuePtr} (Occ {occurrence})", _logger.ColorYellow);
+                _logger.WriteLine($"[{_modId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Vec3) OVERRIDE: {original.v} -> {*(Vector3*)valuePtr} (Occ {occurrence})", _logger.ColorYellow);
             }
             else if (entry.UseFloat)
             {
                 original.f = *(float*)valuePtr;
                 *(float*)valuePtr = entry.FloatValue;
-                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {original.f:F4} -> {entry.FloatValue:F4} (Occ {occurrence})", _logger.ColorYellow);
+                _logger.WriteLine($"[{_modId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Float) OVERRIDE: {original.f:F4} -> {entry.FloatValue:F4} (Occ {occurrence})", _logger.ColorYellow);
             }
             else
             {
                 original.i = *(int*)valuePtr;
                 *(int*)valuePtr = entry.IntValue;
-                _logger.WriteLine($"[{_modConfig.ModId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {original.i} -> {entry.IntValue} (Occ {occurrence})", _logger.ColorYellow);
+                _logger.WriteLine($"[{_modId}] [FUZZER] {contextStr} Op {opType} Prop {propertyId} (Int) OVERRIDE: {original.i} -> {entry.IntValue} (Occ {occurrence})", _logger.ColorYellow);
             }
             return (true, entry, original);
         }
@@ -466,10 +466,10 @@ internal unsafe class MagicProcessor
     /// Restores the original value in memory after fuzzing.
     /// Called after the original function processes the fuzzed value.
     /// </summary>
-    /// <param name="entry">The fuzzer entry that was applied.</param>
+    /// <param name="entry">The magic mod entry that was applied.</param>
     /// <param name="valuePtr">Pointer to the value in memory.</param>
     /// <param name="original">The original value tuple to restore.</param>
-    private void RestoreOriginalValue(FuzzerEntry entry, long valuePtr, (float f, int i, Vector3 v) original)
+    private void RestoreOriginalValue(MagicModEntry entry, long valuePtr, (float f, int i, Vector3 v) original)
     {
         if (entry.UseVec3)
             *(Vector3*)valuePtr = original.v;
@@ -504,7 +504,7 @@ internal unsafe class MagicProcessor
                 MagicPropertyType.Vec3Int => $"vec3<i>=({((int*)valuePtr)[0]}, {((int*)valuePtr)[1]}, {((int*)valuePtr)[2]})",
                 _ => "unknown"
             };
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} ({info.Name}): {valStr}", _logger.ColorBlue);
+            _logger.WriteLine($"[{_modId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} ({info.Name}): {valStr}", _logger.ColorBlue);
         }
         else
         {
@@ -513,7 +513,7 @@ internal unsafe class MagicProcessor
             var v = *(Vector3*)valuePtr;
             int* iVec = (int*)valuePtr;
             
-            _logger.WriteLine($"[{_modConfig.ModId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} (UNKNOWN): " +
+            _logger.WriteLine($"[{_modId}] [PROP_LOG] {contextStr} Op {opType} Prop {propertyId} (UNKNOWN): " +
                 $"int={iVal}, float={fVal:F4}, vec3<f>=({v.X:F4}, {v.Y:F4}, {v.Z:F4}), vec3<i>=({iVec[0]}, {iVec[1]}, {iVec[2]})", _logger.ColorYellow);
         }
     }
