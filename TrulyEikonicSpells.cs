@@ -4,7 +4,6 @@ using ff16.gameplay.truly_eikonic_spells.GameApis;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
-using FF16Framework.Interfaces;
 using NenTools.ImGui.Interfaces;
 using NenTools.ImGui.Interfaces.Shell;
 using FF16Tools.Files.Nex;
@@ -86,7 +85,6 @@ public class TrulyEikonicSpellsMod : ModBase
     // Global pointers (same as combo meter)
     private long _globalEntityManagerPtr;
     private long _globalPlayerStatePtr;  // For reading player state like active Eikon
-    private long _globalStaticActorManagerPtr;
     
     private IStartupScanner _startupScanner;
     
@@ -103,7 +101,6 @@ public class TrulyEikonicSpellsMod : ModBase
     private MagicApi _magicApi;
     private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
-
     private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
@@ -115,9 +112,6 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Configuration
     private Config _configuration;
-    
-    // VFX Hook for capturing factory
-    private IHook<VfxApi.UnkVATBDelegate>? _unkVatbHook;
     
     // Constructor sin parámetros requerido por Startup
     public TrulyEikonicSpellsMod() { }
@@ -144,12 +138,6 @@ public class TrulyEikonicSpellsMod : ModBase
         }
         _startupScanner = scans;
 
-        // Global pointers
-        var baseAddress = Process.GetCurrentProcess().MainModule!.BaseAddress;
-        _globalEntityManagerPtr = (long)(baseAddress + 0x1816CD0);
-        _globalPlayerStatePtr = (long)(baseAddress + 0x1816608);  // Same as globalUnk in combo_meter
-        _globalStaticActorManagerPtr = (long)(baseAddress + 0x1816738);
-
         SetupGameApis();
 
         SetupModSystems();
@@ -157,16 +145,17 @@ public class TrulyEikonicSpellsMod : ModBase
         SetupImGui();
         
         SetupScans(scans);
+        
+        // Global pointers
+        var baseAddress = Process.GetCurrentProcess().MainModule!.BaseAddress;
+        _globalEntityManagerPtr = baseAddress + 0x1816CD0;
+        _globalPlayerStatePtr = baseAddress + 0x1816608;  // Same as globalUnk in combo_meter
     }
 
     private void SetupGameApis()
     {
         // Initialize FunctionApi
         _functionApi = new FunctionApi(_logger, _modConfig);
-        
-        // Sets the internal reference for at-will VFX spawning
-        VfxApi.SetFunctionApi(_functionApi);
-        VfxApi.Logger = (msg, color) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", color ?? System.Drawing.Color.White);
 
         // Initialize MagicGameSystem (handles all magic projectile spawning)
         _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner, _functionApi);
@@ -184,6 +173,10 @@ public class TrulyEikonicSpellsMod : ModBase
 
         // Initialize PlayerApi (handles all player-related information)
         _playerApi = new PlayerApi(_logger, _modConfig, _functionApi);
+        
+        // Initialize VfxApi (requires FunctionApi for Clive's factory)
+        VfxApi.SetFunctionApi(_functionApi);
+        VfxApi.Logger = (msg, color) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
         
         // Get NEX API
         _managedNexApi = _modLoader.GetController<INextExcelDBApiManaged>();
@@ -280,54 +273,10 @@ public class TrulyEikonicSpellsMod : ModBase
         _darkraSystem.FunctionApi = _functionApi;
     }
     
-    /// <summary>
-    /// Hook implementation for UnkVatb - captures the VFX factory every time the game calls it.
-    /// This ensures we always have a valid factory pointer.
-    /// </summary>
-    private unsafe long UnkVatbImpl(long magicFileInstance, long outPtr, int vatbId, int unk)
-    {
-        // Capture the factory - this is what we need for spawning VFX
-        if (magicFileInstance > 0x10000)
-        {
-            VfxApi.UpdateFactory(magicFileInstance);
-        }
-        
-        // Call original function
-        return _unkVatbHook!.OriginalFunction(magicFileInstance, outPtr, vatbId, unk);
-    }
 
     private unsafe void SetupScans(IStartupScanner scans)
     {
-        // VFX API SCANS - Hook UnkVatb to capture factory every time game uses it
-        scans.AddScan(VfxApi.UnkVATB_Signature, address => {
-            _unkVatbHook = _hooks!.CreateHook<VfxApi.UnkVATBDelegate>(UnkVatbImpl, address).Activate();
-            VfxApi.UnkVatb = _unkVatbHook.OriginalFunction;
-            _logger.WriteLine($"[{_modConfig.ModId}] Hooked UnkVATB at 0x{address:X}", _logger.ColorGreen);
-        });
-
-        scans.AddScan(VfxApi.SetPosition_Signature, address => {
-            VfxApi.SetPosition = _hooks!.CreateWrapper<VfxApi.SetPositionDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Found VfxSetPosition at 0x{address:X}", _logger.ColorGreen);
-        });
-
-        scans.AddScan(VfxApi.SetRotation_Signature, address => {
-            VfxApi.SetRotation = _hooks!.CreateWrapper<VfxApi.SetRotationDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Found VfxSetRotation at 0x{address:X}", _logger.ColorGreen);
-        });
-
-        scans.AddScan(VfxApi.SetNode_Signature, address => {
-            VfxApi.SetNode = _hooks!.CreateWrapper<VfxApi.SetNodeDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Found VfxSetNode at 0x{address:X}", _logger.ColorGreen);
-        });
-
-        scans.AddScan(VfxApi.Activate_Signature, address => {
-            VfxApi.Activate = _hooks!.CreateWrapper<VfxApi.ActivateDelegate>(address, out _);
-            _logger.WriteLine($"[{_modConfig.ModId}] Found VfxActivate at 0x{address:X}", _logger.ColorGreen);
-        });
-
-        // Initialize FunctionApi Scans & Hooks
-        _functionApi.SetupScans(scans, _hooks!);
-
+        
         // En SetupScans:
         _playerApi.SetupScans(scans, _hooks!);
         
@@ -366,7 +315,7 @@ public class TrulyEikonicSpellsMod : ModBase
                 // Set up DarkraSystem hooks now that all hooks are ready
                 _darkraSystem.SetHooks(
                     (bnpcRow, R15, a3, a4) => { unsafe { return _onHit.OriginalFunction((long*)bnpcRow, R15, a3, a4); } },
-                    (ctx, R15) => OnReactionImpl(ctx, R15),
+                    (ctx, R15) => _onReaction.OriginalFunction(ctx, R15),
                     () => _battleContextForReaction,
                     _physicsApi.ApplyShadowHitPhysics
                 );
@@ -444,6 +393,9 @@ public class TrulyEikonicSpellsMod : ModBase
         
         // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
         _magicGameSystem.InitializeUniversalMagicHooks(_hooks!);
+        
+        // Initialize VFX API scans (required for VFX spawning)
+        VfxApi.SetupScans(scans, _hooks!);
     }
     
     private long OnLevelLoadImpl(long a1, double a2, double a3, double a4)
@@ -454,82 +406,47 @@ public class TrulyEikonicSpellsMod : ModBase
         _magicGameSystem.Reset();
         _currentEikonMode = 0;
         
-        // Clear cached instances in VFX API too
-        VfxApi.LastMagicInstance = 0;
-        VfxApi.HasValidPosition = false;
-        
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
-
-        // Attempt to capture Clive's factory right at level load
-        VfxApi.Initialize();
-
         return _onLevelLoad.OriginalFunction(a1, a2, a3, a4);
     }
 
     private unsafe long OnHitImpl(long* bnpcRow, long R15, long a3, long a4)
     {
-        try
-        {
-            var info = ParseAttackInfo(bnpcRow, R15);
-            
-            // Only process Clive's attacks against enemies
-            if (info.IsCliveAttack && !info.IsCliveTarget && !info.IsHealOrEffect)
+        // TEST: Trigger VFX 1001 on every hit to verify main thread stability
+        try {
+            if (R15 > 0x10000)
             {
-                // DEBUG: Let's try to capture Clive's Factory directly from the attack data if VfxApi doesn't have it
-                if (VfxApi.LastMagicInstance == 0)
-                {
-                    // In many attack structures, the attacker's StaticActorInfo is at +0x10 or +0x20
-                    // or we can try to find the MagicFileInstance if this attack is a projectile
-                    try {
-                        long attacker = *(long*)(R15 + 0x10);
-                        if (attacker > 0x10000)
-                        {
-                            StaticActorInfo* atkInfo = (StaticActorInfo*)attacker;
-                            if (atkInfo->BattleBehavior > 0x10000)
-                            {
-                                long factory = ((BattleBehavior*)atkInfo->BattleBehavior)->MagicFileInstance;
-                                if (factory > 0x10000)
-                                {
-                                    VfxApi.LastMagicInstance = factory;
-                                    _logger.WriteLine($"[{_modConfig.ModId}] [VFX] Captured Clive's Factory from R15+0x10: 0x{factory:X}", _logger.ColorGreen);
-                                }
-                            }
-                        }
-                    } catch { }
-                }
-
-                // TEST: Trigger VFX 1001 on every hit to verify main thread stability
-                try {
-                    if (R15 > 0x10000)
-                    {
-                        // En OnHit, parece que R15 + 0x114 o similar es la posición directa
-                        VfxApi.LastPosition = *(System.Numerics.Vector3*)(R15 + 0x114); 
-                        VfxApi.LastNode = 0; // Forzar spawn en el mundo para evitar crash de nodos
-                        VfxApi.HasValidPosition = true;
-                        
-                        _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {VfxApi.LastPosition}", _logger.ColorYellow);
-                        VfxApi.SpawnVFX(2880);
-                    }
-                } catch (Exception ex) { 
-                    _logger.WriteLine($"[{_modConfig.ModId}] Error spawning hit VFX: {ex.Message}", _logger.ColorRed);
-                }
-
-                int activeEikon = GetActiveEikon();
+                // En OnHit, parece que R15 + 0x114 o similar es la posición directa
+                VfxApi.LastPosition = *(System.Numerics.Vector3*)(R15 + 0x114); 
+                VfxApi.LastNode = 0; // Forzar spawn en el mundo para evitar crash de nodos
+                VfxApi.HasValidPosition = true;
                 
-                // === DIA SYSTEM ===
-                _diaSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDiaSystem);
-                
-                // === DIARA SYSTEM ===
-                _diaraSystem.OnHit(info.TargetId, info.ActionId, R15, _configuration.EnableDiaraSystem);
-                
-                // === DARKRA SYSTEM (handles shadow hit scheduling internally) ===
-                _darkraSystem.OnHit(info.TargetId, info.ActionId, activeEikon, R15, _configuration.EnableDarkraSystem, bnpcRow, a3, a4);
+                _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {VfxApi.LastPosition}", _logger.ColorYellow);
+                VfxApi.SpawnVFX(2880);
             }
+        } catch (Exception ex) { 
+            _logger.WriteLine($"[{_modConfig.ModId}] Error spawning hit VFX: {ex.Message}", _logger.ColorRed);
         }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error in OnHitImpl: {ex.Message}", _logger.ColorRed);
-        }
+        
+        
+        //try
+        //{
+        //    // EXPLORACIÓN PURA: Ignorar todo lo demás y volcar info del actor
+        //    long wrapper = *(long*)((long)bnpcRow + 0x20);
+        //    if (wrapper > 0x10000)
+        //    {
+        //        string infoLog = Utils.ActorInfoLogger.LogStaticActorInfo(wrapper);
+        //        _logger.WriteLine(infoLog, _logger.ColorYellow);
+        //        
+        //        // También volcar un trozo de memoria cruda alrededor del wrapper por si los offsets de IDA bailan
+        //        string raw = Utils.MemoryExplorer.DumpMemory(wrapper, 0x100);
+        //        _logger.WriteLine($"[RAW WRAPPER]\n{raw}", _logger.ColorBlue);
+        //    }
+        //}
+        //catch (Exception ex)
+        //{
+        //    _logger.WriteLine($"Error in Explorer: {ex.Message}");
+        //}
         
         return _onHit.OriginalFunction(bnpcRow, R15, a3, a4);
     }
@@ -571,23 +488,8 @@ public class TrulyEikonicSpellsMod : ModBase
         if (actionId == ActionIds.SHADOW_HIT)
         {
             if (DEBUG_ON_REACTION)
-                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Processing Shadow Hit reaction, spawning VFX 1001", _logger.ColorBlue);
+                _logger.WriteLine($"[{_modConfig.ModId}] [REACTION] Processing Shadow Hit reaction, skipping general overrides", _logger.ColorBlue);
             
-            // Set hit position for the VFX to spawn at the right spot (SAFE COPY)
-            try {
-                if (param2 != 0)
-                {
-                    FunctionApi.NodePositionPair* pair = (FunctionApi.NodePositionPair*)(param2 + 0x110);
-                    VfxApi.LastPosition = pair->Position;
-                    VfxApi.LastNode = pair->ParentNode;
-                    VfxApi.HasValidPosition = true;
-                }
-            } catch { 
-                VfxApi.HasValidPosition = false;
-            }
-
-            // VfxApi.SpawnVFX(1001); // Commented out for main thread testing
-
             _onReaction.OriginalFunction(param1, param2);
             return;
         }

@@ -1,8 +1,8 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.GameStructs;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
@@ -14,42 +14,9 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 public unsafe class FunctionApi
 {
     // ============================================================
-    // STRUCTURES (Matching FF16Framework exactly)
+    // STRUCTURES - See GameStructs/ActorStructs.cs for definitions:
+    // NodePositionPair, ActorReference, StaticActorInfo, etc.
     // ============================================================
-    
-    [StructLayout(LayoutKind.Sequential, Size = 0x20)]
-    public struct NodePositionPair
-    {
-        public nint vtable;     // 0x00
-        public nint ParentNode; // 0x08 - Pointer to Node, or 0 for World Space
-        public Vector3 Position;// 0x10 - X, Y, Z (12 bytes)
-        public int Unknown1C;   // 0x1C - Padding
-    }
-    
-    [StructLayout(LayoutKind.Sequential)]
-    public struct ActorReference
-    {
-        public nint __vftable;
-        public uint ActorId;
-        public uint EntityID;
-        public nint Node;
-        public nint Node2;
-        public nint field_20;
-        public nint field_28;
-        public nint field_30;
-        public nint field_38;
-        public int UnkCounterIndex;
-        public int Flags;
-        public nint HasTypeBitset;
-        public nint HasTypeBitset2;
-        public nint field_58;
-        public nint ListEntryByListTypeAndActorId;
-        public nint field_68;
-        public nint g_off;
-        public nint field_78;
-        public Vector3 UnkVec;
-        public int field_8C;
-    }
     
     // ============================================================
     // DELEGATES
@@ -62,9 +29,9 @@ public unsafe class FunctionApi
     public delegate void SetControlledActorDelegate(nint @this, nint staticActorInfo);
     
     // Function delegates (wrapper only, no hook needed)
-    public delegate ActorReference* ActorManager_GetActorByKeyDelegate(nint @this, uint actorId);
+    public delegate GameStructs.ActorReference* ActorManager_GetActorByKeyDelegate(nint @this, uint actorId);
     public delegate nint StaticActorInfo_IsValidActorDelegate(nint pStaticEntityInfo);
-    public delegate NodePositionPair* StaticActorInfo_GetPositionDelegate(nint pStaticEntityInfo, NodePositionPair* outPair);
+    public delegate GameStructs.NodePositionPair* StaticActorInfo_GetPositionDelegate(nint pStaticEntityInfo, GameStructs.NodePositionPair* outPair);
     public delegate Vector3* StaticActorInfo_GetRotationDelegate(nint pStaticEntityInfo, Vector3* outPair);
     public delegate Vector3* StaticActorInfo_GetForwardVectorDelegate(nint pStaticEntityInfo, Vector3* outPair);
     
@@ -284,7 +251,7 @@ public unsafe class FunctionApi
             nint baseAddress = System.Diagnostics.Process.GetCurrentProcess().MainModule!.BaseAddress;
             if (UnkSingletonPlayerOrCameraRelated == 0)
             {
-                UnkSingletonPlayerOrCameraRelated = *(nint*)(baseAddress + 0x1816608);
+                UnkSingletonPlayerOrCameraRelated = *(nint*)(baseAddress + GlobalOffsets.UnkSingletonPlayerOrCamera);
             }
             
             // StaticActorManager is captured via HOOK (not available from global offset)
@@ -301,7 +268,7 @@ public unsafe class FunctionApi
                 return PlayerStaticActorInfo;
             }
 
-            uint currentActorId = *(uint*)(UnkSingletonPlayerOrCameraRelated + 0xC8);
+            uint currentActorId = *(uint*)(UnkSingletonPlayerOrCameraRelated + UnkSingletonOffsets.CurrentActorId);
             if (currentActorId == 0) 
             {
                 return PlayerStaticActorInfo;
@@ -326,7 +293,7 @@ public unsafe class FunctionApi
     /// <summary>
     /// Get actor reference by actor ID.
     /// </summary>
-    public ActorReference* GetActorByKey(uint actorId)
+    public GameStructs.ActorReference* GetActorByKey(uint actorId)
     {
         if (ActorManager == 0 || _getActorByKeyFunc == null)
             return null;
@@ -368,7 +335,7 @@ public unsafe class FunctionApi
     /// <summary>
     /// Get position from static actor info.
     /// </summary>
-    public NodePositionPair* GetPosition(nint staticActorInfo, NodePositionPair* outPair)
+    public GameStructs.NodePositionPair* GetPosition(nint staticActorInfo, GameStructs.NodePositionPair* outPair)
     {
         if (_getPositionFunc == null || staticActorInfo == 0)
             return null;
@@ -409,7 +376,7 @@ public unsafe class FunctionApi
 
         try
         {
-            StaticActorInfo* info = (StaticActorInfo*)*(long*)(bnpcRow + 0x20); // Wrapper
+            GameStructs.StaticActorInfo* info = (GameStructs.StaticActorInfo*)*(long*)(bnpcRow + BnpcRowOffsets.StaticActorInfoPtr); // Wrapper
             
             long actorPtr = 0;
             if (info != null && (long)info > 0x10000)
@@ -426,11 +393,11 @@ public unsafe class FunctionApi
 
             if (actorPtr > 0x10000 && actorPtr < 0x00007FFFFFFFFFFF)
             {
-                // Offset +0x158 (Byte):
-                // 0x02 = Suelo / Neutral
-                // 0x03-0x05 = Reacciones en suelo (Step Back/Slide)
-                // > 0x05 = Aire / Reacción con lanzamiento (0x67, 0xC0, etc)
-                byte reactionState = *(byte*)(actorPtr + 0x158);
+                // ReactionState (Byte):
+                // 0x02 = Ground / Neutral
+                // 0x03-0x05 = Ground reactions (Step Back/Slide)
+                // > 0x05 = Airborne / Launch reaction (0x67, 0xC0, etc)
+                byte reactionState = *(byte*)(actorPtr + ActorOffsets.ReactionState);
                 if (reactionState > 5) return true;
                 
                 // Si el ID es 0x02, pero tenemos registro de que ha sido lanzado verticalmente recientemente,

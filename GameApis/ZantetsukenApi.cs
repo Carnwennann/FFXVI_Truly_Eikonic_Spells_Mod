@@ -1,4 +1,5 @@
 using ff16.gameplay.truly_eikonic_spells.Utils;
+using ff16.gameplay.truly_eikonic_spells.GameStructs;
 using Reloaded.Mod.Interfaces;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis;
@@ -40,7 +41,7 @@ public unsafe class ZantetsukenApi
         if (playerState == 0) return 0;
         
         // Odin ID is 7
-        return isSummonModeActive(playerState + 0x4798, EikonUtils.EIKON_ODIN);
+        return isSummonModeActive(playerState + PlayerStateOffsets.EikonSummonData, EikonUtils.EIKON_ODIN);
     }
 
     /// <summary>
@@ -53,8 +54,8 @@ public unsafe class ZantetsukenApi
         long odinPtr = GetOdinEikonPointer();
         if (odinPtr == 0) return;
 
-        // Gauge is at offset 0x1C08 (7176) as __int16
-        short* pGauge = (short*)(odinPtr + 7176);
+        // Gauge is at offset 0x1C08 as __int16
+        short* pGauge = (short*)(odinPtr + OdinEikonOffsets.ZantetsukenGauge);
         short currentUnits = *pGauge;
         short newUnits = (short)(currentUnits + (short)amount);
         
@@ -72,6 +73,6 @@ public unsafe class ZantetsukenApi
     {
         long odinPtr = GetOdinEikonPointer();
         if (odinPtr == 0) return 0;
-        return *(short*)(odinPtr + 7176);
+        return *(short*)(odinPtr + OdinEikonOffsets.ZantetsukenGauge);
     }
 }

@@ -36,8 +36,6 @@ internal unsafe class MagicGameSystem
     private const string INSERT_NEW_MAGIC_SIG = "40 53 48 83 EC 20 48 8B DA 4C 8B D9 8B 92 EC 00";
     private const string FIRE_MAGIC_PROJECTILE_SIG = "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8d 6C 24 90 48 81 EC 70 01 00 00 48 8B 05 2D 0F 1A 01 48 33 C4 48 89 45 60 48 8B 51 38 4C 8B E1 44 8B 42 10 41 83 E8 01 0F 84 B6 01 00 00";
     
-    private const int BATTLE_MAGIC_EXECUTOR_OFFSET = 0x18168E8;
-    
     // Default values for CastMagicSpell
     private const int DEFAULT_COMMAND_ID = 101;
     private const int DEFAULT_ACTION_ID = 218;
@@ -81,7 +79,7 @@ internal unsafe class MagicGameSystem
     // PROPERTIES
     // ============================================================
     
-    public bool HasMagicContext => _hasMagicContext || (*(long*)(_baseAddress + BATTLE_MAGIC_EXECUTOR_OFFSET) != 0);
+    public bool HasMagicContext => _hasMagicContext || (*(long*)(_baseAddress + GlobalOffsets.BattleMagicExecutor) != 0);
 
     // External callbacks
     public Func<int>? GetActiveEikon { get; set; }
@@ -186,7 +184,7 @@ internal unsafe class MagicGameSystem
                 _setupMagic_flag != 0 ? _setupMagic_flag : DEFAULT_FLAG
             );
             
-            long executorClient = *(long*)(_baseAddress + BATTLE_MAGIC_EXECUTOR_OFFSET);
+            long executorClient = *(long*)(_baseAddress + GlobalOffsets.BattleMagicExecutor);
             if (executorClient == 0) executorClient = _castMagic_a1;
             
             if (executorClient != 0)

@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Security;
 using System.Runtime.ExceptionServices;
+using ff16.gameplay.truly_eikonic_spells.GameStructs;
 
 namespace ff16.gameplay.truly_eikonic_spells.Utils
 {
@@ -46,7 +47,7 @@ namespace ff16.gameplay.truly_eikonic_spells.Utils
             if (address < 0x10000) return "Invalid StaticActorInfo Address";
 
             var sb = new StringBuilder();
-            var info = (GameApis.StaticActorInfo*)address;
+            var info = (GameStructs.StaticActorInfo*)address;
 
             sb.AppendLine($"\n[EXPLORER] === StaticActorInfo @ 0x{address:X} ===");
             

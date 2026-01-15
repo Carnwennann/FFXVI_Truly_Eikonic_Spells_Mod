@@ -2,6 +2,7 @@ using System.Numerics;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.GameStructs;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
@@ -69,7 +70,7 @@ public unsafe class PlayerApi
         if (_hooks.UnkSingletonPlayerOrCameraRelated == 0)
             return 0;
         
-        return *(uint*)(_hooks.UnkSingletonPlayerOrCameraRelated + 0xC8);
+        return *(uint*)(_hooks.UnkSingletonPlayerOrCameraRelated + UnkSingletonOffsets.CurrentActorId);
     }
     
     /// <summary>
@@ -88,7 +89,7 @@ public unsafe class PlayerApi
     /// <summary>
     /// Get the ActorReference pointer for the player.
     /// </summary>
-    public FunctionApi.ActorReference* GetPlayerActorReference()
+    public GameStructs.ActorReference* GetPlayerActorReference()
     {
         uint actorId = GetPlayerActorId();
         if (actorId == 0)
@@ -130,7 +131,7 @@ public unsafe class PlayerApi
         if (!_hooks.IsValidActor(staticActorInfo))
             return null;
         
-        FunctionApi.NodePositionPair position;
+        GameStructs.NodePositionPair position;
         var result = _hooks.GetPosition(staticActorInfo, &position);
         if (result == null)
             return null;
