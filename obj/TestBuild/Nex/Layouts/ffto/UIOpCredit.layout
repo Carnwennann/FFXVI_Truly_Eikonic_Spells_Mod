@@ -1,0 +1,13 @@
+table_name|UIOpCredit
+set_table_type|DoubleKeyed
+set_table_category|DoubleKeyed
+use_base_row_id|false
+
+add_column|DLCFlags|int
+add_column|Unknown4|int
+add_column|Text|string
+add_column|UnknownC|float
+add_column|Unknown10|float
+add_column|Unknown14|int
+add_column|Unknown18|int
+add_column|Unknown1C|int

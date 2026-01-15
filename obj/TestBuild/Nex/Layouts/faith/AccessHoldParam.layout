@@ -1,0 +1,11 @@
+table_name|AccessHoldParam
+set_table_type|SingleKeyed
+set_table_category|SingleKeyed
+use_base_row_id|true
+
+// Referenced from access
+
+//////////////////////////////////////////////////////
+add_column|DLCFlags|int
+add_column|Unk2|float
+add_column|Unk3|float

@@ -1,0 +1,12 @@
+table_name|UIDialog
+set_table_type|SingleKeyed
+set_table_category|SingleKeyed
+use_base_row_id|true
+
+add_column|DLCFlags|int
+add_column|UiId1|int
+add_column|UiId2|int
+add_column|UiId3|int
+add_column|UiId4|int
+add_column|Unk6|byte
+// <implicit 3 bytes padding>

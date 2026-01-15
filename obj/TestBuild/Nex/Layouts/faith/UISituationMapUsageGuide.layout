@@ -1,0 +1,9 @@
+table_name|UISituationMapUsageGuide
+set_table_type|SingleKeyed
+set_table_category|SingleKeyed
+use_base_row_id|true
+
+// This layout was generated, guessed row length: 0x18
+add_column|Unk1|int
+add_column|Unk2|int
+add_column|Unk3|int[]

@@ -1,0 +1,8 @@
+table_name|TelemetryArray
+set_table_type|SingleKeyed
+set_table_category|SingleKeyed
+use_base_row_id|false
+
+add_column|DLCFlags|int
+// 8 entries max
+add_column|UnionArray|union[]

@@ -1,0 +1,6 @@
+table_name|GameMapBuildResult
+set_table_type|DoubleKeyed
+set_table_category|DoubleKeyed
+use_base_row_id|false
+
+// No data for this table

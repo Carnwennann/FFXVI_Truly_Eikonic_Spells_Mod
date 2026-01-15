@@ -1,0 +1,11 @@
+table_name|LoadingImage
+set_table_type|DoubleKeyed
+set_table_category|DoubleKeyed
+use_base_row_id|false
+
+add_column|DLCFlags|int
+// ui/icon/005000
+add_column|ImageFileId|int
+add_column|ReqUserSituationId|int
+add_column|Comment|string
+

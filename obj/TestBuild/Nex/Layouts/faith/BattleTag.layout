@@ -1,0 +1,8 @@
+table_name|BattleTag
+set_table_type|SingleKeyed
+set_table_category|SingleKeyed
+use_base_row_id|false
+
+add_column|DLCFlags|int
+add_column|Unk2|string
+add_column|Unk3|int
