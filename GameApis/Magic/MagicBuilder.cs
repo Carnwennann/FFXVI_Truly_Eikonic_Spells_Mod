@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Reloaded.Mod.Interfaces;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
@@ -14,11 +15,10 @@ internal class MagicBuilder : IMagicBuilder
     private readonly MagicCastingEngine _engine;
     private readonly ILogger _logger;
     private readonly string _modId;
-    private readonly List<MagicModification> _modifications = new();
     
-    // Cached magic structure info for validation
-    private readonly Dictionary<int, HashSet<int>> _operationGroupOperations = new();
-    private bool _structureLoaded = false;
+    // Dictionary keyed by (Type, GroupId, OpId, PropId) to ensure uniqueness
+    // For operations without properties, PropId = -1
+    private readonly Dictionary<(MagicModificationType Type, int GroupId, int OpId, int PropId), MagicModification> _modifications = new();
     
     public int MagicId { get; }
     
@@ -28,78 +28,17 @@ internal class MagicBuilder : IMagicBuilder
         _engine = engine;
         _logger = logger;
         _modId = modId;
-        
-        // Try to load the magic structure for validation
-        LoadMagicStructure();
-    }
-    
-    private void LoadMagicStructure()
-    {
-        // TODO: Load actual magic structure from game memory
-        // For now, we'll allow any operationGroupId/operationType combination
-        // and validate at cast time
-        _structureLoaded = false;
     }
     
     // ========================================
-    // VALIDATION
+    // VALIDATION (Stubs - always allow, validation happens at runtime)
     // ========================================
     
-    public bool HasOperationGroup(int operationGroupId)
-    {
-        if (!_structureLoaded)
-        {
-            // Without structure data, we can't validate - allow it
-            return true;
-        }
-        return _operationGroupOperations.ContainsKey(operationGroupId);
-    }
-    
-    public bool HasOperation(int operationGroupId, int operationType)
-    {
-        if (!_structureLoaded)
-        {
-            // Without structure data, we can't validate - allow it
-            return true;
-        }
-        return _operationGroupOperations.TryGetValue(operationGroupId, out var ops) 
-               && ops.Contains(operationType);
-    }
-    
-    public IReadOnlyList<int> GetOperationGroupIds()
-    {
-        if (!_structureLoaded)
-        {
-            return Array.Empty<int>();
-        }
-        return _operationGroupOperations.Keys.ToList();
-    }
-    
-    public IReadOnlyList<int> GetOperationTypes(int operationGroupId)
-    {
-        if (!_structureLoaded || !_operationGroupOperations.TryGetValue(operationGroupId, out var ops))
-        {
-            return Array.Empty<int>();
-        }
-        return ops.ToList();
-    }
-    
-    private void ValidateOperationGroup(int operationGroupId)
-    {
-        if (_structureLoaded && !HasOperationGroup(operationGroupId))
-        {
-            throw new ArgumentException($"OperationGroupId {operationGroupId} does not exist in Magic {MagicId}");
-        }
-    }
-    
-    private void ValidateOperation(int operationGroupId, int operationType)
-    {
-        ValidateOperationGroup(operationGroupId);
-        if (_structureLoaded && !HasOperation(operationGroupId, operationType))
-        {
-            throw new ArgumentException($"OperationType {operationType} does not exist in OperationGroup {operationGroupId} of Magic {MagicId}");
-        }
-    }
+    public bool HasOperationGroup(int operationGroupId) => true;
+    public bool HasOperation(int operationGroupId, int operationId) => true;
+    public bool HasProperty(int operationGroupId, int operationId, int propertyId) => true;
+    public IReadOnlyList<int> GetOperationGroupIds() => Array.Empty<int>();
+    public IReadOnlyList<int> GetoperationIds(int operationGroupId) => Array.Empty<int>();
     
     // ========================================
     // PROPERTY MODIFICATIONS
@@ -107,110 +46,212 @@ internal class MagicBuilder : IMagicBuilder
     
     public IMagicBuilder SetProperty(int operationGroupId, int operationId, int propertyId, object value)
     {
-        ValidateOperation(operationGroupId, operationId);
+        // Remove any conflicting RemoveProperty for the same target
+        var removeKey = (MagicModificationType.RemoveProperty, operationGroupId, operationId, propertyId);
+        _modifications.Remove(removeKey);
         
-        _modifications.Add(new MagicModification
+        // Check if there's an existing AddProperty - if so, update its value instead of replacing with SetProperty
+        // This is important for properties on added operations: they need IsInjection=true to be injected at end of group
+        var addKey = (MagicModificationType.AddProperty, operationGroupId, operationId, propertyId);
+        if (_modifications.TryGetValue(addKey, out var existingAdd))
+        {
+            // Create a new record with the updated value - keep it as AddProperty so it gets injected
+            _modifications[addKey] = existingAdd with { Value = NormalizeValue(value) };
+            return this;
+        }
+        
+        // No existing AddProperty, create a SetProperty (for properties that exist in the original .magic file)
+        var key = (MagicModificationType.SetProperty, operationGroupId, operationId, propertyId);
+        _modifications[key] = new MagicModification
         {
             Type = MagicModificationType.SetProperty,
             OperationGroupId = operationGroupId,
-            OperationType = operationId,
+            operationId = operationId,
             PropertyId = propertyId,
             Value = NormalizeValue(value)
-        });
+        };
         
         return this;
     }
     
     public IMagicBuilder RemoveProperty(int operationGroupId, int operationId, int propertyId)
     {
-        ValidateOperation(operationGroupId, operationId);
+        var key = (MagicModificationType.RemoveProperty, operationGroupId, operationId, propertyId);
         
-        _modifications.Add(new MagicModification
+        // Remove any conflicting SetProperty or AddProperty for the same target
+        var setKey = (MagicModificationType.SetProperty, operationGroupId, operationId, propertyId);
+        var addKey = (MagicModificationType.AddProperty, operationGroupId, operationId, propertyId);
+        _modifications.Remove(setKey);
+        _modifications.Remove(addKey);
+        
+        _modifications[key] = new MagicModification
         {
             Type = MagicModificationType.RemoveProperty,
             OperationGroupId = operationGroupId,
-            OperationType = operationId,
+            operationId = operationId,
             PropertyId = propertyId
-        });
+        };
         
         return this;
     }
     
     public IMagicBuilder AddProperty(int operationGroupId, int operationId, int propertyId, object value)
     {
-        ValidateOperation(operationGroupId, operationId);
+        // Check if there's already a SetProperty for this target - if so, use SetProperty instead
+        var setKey = (MagicModificationType.SetProperty, operationGroupId, operationId, propertyId);
+        if (_modifications.ContainsKey(setKey))
+        {
+            return SetProperty(operationGroupId, operationId, propertyId, value);
+        }
         
-        _modifications.Add(new MagicModification
+        var key = (MagicModificationType.AddProperty, operationGroupId, operationId, propertyId);
+        
+        // Remove any conflicting RemoveProperty for the same target
+        var removeKey = (MagicModificationType.RemoveProperty, operationGroupId, operationId, propertyId);
+        _modifications.Remove(removeKey);
+        
+        _modifications[key] = new MagicModification
         {
             Type = MagicModificationType.AddProperty,
             OperationGroupId = operationGroupId,
-            OperationType = operationId,
+            operationId = operationId,
             PropertyId = propertyId,
             Value = NormalizeValue(value)
-        });
+        };
         
         return this;
+    }
+    
+    /// <summary>
+    /// Internal method to add a property with a specific InjectAfterOp value.
+    /// Used when importing from JSON that specifies injection timing.
+    /// </summary>
+    private void AddPropertyWithInjectAfter(int operationGroupId, int operationId, int propertyId, object value, int injectAfterOp)
+    {
+        var key = (MagicModificationType.AddProperty, operationGroupId, operationId, propertyId);
+        
+        // Remove any conflicting RemoveProperty for the same target
+        var removeKey = (MagicModificationType.RemoveProperty, operationGroupId, operationId, propertyId);
+        _modifications.Remove(removeKey);
+        
+        _modifications[key] = new MagicModification
+        {
+            Type = MagicModificationType.AddProperty,
+            OperationGroupId = operationGroupId,
+            operationId = operationId,
+            PropertyId = propertyId,
+            Value = NormalizeValue(value),
+            InjectAfterOp = injectAfterOp
+        };
     }
     
     // ========================================
     // OPERATION MODIFICATIONS
     // ========================================
     
-    public IMagicBuilder AddOperation(int operationGroupId, int operationType)
+    public IMagicBuilder AddOperation(int operationGroupId, int operationId)
     {
-        ValidateOperationGroup(operationGroupId);
+        // For operations, use PropId = -1 as the key
+        var key = (MagicModificationType.AddOperation, operationGroupId, operationId, -1);
         
-        _modifications.Add(new MagicModification
+        // Remove any conflicting RemoveOperation
+        var removeKey = (MagicModificationType.RemoveOperation, operationGroupId, operationId, -1);
+        _modifications.Remove(removeKey);
+        
+        _modifications[key] = new MagicModification
         {
             Type = MagicModificationType.AddOperation,
             OperationGroupId = operationGroupId,
-            OperationType = operationType
-        });
+            operationId = operationId
+        };
         
         return this;
     }
     
-    public IMagicBuilder AddOperation(int operationGroupId, int operationType, IList<int> propertyIds, IList<object> values)
+    public IMagicBuilder AddOperation(int operationGroupId, int operationId, IList<int> propertyIds, IList<object> values)
     {
-        ValidateOperationGroup(operationGroupId);
-        
         if (propertyIds.Count != values.Count)
         {
             throw new ArgumentException($"propertyIds ({propertyIds.Count}) and values ({values.Count}) must have the same length");
         }
         
-        if (propertyIds.Count == 0)
+        // First, add the operation itself
+        AddOperation(operationGroupId, operationId);
+        
+        // Then add each property using AddProperty (which handles validation and uniqueness)
+        for (int i = 0; i < propertyIds.Count; i++)
         {
-            return AddOperation(operationGroupId, operationType);
+            AddProperty(operationGroupId, operationId, propertyIds[i], values[i]);
         }
-        
-        // Normalize all values
-        var normalizedValues = values.Select(NormalizeValue).ToList();
-        
-        _modifications.Add(new MagicModification
-        {
-            Type = MagicModificationType.AddOperation,
-            OperationGroupId = operationGroupId,
-            OperationType = operationType,
-            PropertyId = propertyIds[0],
-            Value = normalizedValues[0],
-            AdditionalPropertyIds = propertyIds.Count > 1 ? propertyIds.Skip(1).ToList() : null,
-            AdditionalValues = normalizedValues.Count > 1 ? normalizedValues.Skip(1).ToList() : null
-        });
         
         return this;
     }
     
-    public IMagicBuilder RemoveOperation(int operationGroupId, int operationType)
+    /// <summary>
+    /// Internal method to add an operation with a specific InjectAfterOp value.
+    /// </summary>
+    private void AddOperationWithInjectAfter(int operationGroupId, int operationId, int injectAfterOp)
     {
-        ValidateOperationGroup(operationGroupId);
+        var key = (MagicModificationType.AddOperation, operationGroupId, operationId, -1);
         
-        _modifications.Add(new MagicModification
+        var removeKey = (MagicModificationType.RemoveOperation, operationGroupId, operationId, -1);
+        _modifications.Remove(removeKey);
+        
+        _modifications[key] = new MagicModification
+        {
+            Type = MagicModificationType.AddOperation,
+            OperationGroupId = operationGroupId,
+            operationId = operationId,
+            InjectAfterOp = injectAfterOp
+        };
+    }
+    
+    /// <summary>
+    /// Internal method to add an operation with properties and a specific InjectAfterOp value.
+    /// </summary>
+    private void AddOperationWithInjectAfter(int operationGroupId, int operationId, IList<int> propertyIds, IList<object> values, int injectAfterOp)
+    {
+        if (propertyIds.Count != values.Count)
+        {
+            throw new ArgumentException($"propertyIds ({propertyIds.Count}) and values ({values.Count}) must have the same length");
+        }
+        
+        // First, add the operation itself with InjectAfterOp
+        AddOperationWithInjectAfter(operationGroupId, operationId, injectAfterOp);
+        
+        // Then add each property with the same InjectAfterOp
+        for (int i = 0; i < propertyIds.Count; i++)
+        {
+            AddPropertyWithInjectAfter(operationGroupId, operationId, propertyIds[i], values[i], injectAfterOp);
+        }
+    }
+    
+    public IMagicBuilder RemoveOperation(int operationGroupId, int operationId)
+    {
+        var key = (MagicModificationType.RemoveOperation, operationGroupId, operationId, -1);
+        
+        // Remove any conflicting modifications for the same operation:
+        // - AddOperation entries
+        // - AddProperty/SetProperty/RemoveProperty entries (properties belong to this operation)
+        var keysToRemove = _modifications.Keys
+            .Where(k => k.GroupId == operationGroupId && 
+                        k.OpId == operationId &&
+                        (k.Type == MagicModificationType.AddOperation ||
+                         k.Type == MagicModificationType.AddProperty ||
+                         k.Type == MagicModificationType.SetProperty ||
+                         k.Type == MagicModificationType.RemoveProperty))
+            .ToList();
+        foreach (var keyToRemove in keysToRemove)
+        {
+            _modifications.Remove(keyToRemove);
+        }
+        
+        _modifications[key] = new MagicModification
         {
             Type = MagicModificationType.RemoveOperation,
             OperationGroupId = operationGroupId,
-            OperationType = operationType
-        });
+            operationId = operationId
+        };
         
         return this;
     }
@@ -235,7 +276,7 @@ internal class MagicBuilder : IMagicBuilder
             MagicId = MagicId,
             Name = $"Magic_{MagicId}",
             Description = $"Exported spell configuration for Magic ID {MagicId}",
-            Modifications = _modifications.Select(ConvertToConfig).ToList()
+            Modifications = _modifications.Values.Select(ConvertToConfig).ToList()
         };
         
         var options = new JsonSerializerOptions
@@ -301,9 +342,20 @@ internal class MagicBuilder : IMagicBuilder
         }
     }
     
+    public IMagicBuilder ImportFromFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"Configuration file not found: {filePath}");
+        }
+        
+        var json = File.ReadAllText(filePath);
+        return ImportFromJson(json);
+    }
+    
     public IReadOnlyList<MagicModification> GetModifications()
     {
-        return _modifications.AsReadOnly();
+        return _modifications.Values.ToList().AsReadOnly();
     }
     
     public IMagicBuilder Reset()
@@ -323,7 +375,7 @@ internal class MagicBuilder : IMagicBuilder
             MagicId = MagicId,
             SourceActor = sourceActor,
             TargetActor = targetActor,
-            Modifications = _modifications.ToList()
+            Modifications = _modifications.Values.ToList()
         };
     }
     
@@ -347,7 +399,7 @@ internal class MagicBuilder : IMagicBuilder
         {
             Type = mod.Type.ToString(),
             OperationGroupId = mod.OperationGroupId,
-            OperationId = mod.OperationType
+            OperationId = mod.operationId
         };
         
         if (mod.Type == MagicModificationType.AddOperation && 
@@ -398,13 +450,15 @@ internal class MagicBuilder : IMagicBuilder
     private void ApplyModificationConfig(MagicModificationConfig config)
     {
         var type = Enum.Parse<MagicModificationType>(config.Type, ignoreCase: true);
+        int injectAfterOp = config.InjectAfterOp;
         
         switch (type)
         {
             case MagicModificationType.SetProperty:
                 if (config.PropertyId.HasValue && config.Value != null)
                 {
-                    SetProperty(config.OperationGroupId, config.OperationId, config.PropertyId.Value, DeserializeValue(config.Value));
+                    SetProperty(config.OperationGroupId, config.OperationId, config.PropertyId.Value, 
+                        DeserializeValue(config.Value, config.PropertyId));
                 }
                 break;
                 
@@ -418,7 +472,8 @@ internal class MagicBuilder : IMagicBuilder
             case MagicModificationType.AddProperty:
                 if (config.PropertyId.HasValue && config.Value != null)
                 {
-                    AddProperty(config.OperationGroupId, config.OperationId, config.PropertyId.Value, DeserializeValue(config.Value));
+                    AddPropertyWithInjectAfter(config.OperationGroupId, config.OperationId, config.PropertyId.Value, 
+                        DeserializeValue(config.Value, config.PropertyId), injectAfterOp);
                 }
                 break;
                 
@@ -426,12 +481,12 @@ internal class MagicBuilder : IMagicBuilder
                 if (config.Properties != null && config.Properties.Count > 0)
                 {
                     var propertyIds = config.Properties.Select(p => p.PropertyId).ToList();
-                    var values = config.Properties.Select(p => DeserializeValue(p.Value)!).ToList();
-                    AddOperation(config.OperationGroupId, config.OperationId, propertyIds, values);
+                    var values = config.Properties.Select(p => DeserializeValue(p.Value, p.PropertyId)!).ToList();
+                    AddOperationWithInjectAfter(config.OperationGroupId, config.OperationId, propertyIds, values, injectAfterOp);
                 }
                 else
                 {
-                    AddOperation(config.OperationGroupId, config.OperationId);
+                    AddOperationWithInjectAfter(config.OperationGroupId, config.OperationId, injectAfterOp);
                 }
                 break;
                 
@@ -441,14 +496,16 @@ internal class MagicBuilder : IMagicBuilder
         }
     }
     
-    private static object DeserializeValue(object? value)
+    private static object DeserializeValue(object? value, int? propertyId = null)
     {
         if (value == null) return 0;
+        
+        object rawValue;
         
         // Handle JSON element types
         if (value is JsonElement element)
         {
-            return element.ValueKind switch
+            rawValue = element.ValueKind switch
             {
                 JsonValueKind.Number => element.TryGetInt32(out int i) ? i : element.GetSingle(),
                 JsonValueKind.True => true,
@@ -462,14 +519,61 @@ internal class MagicBuilder : IMagicBuilder
                 _ => value
             };
         }
-        
         // Handle arrays (for Vector3)
-        if (value is float[] arr && arr.Length == 3)
+        else if (value is float[] arr && arr.Length == 3)
         {
-            return new Vector3(arr[0], arr[1], arr[2]);
+            rawValue = new Vector3(arr[0], arr[1], arr[2]);
+        }
+        else
+        {
+            rawValue = value;
         }
         
-        return value;
+        // Apply type coercion based on MagicProperties definition
+        if (propertyId.HasValue && MagicProperties.Definitions.TryGetValue(propertyId.Value, out var propInfo))
+        {
+            rawValue = CoerceToPropertyType(rawValue, propInfo.Type);
+        }
+        
+        return rawValue;
+    }
+    
+    /// <summary>
+    /// Coerces a value to the expected property type based on MagicProperties definition.
+    /// </summary>
+    private static object CoerceToPropertyType(object value, MagicPropertyType expectedType)
+    {
+        return expectedType switch
+        {
+            MagicPropertyType.Int => value switch
+            {
+                int i => i,
+                float f => (int)f,
+                double d => (int)d,
+                long l => (int)l,
+                _ => value
+            },
+            MagicPropertyType.Float => value switch
+            {
+                float f => f,
+                int i => (float)i,
+                double d => (float)d,
+                _ => value
+            },
+            MagicPropertyType.Bool => value switch
+            {
+                bool b => b,
+                int i => i != 0,
+                float f => f != 0,
+                _ => value
+            },
+            MagicPropertyType.Vec3Float or MagicPropertyType.Vec3Int => value switch
+            {
+                Vector3 v => v,
+                _ => value
+            },
+            _ => value
+        };
     }
 }
 

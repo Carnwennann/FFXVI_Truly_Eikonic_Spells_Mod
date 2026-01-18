@@ -97,8 +97,6 @@ public class TrulyEikonicSpellsMod : ModBase
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
     private FunctionApi _functionApi;
-    private MagicGameSystem _magicGameSystem;
-    private MagicApi _magicApi;
     private MagicApiV2 _magicApiV2;
     private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
@@ -158,15 +156,7 @@ public class TrulyEikonicSpellsMod : ModBase
         // Initialize FunctionApi
         _functionApi = new FunctionApi(_logger, _modConfig);
 
-        // Initialize MagicGameSystem (handles all magic projectile spawning)
-        _magicGameSystem = new MagicGameSystem(_logger, _modConfig, _configuration, _startupScanner, _functionApi);
-        // Setup MagicGameSystem callbacks
-        _magicGameSystem.GetActiveEikon = GetActiveEikon;
-
-        // Initialize MagicApi
-        _magicApi = new MagicApi(_logger, _modConfig.ModId, _magicGameSystem);
-        
-        // Initialize MagicApiV2 (new unified API)
+        // Initialize MagicApiV2 (unified Magic API)
         _magicApiV2 = new MagicApiV2(_logger, _modConfig.ModId, _configuration, _startupScanner);
         _magicApiV2.SetupScans(_startupScanner, _hooks);
         _magicApiV2.InitializeProcessor(_hooks);
@@ -175,12 +165,6 @@ public class TrulyEikonicSpellsMod : ModBase
             () => GetPlayerActorRefFromStaticInfo(),
             GetActiveEikon
         );
-        
-        // Load Dia modifications
-        string modDir = _modLoader.GetDirectoryForModId(_modConfig.ModId);
-        string diaModPath = Path.Combine(modDir, "Eikon", "Bahamut", "Diara", "DiaModifications.json");
-        _logger.WriteLine($"[{_modConfig.ModId}] [MagicApi] Attempting to load modifications from: {diaModPath}", _logger.ColorYellow);
-        _magicApi.LoadModifications("DiaModified", diaModPath);
 
         // Initialize PlayerApi (handles all player-related information)
         _playerApi = new PlayerApi(_logger, _modConfig, _functionApi);
@@ -207,7 +191,7 @@ public class TrulyEikonicSpellsMod : ModBase
         if (imGuiController != null && imGuiShellController != null && 
             imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
         {
-            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApi, _magicApiV2);
+            _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApiV2);
             imGuiShell.AddComponent(_imGuiConfigurator);
             _logger.WriteLine($"[{_modConfig.ModId}] ImGui Configurator initialized", _logger.ColorGreen);
         }
@@ -248,11 +232,8 @@ public class TrulyEikonicSpellsMod : ModBase
             modId: _modConfig.ModId
         );
         _diaraSystem.DebugLogging = _configuration.DebugLogging;
-        // Connect MagicApi for all magic operations
-        _diaraSystem.SetMagicApi(_magicApi);
-        
-        // Setup Diara logging
-        _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
+        // Connect MagicApiV2 for all magic operations
+        _diaraSystem.SetMagicApi(_magicApiV2);
         
         // Setup Diara logging
         _diaraSystem.Log = (msg) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
@@ -399,12 +380,6 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger.WriteLine($"[{_modConfig.ModId}] Hooked CopyAttackData at 0x{address:X}", _logger.ColorGreen);
         });
         
-        // Initialize MagicGameSystem hooks (MagicExecute, CastMagic)
-        _magicGameSystem.SetupScans(scans, _hooks!);
-        
-        // Initialize Universal Magic Hooks (Logger, Fuzzer, VTable Mapper)
-        _magicGameSystem.InitializeUniversalMagicHooks(_hooks!);
-        
         // Initialize VFX API scans (required for VFX spawning)
         VfxApi.SetupScans(scans, _hooks!);
     }
@@ -414,7 +389,7 @@ public class TrulyEikonicSpellsMod : ModBase
         _diaSystem.Reset();
         _diaraSystem.Reset();
         _darkraSystem.Reset();
-        _magicGameSystem.Reset();
+        _magicApiV2.Reset();
         _currentEikonMode = 0;
         
         _logger.WriteLine($"[{_modConfig.ModId}] Level loaded, reset all systems", _logger.ColorYellow);
@@ -716,10 +691,10 @@ public class TrulyEikonicSpellsMod : ModBase
             _physicsApi.UpdateConfiguration(configuration);
         }
 
-        // Update MagicApi settings (which updates internal system)
-        if (_magicApi != null)
+        // Update MagicApiV2 settings
+        if (_magicApiV2 != null)
         {
-            _magicApi.UpdateConfiguration(configuration);
+            _magicApiV2.UpdateConfiguration(configuration);
         }
         
         _logger.WriteLine($"[{_modConfig.ModId}] Configuration updated!", _logger.ColorGreen);

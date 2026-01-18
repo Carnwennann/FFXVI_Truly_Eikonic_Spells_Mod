@@ -365,12 +365,20 @@ internal unsafe class MagicCastingEngine : IDisposable
         
         foreach (var mod in modifications)
         {
+            // Skip AddOperation entries - they don't need to be injected
+            // The individual AddProperty entries contain all the data needed
+            if (mod.Type == MagicModificationType.AddOperation)
+            {
+                continue;
+            }
+            
             var entry = new MagicModEntry
             {
                 Enabled = true,
-                OpType = mod.OperationType,
+                OpType = mod.operationId,
                 PropertyId = mod.PropertyId,
-                TargetOperationGroupId = mod.OperationGroupId
+                TargetOperationGroupId = mod.OperationGroupId,
+                InjectAfterOp = mod.InjectAfterOp  // Propagate injection timing
             };
             
             // Set the value based on type
@@ -391,33 +399,10 @@ internal unsafe class MagicCastingEngine : IDisposable
                     entry.IsInjection = true;  // Inject a new property
                     entry.DisableOp = false;
                     break;
-                case MagicModificationType.AddOperation:
-                    entry.IsInjection = true;
-                    entry.DisableOp = false;
-                    // Handle multiple properties for AddOperation
-                    if (mod.AdditionalPropertyIds != null && mod.AdditionalValues != null)
-                    {
-                        // First property is already in the main entry
-                        entries.Add(entry);
-                        // Add additional properties as separate entries
-                        for (int i = 0; i < mod.AdditionalPropertyIds.Count; i++)
-                        {
-                            var additionalEntry = new MagicModEntry
-                            {
-                                Enabled = true,
-                                OpType = mod.OperationType,
-                                PropertyId = mod.AdditionalPropertyIds[i],
-                                TargetOperationGroupId = mod.OperationGroupId,
-                                IsInjection = true
-                            };
-                            SetEntryValue(additionalEntry, mod.AdditionalValues[i]);
-                            entries.Add(additionalEntry);
-                        }
-                        continue; // Skip adding the main entry again
-                    }
-                    break;
+                // AddOperation is skipped at the start of the loop
                 case MagicModificationType.RemoveOperation:
                     entry.DisableOp = true;
+                    entry.PropertyId = -1;  // Block ALL properties of this operation
                     entry.IsInjection = false;
                     break;
             }

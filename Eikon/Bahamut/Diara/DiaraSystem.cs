@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
@@ -50,7 +51,10 @@ public class DiaraSystem
     public Action<string>? Log;
     
     // Reference to MagicApi for spawning projectiles
-    private MagicApi? _magicApi;
+    private IMagicApi? _magicApi;
+    
+    // Path to the configuration file
+    private string? _configFilePath;
     
     public DiaraSystem(float buffDurationSeconds = 120.0f, int diaSpellsPerDodge = 5, int magicID = 214, float fanAngleStep = 15.0f, ILogger? logger = null, string modId = "")
     {
@@ -62,13 +66,28 @@ public class DiaraSystem
         _modId = modId;
     }
     
-    public void SetMagicApi(MagicApi magicApi)
+    public void SetMagicApi(IMagicApi magicApi)
     {
         _magicApi = magicApi;
-        LogDebug("MagicApi linked");
         
-        // Register ourselves as a charged shot handler
+        // Register charged shot handler
         _magicApi.RegisterChargedShotHandler(OnChargedShotCast);
+        LogDebug("MagicApi linked, charged shot handler registered");
+        
+        // Determine path to config file
+        _configFilePath = Path.Combine(
+            Path.GetDirectoryName(typeof(DiaraSystem).Assembly.Location) ?? "",
+            "Eikon", "Bahamut", "Diara", "DiaModifications.json");
+        
+        if (File.Exists(_configFilePath))
+        {
+            LogDebug($"Found spell config at: {_configFilePath}");
+        }
+        else
+        {
+            LogDebug($"Spell config not found at: {_configFilePath}");
+            _configFilePath = null;
+        }
     }
     
     #region Logging
@@ -161,34 +180,80 @@ public class DiaraSystem
         if (!IsBuffActive || _magicApi == null)
             return 0;
         
+        if (!_magicApi.IsReady)
+        {
+            LogDebug("Failed to spawn Dia spells - MagicApi context not ready. (Try firing a normal shot first)");
+            return 0;
+        }
+        
         LogInfo($"Perfect Dodge! Spawning {DiaSpellsPerDodge} Dia spells!");
         
-        // 1. Try Modified Fan Cast
-        var baseEntries = _magicApi.GetModifications("DiaModified");
-        if (baseEntries != null)
+        // Cast Dia spells in a fan pattern using the new API
+        int successCount = CastFanPattern();
+        
+        if (successCount > 0)
         {
-            LogDebug("Attempting Modified Fan Cast via MagicApi...");
-            var fanModifications = GenerateFanModifications(baseEntries);
+            LogInfo($"Successfully cast {successCount} Dia spells in a fan!");
+            OnPerfectDodgeWithBuff?.Invoke(successCount);
+        }
+        else
+        {
+            LogDebug("Failed to spawn Dia spells");
+        }
+        
+        return successCount;
+    }
+    
+    /// <summary>
+    /// Cast Dia spells in a fan pattern using the new MagicApi.
+    /// </summary>
+    private int CastFanPattern()
+    {
+        if (_magicApi == null) return 0;
+        
+        // Calculate start angle to center the fan
+        float startAngle = -(DiaSpellsPerDodge - 1) * FanAngleStep / 2f;
+        int successCount = 0;
+        
+        for (int i = 0; i < DiaSpellsPerDodge; i++)
+        {
+            float currentAngle = startAngle + (i * FanAngleStep);
             
-            if (_magicApi.CastModifiedMagic(MagicID, fanModifications))
+            // Create spell with the builder and import base modifications from JSON
+            var builder = _magicApi.CreateSpell(MagicID);
+            
+            // Import modifications from config file (API handles all parsing)
+            if (_configFilePath != null)
             {
-                LogInfo($"Successfully cast {DiaSpellsPerDodge} MODIFIED Dia spells in a fan!");
-                OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-                return DiaSpellsPerDodge;
+                try
+                {
+                    builder.ImportFromFile(_configFilePath);
+                }
+                catch (Exception ex)
+                {
+                    LogDebug($"Failed to import config: {ex.Message}");
+                }
+            }
+            
+            // For secondary projectiles (i > 0), add "slave" property to reduce audio/visual clutter
+            // Op 51 (Initialize) Property 69 (SFXEnable) = 0
+            if (i > 0)
+            {
+                builder.SetProperty(4338, 51, 69, 0);
+            }
+            
+            // Override trajectory angle for fan pattern (this will replace the one from JSON)
+            builder.SetProperty(4338, 2493, 2430, new System.Numerics.Vector3(-90f, currentAngle, 0f));
+            
+            LogDebug($"Projectile {i}: Angle {currentAngle:F2}");
+            
+            if (builder.Cast())
+            {
+                successCount++;
             }
         }
-
-        // 2. Fallback to Normal Cast (API handles context check internally)
-        LogDebug("Falling back to Normal Cast via MagicApi...");
-        if (_magicApi.CastSpells(MagicID, DiaSpellsPerDodge))
-        {
-            LogInfo($"Successfully cast {DiaSpellsPerDodge} Dia spells (Normal)!");
-            OnPerfectDodgeWithBuff?.Invoke(DiaSpellsPerDodge);
-            return DiaSpellsPerDodge;
-        }
-
-        LogDebug("Failed to spawn Dia spells - MagicApi context not ready. (Try firing a normal shot first)");
-        return 0;
+        
+        return successCount;
     }
     
     /// <summary>
@@ -279,60 +344,5 @@ public class DiaraSystem
             LogDebug($"FanAngleStep changed: {FanAngleStep} -> {configuration.DiaFanAngleStep}");
             FanAngleStep = configuration.DiaFanAngleStep;
         }
-    }
-
-    /// <summary>
-    /// Generates a list of modification sets for a fan pattern.
-    /// </summary>
-    private List<List<MagicModEntry>> GenerateFanModifications(List<MagicModEntry> baseEntries)
-    {
-        var fanModifications = new List<List<MagicModEntry>>();
-        
-        // Calculate start angle to center the fan
-        // For 5 spells with 7.5 deg step: -15, -7.5, 0, 7.5, 15
-        float startAngle = -(DiaSpellsPerDodge - 1) * FanAngleStep / 2f;
-
-        for (int i = 0; i < DiaSpellsPerDodge; i++)
-        {
-            float currentAngle = startAngle + (i * FanAngleStep);
-            var modifiedEntries = new List<MagicModEntry>();
-            
-            // Add Property 69 = 0 for "slave" projectiles (i > 0)
-            // This makes them "jointly managed" like Blind Justice (no extra audio/visual clutter)
-            if (i > 0)
-            {
-                modifiedEntries.Add(new MagicModEntry
-                {
-                    OpType = 51,
-                    Occurrence = 0,
-                    PropertyId = 69,
-                    IntValue = 0,
-                    UseFloat = false,
-                    Enabled = true,
-                    IsInjection = true, // Ensure it's applied even if not in original data
-                    TargetOperationGroupId = 0 // Usually Op 51 is in Group 0
-                });
-            }
-
-            foreach (var entry in baseEntries)
-            {
-                var newEntry = entry.Clone();
-                
-                // Apply fan angle to trajectory (Op 2493, Prop 2430)
-                if (newEntry.OpType == 2493 && newEntry.PropertyId == 2430 && newEntry.UseVec3)
-                {
-                    // Based on Blind Justice logs, Vec3Y is the rotation axis for the fan
-                    newEntry.Vec3Y = currentAngle;
-                    newEntry.Vec3Z = 0;
-                    
-                    LogDebug($"Projectile {i}: Angle {currentAngle:F2} -> Vec3Y={newEntry.Vec3Y:F2}");
-                }
-                
-                modifiedEntries.Add(newEntry);
-            }
-            fanModifications.Add(modifiedEntries);
-        }
-        
-        return fanModifications;
     }
 }

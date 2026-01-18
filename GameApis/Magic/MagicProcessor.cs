@@ -206,7 +206,10 @@ internal unsafe class MagicProcessor
                 {
                     if (entry.Enabled && entry.IsInjection && entry.InjectAfterOp == -1)
                     {
-                        _logger.WriteLine($"[{_modId}] [INJECTOR] Injecting Op {entry.OpType} Prop {entry.PropertyId} at END of Group", _logger.ColorGreen);
+                        if (entry.IsOperationOnly)
+                        {
+                            _logger.WriteLine($"[{_modId}] [INJECTOR] Processing AddOperation {entry.OpType} at END of Group", _logger.ColorBlue);
+                        }
                         PerformInjection(a1, entry);
                     }
                 }
@@ -328,7 +331,17 @@ internal unsafe class MagicProcessor
             *(int*)buffer = entry.IntValue;
 
         // Inject by calling the hook implementation directly
+        _logger.WriteLine($"[{_modId}] [INJECTOR] Injecting property: Op {entry.OpType} Prop {entry.PropertyId} = {GetValueString(entry)}", _logger.ColorGreen);
         MagicUnkExecuteImpl(magicFileInstance, entry.OpType, entry.PropertyId, (long)fakeData);
+    }
+    
+    private static string GetValueString(MagicModEntry entry)
+    {
+        if (entry.UseVec3)
+            return $"<{entry.Vec3X}, {entry.Vec3Y}, {entry.Vec3Z}>";
+        if (entry.UseFloat)
+            return entry.FloatValue.ToString("F2");
+        return entry.IntValue.ToString();
     }
 
     /// <summary>

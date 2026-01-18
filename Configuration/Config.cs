@@ -18,6 +18,7 @@ public class MagicModEntry
 {
     public bool Enabled { get; set; } = true;
     public bool IsInjection { get; set; } = false; // Si es true, se inyecta aunque no exista
+    public bool IsOperationOnly { get; set; } = false; // Si es true, solo registra la operación (no inyecta propiedad)
     public int TargetMagicId { get; set; } = -1;   // -1 para todos, o el ID del log (ej: -1610379072)
     public int InjectAfterOp { get; set; } = -1;   // Inyectar después de esta Op (-1 = al final)
     public bool DisableOp { get; set; } = false;   // Si es true, bloquea esta operación original
@@ -42,6 +43,7 @@ public class MagicModEntry
         {
             Enabled = this.Enabled,
             IsInjection = this.IsInjection,
+            IsOperationOnly = this.IsOperationOnly,
             TargetMagicId = this.TargetMagicId,
             InjectAfterOp = this.InjectAfterOp,
             DisableOp = this.DisableOp,

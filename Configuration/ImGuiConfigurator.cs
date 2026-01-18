@@ -15,16 +15,14 @@ public class ImGuiConfigurator : IImGuiComponent
     private readonly IImGui _imgui;
     private Config _config;
     private readonly Action<Config> _onConfigChanged;
-    private readonly MagicApi _magicApi;
-    private readonly IMagicApi _magicApiV2;
+    private readonly IMagicApi _magicApi;
 
-    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, MagicApi magicApi, IMagicApi magicApiV2)
+    public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, IMagicApi magicApi)
     {
         _imgui = imgui;
         _config = config;
         _onConfigChanged = onConfigChanged;
         _magicApi = magicApi;
-        _magicApiV2 = magicApiV2;
     }
 
     public void RenderMenu(IImGuiShell imGuiShell)
@@ -361,7 +359,7 @@ public class ImGuiConfigurator : IImGuiComponent
         // Show API status
         _imgui.Text("API Status:");
         _imgui.SameLine();
-        if (_magicApiV2.IsReady)
+        if (_magicApi.IsReady)
         {
             _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "READY");
         }
@@ -382,13 +380,13 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Cast Methods:");
 
         // Simple cast button
-        if (_imgui.Button("Cast (Simple)"))
+        if (_imgui.Button("Cast"))
         {
-            if (_magicApiV2.IsReady)
+            if (_magicApi.IsReady)
             {
                 for (int i = 0; i < _config.TestMagicCount; i++)
                 {
-                    _magicApiV2.Cast(_config.TestMagicID);
+                    _magicApi.Cast(_config.TestMagicID);
                 }
             }
         }
@@ -397,47 +395,6 @@ public class ImGuiConfigurator : IImGuiComponent
             _imgui.SetTooltip("Casts the spell using default player as source.");
         }
         _imgui.SameLine();
-        _imgui.Separator();
-        _imgui.TextColored(new Vector4(0.8f, 0.4f, 1.0f, 1.0f), "Builder Pattern Test:");
-
-        // Cast with modifications using the builder pattern
-        if (_imgui.Button("Cast Modified (2 Speed)"))
-        {
-            if (_magicApiV2.IsReady)
-            {
-                for (int i = 0; i < _config.TestMagicCount; i++)
-                {
-                    _magicApiV2.CreateSpell(_config.TestMagicID)
-                        .SetProperty(0, MagicOperations.Initialize, MagicProperties.Speed, 2.0f)
-                        .Cast();
-                }
-            }
-        }
-        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
-        {
-            _imgui.SetTooltip("Creates a spell with 2 speed using the builder pattern.");
-        }
-
-        _imgui.SameLine();
-        _imgui.Separator();
-        _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Legacy API (for comparison):");
-
-        if (!_magicApi.HasMagicContext)
-        {
-            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Legacy: NO CONTEXT");
-        }
-        else
-        {
-            _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.4f, 1.0f), "Legacy: Ready");
-        }
-
-        if (_imgui.Button("Cast (Legacy API)"))
-        {
-            if (_magicApi.HasMagicContext)
-            {
-                _magicApi.CastSpells(_config.TestMagicID, _config.TestMagicCount);
-            }
-        }
 
         _imgui.Separator();
         _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Identified Magic IDs (Click to set ID):");
@@ -467,12 +424,12 @@ public class ImGuiConfigurator : IImGuiComponent
                 {
                     _config.TestMagicID = entry.Id;
                     
-                    // Auto-cast using new API if available
-                    if (_magicApiV2.IsReady)
+                    // Auto-cast using API if available
+                    if (_magicApi.IsReady)
                     {
                         for (int i = 0; i < _config.TestMagicCount; i++)
                         {
-                            _magicApiV2.Cast(entry.Id);
+                            _magicApi.Cast(entry.Id);
                         }
                     }
                 }

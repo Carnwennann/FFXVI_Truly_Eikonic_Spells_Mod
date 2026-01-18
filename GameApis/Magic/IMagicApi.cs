@@ -142,30 +142,30 @@ public interface IMagicBuilder
     /// Adds a new operation to an operation group with no properties.
     /// </summary>
     /// <param name="operationGroupId">The operation group to add the operation to.</param>
-    /// <param name="operationType">The type of operation to add.</param>
+    /// <param name="operationId">The ID of operation to add.</param>
     /// <returns>This builder for chaining.</returns>
     /// <exception cref="ArgumentException">If the operationGroupId doesn't exist.</exception>
-    IMagicBuilder AddOperation(int operationGroupId, int operationType);
+    IMagicBuilder AddOperation(int operationGroupId, int operationId);
     
     /// <summary>
     /// Adds a new operation to an operation group with multiple properties.
     /// </summary>
     /// <param name="operationGroupId">The operation group to add the operation to.</param>
-    /// <param name="operationType">The type of operation to add.</param>
+    /// <param name="operationId">The ID of operation to add.</param>
     /// <param name="propertyIds">List of property IDs for the operation.</param>
     /// <param name="values">List of values corresponding to each property ID.</param>
     /// <returns>This builder for chaining.</returns>
     /// <exception cref="ArgumentException">If the operationGroupId doesn't exist or if propertyIds and values have different lengths.</exception>
-    IMagicBuilder AddOperation(int operationGroupId, int operationType, IList<int> propertyIds, IList<object> values);
+    IMagicBuilder AddOperation(int operationGroupId, int operationId, IList<int> propertyIds, IList<object> values);
     
     /// <summary>
     /// Removes an operation from an operation group.
     /// </summary>
     /// <param name="operationGroupId">The operation group containing the operation.</param>
-    /// <param name="operationType">The type of operation to remove.</param>
+    /// <param name="operationId">The ID of operation to remove.</param>
     /// <returns>This builder for chaining.</returns>
     /// <exception cref="ArgumentException">If the operationGroupId doesn't exist.</exception>
-    IMagicBuilder RemoveOperation(int operationGroupId, int operationType);
+    IMagicBuilder RemoveOperation(int operationGroupId, int operationId);
     
     // ========================================
     // VALIDATION
@@ -182,9 +182,9 @@ public interface IMagicBuilder
     /// Checks if an operation exists within an operation group.
     /// </summary>
     /// <param name="operationGroupId">The operation group ID.</param>
-    /// <param name="operationType">The operation type to check.</param>
+    /// <param name="operationId">The operation ID to check.</param>
     /// <returns>True if the operation exists.</returns>
-    bool HasOperation(int operationGroupId, int operationType);
+    bool HasOperation(int operationGroupId, int operationId);
     
     /// <summary>
     /// Gets all operation group IDs in the current magic definition.
@@ -193,11 +193,11 @@ public interface IMagicBuilder
     IReadOnlyList<int> GetOperationGroupIds();
     
     /// <summary>
-    /// Gets all operation types within an operation group.
+    /// Gets all operation IDs within an operation group.
     /// </summary>
     /// <param name="operationGroupId">The operation group ID.</param>
-    /// <returns>List of operation types, or empty if group doesn't exist.</returns>
-    IReadOnlyList<int> GetOperationTypes(int operationGroupId);
+    /// <returns>List of operation IDs, or empty if group doesn't exist.</returns>
+    IReadOnlyList<int> GetoperationIds(int operationGroupId);
     
     // ========================================
     // EXECUTION
@@ -241,6 +241,13 @@ public interface IMagicBuilder
     IMagicBuilder ImportFromJson(string json);
     
     /// <summary>
+    /// Imports modifications from a JSON file, adding to existing modifications.
+    /// </summary>
+    /// <param name="filePath">Path to the JSON file containing modifications.</param>
+    /// <returns>This builder for chaining, or throws if file not found or parsing failed.</returns>
+    IMagicBuilder ImportFromFile(string filePath);
+    
+    /// <summary>
     /// Gets the modification entries that will be applied.
     /// Useful for debugging or manual serialization.
     /// </summary>
@@ -271,9 +278,9 @@ public record MagicModification
     public int OperationGroupId { get; init; }
     
     /// <summary>
-    /// The operation type ID (for operation modifications) or the operation containing the property.
+    /// The operation ID (for operation modifications) or the operation containing the property.
     /// </summary>
-    public int OperationType { get; init; }
+    public int operationId { get; init; }
     
     /// <summary>
     /// The property ID (for property modifications).
@@ -296,6 +303,12 @@ public record MagicModification
     /// For AddOperation: List of additional values (beyond the first one in Value).
     /// </summary>
     public IList<object>? AdditionalValues { get; init; }
+    
+    /// <summary>
+    /// The operation type after which to inject this modification.
+    /// -1 means inject at the end of the operation group.
+    /// </summary>
+    public int InjectAfterOp { get; init; } = -1;
 }
 
 /// <summary>
@@ -395,6 +408,13 @@ public class MagicModificationConfig
     /// Each entry should have "PropertyId" and "Value" keys.
     /// </summary>
     public List<PropertyValuePair>? Properties { get; set; }
+    
+    /// <summary>
+    /// The operation type after which to inject this modification.
+    /// -1 means inject at the end of the operation group.
+    /// Only used for IsInjection entries (AddProperty, AddOperation).
+    /// </summary>
+    public int InjectAfterOp { get; set; } = -1;
 }
 
 /// <summary>
