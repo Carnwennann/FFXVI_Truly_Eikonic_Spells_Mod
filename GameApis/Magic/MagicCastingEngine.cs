@@ -28,14 +28,17 @@ internal unsafe class MagicCastingEngine : IDisposable
     [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
     public delegate char FireMagicProjectileDelegate(long magicManagerPtr, long projectileDataPtr);
     
+    [Reloaded.Hooks.Definitions.X64.Function(Reloaded.Hooks.Definitions.X64.CallingConventions.Microsoft)]
+    public delegate long* UnkTargetStructCreateDelegate(long manager, long* outResult);
+    
     // ============================================================
     // SIGNATURES
     // ============================================================
-
     private const string SETUP_MAGIC_SIG = "48 8B C4 48 89 58 08 48 89 70 10 57 48 83 EC 60 8B FA 66 C7 40 E8 01 00 48 8B F1 C6 40 EA 00 C5 F9 EF C0 49 8B D1 48 8D 48 D8 C5 FA 7F 40 D8 49 8B D8";
     private const string CAST_MAGIC_SIG = "48 89 5C 24 10 48 89 74 24 18 57 48 83 EC 20 48 8B 41 10 48 8B F2 48 8B 0D";
     private const string INSERT_NEW_MAGIC_SIG = "40 53 48 83 EC 20 48 8B DA 4C 8B D9 8B 92 EC 00";
     private const string FIRE_MAGIC_PROJECTILE_SIG = "48 89 5C 24 10 48 89 74 24 18 48 89 7C 24 20 55 41 54 41 55 41 56 41 57 48 8d 6C 24 90 48 81 EC 70 01 00 00 48 8B 05 2D 0F 1A 01 48 33 C4 48 89 45 60 48 8B 51 38 4C 8B E1 44 8B 42 10 41 83 E8 01 0F 84 B6 01 00 00";
+    private const string UNK_TARGET_STRUCT_CREATE_SIG = "48 89 5C 24 ?? 48 89 74 24 ?? 48 89 7C 24 ?? 41 56 48 83 EC ?? 48 8D 99 ?? ?? ?? ?? 48 8B F1";
     
     // ============================================================
     // CONSTANTS
@@ -45,7 +48,6 @@ internal unsafe class MagicCastingEngine : IDisposable
     private const int DEFAULT_ACTION_ID = 218;
     private const byte DEFAULT_FLAG = 1;
     private const int MAGIC_STRUCT_SIZE = 0x108;
-    private const int POSITION_STRUCT_SIZE = 0x40;
     
     // ============================================================
     // HOOKS & FUNCTION POINTERS
@@ -54,6 +56,7 @@ internal unsafe class MagicCastingEngine : IDisposable
     private IHook<SetupMagicDelegate>? _setupMagicHook;
     private IHook<CastMagicDelegate>? _castMagicHook;
     private IHook<FireMagicProjectileDelegate>? _fireMagicProjectileHook;
+    private IHook<UnkTargetStructCreateDelegate>? _unkTargetStructCreateHook;
     private CastMagicDelegate? _castMagicWrapper;
     
     // ============================================================
@@ -61,10 +64,11 @@ internal unsafe class MagicCastingEngine : IDisposable
     // ============================================================
     
     private IntPtr _magicStructBuffer = IntPtr.Zero;
-    private IntPtr _positionStructBuffer = IntPtr.Zero;
+    private IntPtr _targetStructBuffer = IntPtr.Zero;  // Renamed from _positionStructBuffer
     private long _cachedCasterActorRef = 0;
     private long _cachedTargetActorRef = 0;
     private long _cachedPositionStruct = 0;
+    private nint _cachedTargetVTable = 0;  // VTable from game's TargetStruct
     private int _cachedCommandId = 0;
     private int _cachedActionId = 0;
     private byte _cachedFlag = 0;
@@ -80,21 +84,51 @@ internal unsafe class MagicCastingEngine : IDisposable
     private readonly MagicProcessor _processor;
     private readonly long _baseAddress;
     
+    // Function API reference for actor lookups (legacy, being replaced by EntityApi)
+    private FunctionApi? _functionApi;
+    
+    // Entity API reference for consolidated actor/player management
+    private EntityApi? _entityApi;
+    
     // External callbacks for getting player info
     public Func<nint>? GetPlayerStaticActorInfo { get; set; }
     public Func<long>? GetPlayerActorRef { get; set; }
     public Func<int>? GetActiveEikon { get; set; }
     public Func<int, long, long, bool>? OnChargedShotDetected { get; set; }
     
+    /// <summary>
+    /// Callback to get the currently locked target actor (from camera system).
+    /// Returns nint.Zero if no target is locked.
+    /// </summary>
+    public Func<nint>? GetLockedTargetCallback { get; set; }
+    
     // ============================================================
     // PROPERTIES
     // ============================================================
     
-    public bool IsReady => _hasMagicContext || (*(long*)(_baseAddress + GlobalOffsets.BattleMagicExecutor) != 0);
+    /// <summary>
+    /// Returns true if we can cast spells.
+    /// With explicit source/target support, we may not need cached context anymore.
+    /// </summary>
+    public bool IsReady => _setupMagicHook != null && _castMagicWrapper != null;
+    
+    /// <summary>
+    /// Returns true if we have captured context from a previous game spell cast.
+    /// This is useful for debugging and for fallback behavior.
+    /// </summary>
+    public bool HasCachedContext => _hasMagicContext && _cachedExecutorClient != 0;
+    
+    /// <summary>
+    /// Returns true if the TargetStruct VTable has been captured.
+    /// Without this, casting with custom targets will fail.
+    /// </summary>
+    public bool HasTargetVTable => _cachedTargetVTable != 0;
     
     // ============================================================
     // CONSTRUCTOR
     // ============================================================
+    
+    private const int TARGET_STRUCT_SIZE = 0x7C;  // Size of TargetStruct (UnkTargetStruct)
     
     public MagicCastingEngine(ILogger logger, string modId, Config configuration, IStartupScanner scanner)
     {
@@ -107,15 +141,32 @@ internal unsafe class MagicCastingEngine : IDisposable
 
         // Allocate buffers
         _magicStructBuffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
-        _positionStructBuffer = Marshal.AllocHGlobal(POSITION_STRUCT_SIZE);
+        _targetStructBuffer = Marshal.AllocHGlobal(TARGET_STRUCT_SIZE);
         
         // Zero-initialize
         for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) 
             *((byte*)_magicStructBuffer + i) = 0;
-        for (int i = 0; i < POSITION_STRUCT_SIZE; i++) 
-            *((byte*)_positionStructBuffer + i) = 0;
+        for (int i = 0; i < TARGET_STRUCT_SIZE; i++) 
+            *((byte*)_targetStructBuffer + i) = 0;
         
         _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Initialized", _logger.ColorGreen);
+    }
+    
+    /// <summary>
+    /// Sets the FunctionApi reference for actor lookups.
+    /// </summary>
+    public void SetFunctionApi(FunctionApi functionApi)
+    {
+        _functionApi = functionApi;
+    }
+    
+    /// <summary>
+    /// Sets the EntityApi reference for consolidated entity/player management.
+    /// EntityApi takes precedence over FunctionApi when both are available.
+    /// </summary>
+    public void SetEntityApi(EntityApi entityApi)
+    {
+        _entityApi = entityApi;
     }
     
     // ============================================================
@@ -147,6 +198,13 @@ internal unsafe class MagicCastingEngine : IDisposable
             _fireMagicProjectileHook = hooks.CreateHook<FireMagicProjectileDelegate>(FireMagicProjectileImpl, address).Activate();
             _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Hooked FireMagicProjectile at 0x{address:X}", _logger.ColorGreen);
         });
+        
+        // Hook UnkTargetStruct::Create to capture VTable automatically
+        scans.AddScan(UNK_TARGET_STRUCT_CREATE_SIG, address =>
+        {
+            _unkTargetStructCreateHook = hooks.CreateHook<UnkTargetStructCreateDelegate>(UnkTargetStructCreateImpl, address).Activate();
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Hooked UnkTargetStruct::Create at 0x{address:X}", _logger.ColorGreen);
+        });
     }
     
     public void InitializeProcessor(IReloadedHooks hooks)
@@ -163,9 +221,8 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// </summary>
     public nint GetLockedTarget()
     {
-        // TODO: Implement camera lock target retrieval
-        // For now, return the last attacked enemy if available
-        return nint.Zero;
+        // Use callback if available
+        return GetLockedTargetCallback?.Invoke() ?? nint.Zero;
     }
     
     /// <summary>
@@ -178,14 +235,20 @@ internal unsafe class MagicCastingEngine : IDisposable
     
     /// <summary>
     /// Cast a spell using the provided request configuration.
+    /// Supports explicit source actor and target position without requiring cached context.
     /// </summary>
     public bool CastSpell(MagicCastRequest request)
     {
         if (!IsReady)
         {
-            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cannot cast: No magic context. Cast any spell in-game first.", _logger.ColorYellow);
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cannot cast: Hooks not initialized.", _logger.ColorYellow);
             return false;
         }
+        
+        // IMPORTANT: Zero-initialize the magic buffer before each use
+        // This prevents crashes from stale data left by previous casts
+        for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) 
+            *((byte*)_magicStructBuffer + i) = 0;
         
         // Enqueue modifications if any
         if (request.Modifications.Count > 0)
@@ -194,83 +257,291 @@ internal unsafe class MagicCastingEngine : IDisposable
             _processor.EnqueueModifications(request.MagicId, modEntries);
         }
         
-        // Determine source actor - prioritize cache over callbacks for reliability
-        long casterActorRef;
+        // ========================================================
+        // RESOLVE SOURCE ACTOR
+        // Priority: Explicit > EntityApi/FunctionApi (Player) > Cached > Callback
+        // ========================================================
+        long casterActorRef = 0;
+        
+        string sourceResolution = "Unknown";
+        
         if (request.SourceActor.HasValue && request.SourceActor.Value != nint.Zero)
         {
-            // Explicit source actor provided - use it
-            var actorInfo = (StaticActorInfo*)request.SourceActor.Value;
-            casterActorRef = actorInfo->ActorRef;
+            // Explicit source actor provided - get ActorRef from StaticActorInfo
+            if (_entityApi != null)
+            {
+                casterActorRef = _entityApi.GetActorRef(request.SourceActor.Value);
+                sourceResolution = $"Explicit via EntityApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
+            }
+            else if (_functionApi != null)
+            {
+                casterActorRef = _functionApi.GetActorRef(request.SourceActor.Value);
+                sourceResolution = $"Explicit via FunctionApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
+            }
+            else
+            {
+                // Fallback: direct struct access
+                var actorInfo = (StaticActorInfo*)request.SourceActor.Value;
+                casterActorRef = actorInfo->ActorRef;
+                sourceResolution = $"Explicit via Direct Struct (StaticActorInfo: 0x{request.SourceActor.Value:X})";
+            }
         }
-        else if (_cachedCasterActorRef != 0)
+        else if (_entityApi != null)
         {
-            // Use cached caster from last spell cast (most reliable)
-            casterActorRef = _cachedCasterActorRef;
+            // Try to get player actor via EntityApi (preferred)
+            var playerInfo = _entityApi.GetPlayerStaticActorInfo();
+            if (playerInfo != 0)
+            {
+                casterActorRef = _entityApi.GetActorRef(playerInfo);
+                sourceResolution = $"Player via EntityApi (StaticActorInfo: 0x{playerInfo:X})";
+            }
         }
-        else
+        else if (_functionApi != null)
         {
-            // Fallback: try to get player actor ref via callback
-            casterActorRef = GetPlayerActorRef?.Invoke() ?? 0;
+            // Try to get player actor via FunctionApi (fallback)
+            var playerInfo = _functionApi.GetPlayerStaticActorInfo();
+            if (playerInfo != 0)
+            {
+                casterActorRef = _functionApi.GetActorRef(playerInfo);
+                sourceResolution = $"Player via FunctionApi (StaticActorInfo: 0x{playerInfo:X})";
+            }
         }
         
-        // Use cached position - prioritize cache over any dynamic lookup
-        long positionStruct = _cachedPositionStruct;
-        
-        // Determine target actor - prioritize cache over callbacks
-        long targetActorRef;
-        if (request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
+        // Fallback to cached or callback
+        if (casterActorRef == 0)
         {
-            // Explicit target provided - use it
-            var targetInfo = (StaticActorInfo*)request.TargetActor.Value;
-            targetActorRef = targetInfo->ActorRef;
-        }
-        else if (_cachedTargetActorRef != 0)
-        {
-            // Use cached target from last spell cast
-            targetActorRef = _cachedTargetActorRef;
-        }
-        else
-        {
-            // No target available
-            targetActorRef = 0;
+            if (_cachedCasterActorRef != 0)
+            {
+                casterActorRef = _cachedCasterActorRef;
+                sourceResolution = "Cached from previous game cast";
+            }
+            else
+            {
+                casterActorRef = GetPlayerActorRef?.Invoke() ?? 0;
+                if (casterActorRef != 0)
+                    sourceResolution = "Callback (GetPlayerActorRef)";
+            }
         }
         
-        // Determine command/action IDs
+        // Log source resolution
+        _logger.WriteLine($"[{_modId}] [CastSpell] SOURCE: {sourceResolution} -> ActorRef: 0x{casterActorRef:X}", _logger.ColorYellow);
+        
+        // ========================================================
+        // RESOLVE TARGET POSITION STRUCT
+        // Priority: Explicit Position > Explicit Actor > Locked Target > Source Actor > Cached
+        // ========================================================
+        
+        // IMPORTANT: Zero-initialize the target buffer before each use
+        // This prevents crashes from stale data left by previous casts
+        for (int i = 0; i < TARGET_STRUCT_SIZE; i++) 
+            *((byte*)_targetStructBuffer + i) = 0;
+        
+        long targetStructPtr = 0;
+        string targetResolution = "Unknown";
+        
+        if (request.TargetPosition.HasValue)
+        {
+            // Create TargetStruct from explicit position
+            var targetStruct = request.TargetDirection.HasValue
+                ? TargetStruct.FromPositionAndDirection(request.TargetPosition.Value, request.TargetDirection.Value)
+                : TargetStruct.FromPosition(request.TargetPosition.Value);
+            
+            // Copy to our buffer
+            *(TargetStruct*)_targetStructBuffer = targetStruct;
+            targetStructPtr = (long)_targetStructBuffer;
+            targetResolution = $"Explicit Position ({request.TargetPosition.Value.X:F2}, {request.TargetPosition.Value.Y:F2}, {request.TargetPosition.Value.Z:F2})";
+        }
+        else if (request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
+        {
+            // Create TargetStruct from explicit target actor's position
+            TargetStruct? targetResult = null;
+            string apiUsed = "None";
+            if (_entityApi != null)
+            {
+                targetResult = _entityApi.CreateTargetFromActor(request.TargetActor.Value);
+                apiUsed = "EntityApi";
+            }
+            else if (_functionApi != null)
+            {
+                targetResult = _functionApi.CreateTargetFromActor(request.TargetActor.Value);
+                apiUsed = "FunctionApi";
+            }
+                
+            if (targetResult.HasValue)
+            {
+                *(TargetStruct*)_targetStructBuffer = targetResult.Value;
+                targetStructPtr = (long)_targetStructBuffer;
+                targetResolution = $"Explicit Actor via {apiUsed} (StaticActorInfo: 0x{request.TargetActor.Value:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+            }
+        }
+        else if (!request.TargetActor.HasValue)
+        {
+            // TargetActor is null (not specified) - try to get locked target from camera
+            var lockedTarget = GetLockedTarget();
+            if (lockedTarget != nint.Zero)
+            {
+                TargetStruct? targetResult = null;
+                string apiUsed = "None";
+                if (_entityApi != null)
+                {
+                    targetResult = _entityApi.CreateTargetFromActor(lockedTarget);
+                    apiUsed = "EntityApi";
+                }
+                else if (_functionApi != null)
+                {
+                    targetResult = _functionApi.CreateTargetFromActor(lockedTarget);
+                    apiUsed = "FunctionApi";
+                }
+                    
+                if (targetResult.HasValue)
+                {
+                    *(TargetStruct*)_targetStructBuffer = targetResult.Value;
+                    targetStructPtr = (long)_targetStructBuffer;
+                    targetResolution = $"Locked Target via {apiUsed} (StaticActorInfo: 0x{lockedTarget:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                }
+            }
+            else
+            {
+                _logger.WriteLine($"[{_modId}] [CastSpell] No locked target available (GetLockedTarget returned Zero)", _logger.ColorYellow);
+            }
+        }
+        
+        // If no target yet, try using source actor's position
+        if (targetStructPtr == 0)
+        {
+            // Determine source actor to use for position
+            nint sourceForPosition = nint.Zero;
+            string sourceType = "Unknown";
+            
+            if (request.SourceActor.HasValue && request.SourceActor.Value != nint.Zero)
+            {
+                sourceForPosition = request.SourceActor.Value;
+                sourceType = "Explicit Source Actor";
+            }
+            else if (_entityApi != null)
+            {
+                // Get player as source via EntityApi
+                sourceForPosition = (nint)_entityApi.GetPlayerStaticActorInfo();
+                sourceType = "Player via EntityApi";
+            }
+            else if (_functionApi != null)
+            {
+                // Get player as source via FunctionApi
+                sourceForPosition = GetPlayerStaticActorInfo?.Invoke() ?? nint.Zero;
+                if (sourceForPosition == nint.Zero)
+                {
+                    sourceForPosition = _functionApi.GetPlayerStaticActorInfo();
+                }
+                sourceType = "Player via FunctionApi";
+            }
+            
+            if (sourceForPosition != nint.Zero)
+            {
+                TargetStruct? targetResult = null;
+                string apiUsed = "None";
+                if (_entityApi != null)
+                {
+                    targetResult = _entityApi.CreateTargetFromActor(sourceForPosition);
+                    apiUsed = "EntityApi";
+                }
+                else if (_functionApi != null)
+                {
+                    targetResult = _functionApi.CreateTargetFromActor(sourceForPosition);
+                    apiUsed = "FunctionApi";
+                }
+                    
+                if (targetResult.HasValue)
+                {
+                    *(TargetStruct*)_targetStructBuffer = targetResult.Value;
+                    targetStructPtr = (long)_targetStructBuffer;
+                    targetResolution = $"Source Actor Position ({sourceType}) via {apiUsed} (0x{sourceForPosition:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                }
+            }
+        }
+        
+        // Fallback to cached position struct
+        if (targetStructPtr == 0)
+        {
+            targetStructPtr = _cachedPositionStruct;
+            if (targetStructPtr != 0)
+                targetResolution = $"Cached from previous game cast (0x{targetStructPtr:X})";
+        }
+        
+        // Log target resolution
+        _logger.WriteLine($"[{_modId}] [CastSpell] TARGET: {targetResolution} -> StructPtr: 0x{targetStructPtr:X}", _logger.ColorYellow);
+        
+        // ========================================================
+        // RESOLVE COMMAND/ACTION IDs
+        // ========================================================
         int commandId = _cachedCommandId != 0 ? _cachedCommandId : DEFAULT_COMMAND_ID;
         int actionId = _cachedActionId != 0 ? _cachedActionId : DEFAULT_ACTION_ID;
         byte flag = _cachedFlag != 0 ? _cachedFlag : DEFAULT_FLAG;
         
-        // Validate requirements
-        if (casterActorRef == 0 || positionStruct == 0)
+        // ========================================================
+        // VALIDATE REQUIREMENTS
+        // ========================================================
+        if (casterActorRef == 0)
         {
-            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cannot cast: Missing caster (0x{casterActorRef:X}) or position (0x{positionStruct:X})", _logger.ColorRed);
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cannot cast: No source actor available.", _logger.ColorRed);
             return false;
         }
         
+        if (targetStructPtr == 0)
+        {
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cannot cast: No target position available.", _logger.ColorRed);
+            return false;
+        }
+        
+        // ========================================================
+        // EXECUTE SPELL
+        // ========================================================
         try
         {
+            // Inject cached VTable into our TargetStruct buffer if we created it ourselves
+            // (targetStructPtr == _targetStructBuffer means we own it)
+            if (targetStructPtr == (long)_targetStructBuffer)
+            {
+                if (_cachedTargetVTable != 0)
+                {
+                    var targetStruct = (TargetStruct*)_targetStructBuffer;
+                    targetStruct->VTable = _cachedTargetVTable;
+                    _logger.WriteLine($"[{_modId}] [CastSpell] Injected VTable 0x{_cachedTargetVTable:X} into TargetStruct", _logger.ColorYellow);
+                }
+                else
+                {
+                    // No VTable available - cannot cast without it
+                    _logger.WriteLine($"[{_modId}] [CastSpell] ERROR: No VTable available. Please cast a spell normally first to capture the VTable.", _logger.ColorRed);
+                    _logger.WriteLine($"[{_modId}] [CastSpell] The TargetStruct requires a valid VTable pointer. Cast any spell (Fire, etc.) to capture it.", _logger.ColorRed);
+                    return false;
+                }
+            }
+            
+            _logger.WriteLine($"[{_modId}] [CastSpell] Calling SetupMagic: MagicId={request.MagicId}, ActorRef=0x{casterActorRef:X}, TargetPtr=0x{targetStructPtr:X}, CmdId={commandId}, ActId={actionId}, Flag={flag}", _logger.ColorYellow);
+            
             // Setup the magic struct
             _setupMagicHook!.OriginalFunction(
                 (long)_magicStructBuffer, 
                 request.MagicId, 
                 casterActorRef, 
-                positionStruct, 
+                targetStructPtr, 
                 commandId, 
                 actionId, 
                 flag
             );
             
-            // TODO: If targetActorRef != 0, inject target info into magic struct
-            // This requires further reverse engineering of the magic struct
-            // targetActorRef is resolved and ready to use: 0x{targetActorRef:X}
+            _logger.WriteLine($"[{_modId}] [CastSpell] SetupMagic completed successfully", _logger.ColorGreen);
             
             // Get executor client
             long executorClient = *(long*)(_baseAddress + GlobalOffsets.BattleMagicExecutor);
+            _logger.WriteLine($"[{_modId}] [CastSpell] ExecutorClient from global: 0x{executorClient:X}, Cached: 0x{_cachedExecutorClient:X}", _logger.ColorYellow);
+            
             if (executorClient == 0) executorClient = _cachedExecutorClient;
             
             if (executorClient != 0)
             {
+                _logger.WriteLine($"[{_modId}] [CastSpell] Calling InsertNewMagic with executor 0x{executorClient:X}", _logger.ColorYellow);
                 _castMagicWrapper!((long)executorClient, (long)_magicStructBuffer);
+                _logger.WriteLine($"[{_modId}] [CastSpell] InsertNewMagic completed successfully", _logger.ColorGreen);
                 return true;
             }
             
@@ -307,6 +578,14 @@ internal unsafe class MagicCastingEngine : IDisposable
         _cachedActionId = actionID;
         _cachedFlag = flag;
         
+        // Capture VTable from game's TargetStruct (first time only)
+        if (_cachedTargetVTable == 0 && positionStruct != 0)
+        {
+            var targetStruct = (TargetStruct*)positionStruct;
+            _cachedTargetVTable = targetStruct->VTable;
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Captured TargetStruct VTable: 0x{_cachedTargetVTable:X}", _logger.ColorGreen);
+        }
+        
         return _setupMagicHook!.OriginalFunction(battleMagicPtr, magicId, casterActorRef, positionStruct, commandId, actionID, flag);
     }
     
@@ -319,6 +598,31 @@ internal unsafe class MagicCastingEngine : IDisposable
         _hasMagicContext = true;
         
         return _castMagicHook!.OriginalFunction(a1, unkMagicStructPtr);
+    }
+    
+    /// <summary>
+    /// Hook for UnkTargetStruct::Create - captures VTable from newly created TargetStructs.
+    /// This allows us to get the VTable without the player needing to cast a spell first.
+    /// </summary>
+    private long* UnkTargetStructCreateImpl(long manager, long* outResult)
+    {
+        // Call original function first
+        var result = _unkTargetStructCreateHook!.OriginalFunction(manager, outResult);
+        
+        // Capture VTable from the created struct (first time only)
+        if (_cachedTargetVTable == 0 && result != null && *result != 0)
+        {
+            // The result points to the created TargetStruct
+            // VTable is at offset 0x00
+            var createdStruct = (TargetStruct*)(*result);
+            if (createdStruct->VTable != 0)
+            {
+                _cachedTargetVTable = createdStruct->VTable;
+                _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Captured VTable from UnkTargetStruct::Create: 0x{_cachedTargetVTable:X}", _logger.ColorGreen);
+            }
+        }
+        
+        return result;
     }
 
     private char FireMagicProjectileImpl(long magicManagerPtr, long projectileDataPtr)
@@ -353,7 +657,7 @@ internal unsafe class MagicCastingEngine : IDisposable
         // +0x08: Z (float)
         // ... additional data
         
-        float* posPtr = (float*)_positionStructBuffer;
+        float* posPtr = (float*)_targetStructBuffer;
         posPtr[0] = position.X;
         posPtr[1] = position.Y;
         posPtr[2] = position.Z;
@@ -469,10 +773,10 @@ internal unsafe class MagicCastingEngine : IDisposable
             Marshal.FreeHGlobal(_magicStructBuffer);
             _magicStructBuffer = IntPtr.Zero;
         }
-        if (_positionStructBuffer != IntPtr.Zero)
+        if (_targetStructBuffer != IntPtr.Zero)
         {
-            Marshal.FreeHGlobal(_positionStructBuffer);
-            _positionStructBuffer = IntPtr.Zero;
+            Marshal.FreeHGlobal(_targetStructBuffer);
+            _targetStructBuffer = IntPtr.Zero;
         }
     }
 }

@@ -197,6 +197,18 @@ public struct NodePositionPair
 // ============================================================
 
 /// <summary>
+/// The ActorManager is a singleton responsible for managing all actor instances.
+/// Used by GetActorByKey to resolve ActorId -> ActorReference.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ActorManager
+{
+    public nint VTable;
+    // The internal implementation uses a hashmap/list structure
+    // We access it through function wrappers, not directly
+}
+
+/// <summary>
 /// Actor reference structure returned by ActorManager_GetActorByKey.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

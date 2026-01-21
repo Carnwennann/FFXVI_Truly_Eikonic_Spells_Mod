@@ -586,5 +586,16 @@ internal record MagicCastRequest
     public int MagicId { get; init; }
     public nint? SourceActor { get; init; }
     public nint? TargetActor { get; init; }
+    
+    /// <summary>
+    /// Explicit target position in world space. If set, this takes priority over TargetActor.
+    /// </summary>
+    public Vector3? TargetPosition { get; init; }
+    
+    /// <summary>
+    /// Explicit target direction (for projectiles). If not set, defaults to forward.
+    /// </summary>
+    public Vector3? TargetDirection { get; init; }
+    
     public List<MagicModification> Modifications { get; init; } = new();
 }

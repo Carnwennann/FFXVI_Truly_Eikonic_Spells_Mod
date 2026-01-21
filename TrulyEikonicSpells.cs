@@ -97,6 +97,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
     private FunctionApi _functionApi;
+    private EntityApi _entityApi;
     private MagicApiV2 _magicApiV2;
     private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
@@ -153,8 +154,12 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private void SetupGameApis()
     {
-        // Initialize FunctionApi
+        // Initialize FunctionApi (legacy, gradually being replaced by EntityApi)
         _functionApi = new FunctionApi(_logger, _modConfig);
+
+        // Initialize EntityApi (consolidated entity/player management)
+        _entityApi = new EntityApi(_logger, _modConfig);
+        _entityApi.SetupScans(_startupScanner, _hooks);
 
         // Initialize MagicApiV2 (unified Magic API)
         _magicApiV2 = new MagicApiV2(_logger, _modConfig.ModId, _configuration, _startupScanner);
@@ -165,6 +170,15 @@ public class TrulyEikonicSpellsMod : ModBase
             () => GetPlayerActorRefFromStaticInfo(),
             GetActiveEikon
         );
+        // Pass FunctionApi for explicit source/target support
+        _magicApiV2.SetFunctionApi(_functionApi);
+        
+        // Pass EntityApi for consolidated entity management (takes precedence)
+        _magicApiV2.SetEntityApi(_entityApi);
+        
+        // Set locked target callback (TODO: implement camera lock target retrieval)
+        // For now returns nint.Zero, which causes the system to use player position as target
+        _magicApiV2.SetLockedTargetCallback(GetLockedTargetActor);
 
         // Initialize PlayerApi (handles all player-related information)
         _playerApi = new PlayerApi(_logger, _modConfig, _functionApi);
@@ -643,6 +657,32 @@ public class TrulyEikonicSpellsMod : ModBase
     
     // Delegate to shared EikonUtils for Eikon detection
     private unsafe int GetActiveEikon() => EikonUtils.GetActiveEikon(_globalPlayerStatePtr);
+    
+    /// <summary>
+    /// Gets the currently locked target actor (from camera system).
+    /// Uses EntityApi.GetLockedTargetStaticActorInfo() to get the camera's locked target.
+    /// Falls back to DiaraSystem's last attacked enemy if targeting is unavailable.
+    /// </summary>
+    private nint GetLockedTargetActor()
+    {
+        // Try EntityApi first (proper camera lock implementation)
+        if (_entityApi != null && _entityApi.HasTargetingFunctions)
+        {
+            nint lockedTarget = _entityApi.GetLockedTargetStaticActorInfo();
+            if (lockedTarget != nint.Zero)
+            {
+                return lockedTarget;
+            }
+        }
+        
+        // Fallback: return last attacked enemy from DiaraSystem if available
+        if (_diaraSystem != null && _diaraSystem.LastAttackedEnemyPtr != 0)
+        {
+            return (nint)_diaraSystem.LastAttackedEnemyPtr;
+        }
+        
+        return nint.Zero;
+    }
     
     // Helper to get ActorRef from StaticActorInfo
     private unsafe long GetPlayerActorRefFromStaticInfo()

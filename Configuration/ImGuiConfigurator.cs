@@ -379,8 +379,8 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.Separator();
         _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Cast Methods:");
 
-        // Simple cast button
-        if (_imgui.Button("Cast"))
+        // Simple cast button (from player, no target)
+        if (_imgui.Button("Cast (Player)"))
         {
             if (_magicApi.IsReady)
             {
@@ -392,9 +392,51 @@ public class ImGuiConfigurator : IImGuiComponent
         }
         if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
         {
-            _imgui.SetTooltip("Casts the spell using default player as source.");
+            _imgui.SetTooltip("Casts the spell from player (Clive), no target.");
         }
         _imgui.SameLine();
+
+        // Cast from enemy (soft-locked target as source)
+        if (_imgui.Button("Cast (From Enemy)"))
+        {
+            if (_magicApi.IsReady)
+            {
+                nint enemyActor = _magicApi.GetLockedTarget();
+                if (enemyActor != nint.Zero)
+                {
+                    for (int i = 0; i < _config.TestMagicCount; i++)
+                    {
+                        _magicApi.Cast(_config.TestMagicID, sourceActor: enemyActor, targetActor: null);
+                    }
+                }
+            }
+        }
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Casts the spell FROM the soft-locked enemy (enemy as source, no target).");
+        }
+        _imgui.SameLine();
+
+        // Cast from enemy targeting player
+        if (_imgui.Button("Cast (Enemy → Player)"))
+        {
+            if (_magicApi.IsReady)
+            {
+                nint enemyActor = _magicApi.GetLockedTarget();
+                nint playerActor = _magicApi.GetPlayerActor();
+                if (enemyActor != nint.Zero && playerActor != nint.Zero)
+                {
+                    for (int i = 0; i < _config.TestMagicCount; i++)
+                    {
+                        _magicApi.Cast(_config.TestMagicID, sourceActor: enemyActor, targetActor: playerActor);
+                    }
+                }
+            }
+        }
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Casts the spell FROM enemy TO player (reversed targeting).");
+        }
 
         _imgui.Separator();
         _imgui.TextColored(new Vector4(0.4f, 0.8f, 1.0f, 1.0f), "Identified Magic IDs (Click to set ID):");

@@ -364,6 +364,71 @@ public unsafe class FunctionApi
         
         return _getForwardVectorFunc(staticActorInfo, outForward);
     }
+    
+    // ============================================================
+    // ACTOR TARGETING API (for Magic Casting)
+    // ============================================================
+    
+    /// <summary>
+    /// Gets the ActorRef (internal game actor pointer) from a StaticActorInfo.
+    /// This is what SetupMagic expects as the sourceActor parameter.
+    /// </summary>
+    public long GetActorRef(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || staticActorInfo < 0x10000)
+            return 0;
+        
+        var info = (GameStructs.StaticActorInfo*)staticActorInfo;
+        return info->ActorRef;
+    }
+    
+    /// <summary>
+    /// Gets the BattleBehavior pointer from a StaticActorInfo.
+    /// Contains the MagicFileResource used for spawning magic.
+    /// </summary>
+    public nint GetBattleBehavior(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || staticActorInfo < 0x10000)
+            return 0;
+        
+        var info = (GameStructs.StaticActorInfo*)staticActorInfo;
+        return (nint)info->BattleBehavior;
+    }
+    
+    /// <summary>
+    /// Creates a TargetStruct from a StaticActorInfo by extracting its position.
+    /// Returns null if the actor is invalid or position cannot be retrieved.
+    /// </summary>
+    public GameStructs.TargetStruct? CreateTargetFromActor(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || _getPositionFunc == null)
+            return null;
+        
+        GameStructs.NodePositionPair position;
+        var result = _getPositionFunc(staticActorInfo, &position);
+        if (result == null)
+            return null;
+        
+        var target = GameStructs.TargetStruct.FromPosition(position.Position);
+        target.Node = position.ParentNode;  // Preserve parent node if any
+        return target;
+    }
+    
+    /// <summary>
+    /// Creates a TargetStruct from a world position.
+    /// </summary>
+    public GameStructs.TargetStruct CreateTargetFromPosition(Vector3 position)
+    {
+        return GameStructs.TargetStruct.FromPosition(position);
+    }
+    
+    /// <summary>
+    /// Creates a TargetStruct from a position and direction.
+    /// </summary>
+    public GameStructs.TargetStruct CreateTargetFromPositionAndDirection(Vector3 position, Vector3 direction)
+    {
+        return GameStructs.TargetStruct.FromPositionAndDirection(position, direction);
+    }
 
     /// <summary>
     /// Detects if an entity is currently airborne (not on the ground).

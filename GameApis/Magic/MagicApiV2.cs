@@ -49,6 +49,32 @@ public class MagicApiV2 : IMagicApi, IDisposable
         _engine.GetActiveEikon = getActiveEikon;
     }
     
+    /// <summary>
+    /// Sets the callback for getting the locked target from the camera system.
+    /// </summary>
+    internal void SetLockedTargetCallback(Func<nint>? getLockedTarget)
+    {
+        _engine.GetLockedTargetCallback = getLockedTarget;
+    }
+    
+    /// <summary>
+    /// Sets the FunctionApi for actor lookups.
+    /// This enables casting spells without cached context.
+    /// </summary>
+    internal void SetFunctionApi(FunctionApi functionApi)
+    {
+        _engine.SetFunctionApi(functionApi);
+    }
+    
+    /// <summary>
+    /// Sets the EntityApi for consolidated entity/player management.
+    /// EntityApi takes precedence over FunctionApi when both are available.
+    /// </summary>
+    internal void SetEntityApi(EntityApi entityApi)
+    {
+        _engine.SetEntityApi(entityApi);
+    }
+    
     // ========================================
     // IMagicApi Implementation
     // ========================================
