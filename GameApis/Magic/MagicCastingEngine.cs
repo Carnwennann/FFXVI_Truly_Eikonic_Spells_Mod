@@ -63,8 +63,13 @@ internal unsafe class MagicCastingEngine : IDisposable
     // CACHED CONTEXT
     // ============================================================
     
-    private IntPtr _magicStructBuffer = IntPtr.Zero;
-    private IntPtr _targetStructBuffer = IntPtr.Zero;  // Renamed from _positionStructBuffer
+    // Instead of reusing a single buffer (which caused crashes when the game
+    // held references to our buffer), we now allocate fresh buffers per cast.
+    // We keep a pool to avoid excessive allocations but let old ones "age out".
+    private readonly List<IntPtr> _allocatedMagicBuffers = new();
+    private readonly List<IntPtr> _allocatedTargetBuffers = new();
+    private const int MAX_BUFFER_POOL_SIZE = 32;  // Keep at most 32 buffers alive
+    
     private long _cachedCasterActorRef = 0;
     private long _cachedTargetActorRef = 0;
     private long _cachedPositionStruct = 0;
@@ -138,18 +143,8 @@ internal unsafe class MagicCastingEngine : IDisposable
         
         // Create processor component
         _processor = new MagicProcessor(logger, modId, configuration, scanner);
-
-        // Allocate buffers
-        _magicStructBuffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
-        _targetStructBuffer = Marshal.AllocHGlobal(TARGET_STRUCT_SIZE);
         
-        // Zero-initialize
-        for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) 
-            *((byte*)_magicStructBuffer + i) = 0;
-        for (int i = 0; i < TARGET_STRUCT_SIZE; i++) 
-            *((byte*)_targetStructBuffer + i) = 0;
-        
-        _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Initialized", _logger.ColorGreen);
+        _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Initialized (using per-cast buffer allocation)", _logger.ColorGreen);
     }
     
     /// <summary>
@@ -245,10 +240,11 @@ internal unsafe class MagicCastingEngine : IDisposable
             return false;
         }
         
-        // IMPORTANT: Zero-initialize the magic buffer before each use
-        // This prevents crashes from stale data left by previous casts
-        for (int i = 0; i < MAGIC_STRUCT_SIZE; i++) 
-            *((byte*)_magicStructBuffer + i) = 0;
+        // CRITICAL: Allocate fresh buffers for each cast.
+        // The game may hold references to our buffers after SetupMagic/InsertNewMagic return.
+        // Reusing the same buffer caused crashes when the game accessed stale data later.
+        IntPtr magicBuffer = AllocateMagicBuffer();
+        IntPtr targetBuffer = AllocateTargetBuffer();
         
         // Enqueue modifications if any
         if (request.Modifications.Count > 0)
@@ -331,10 +327,7 @@ internal unsafe class MagicCastingEngine : IDisposable
         // Priority: Explicit Position > Explicit Actor > Locked Target > Source Actor > Cached
         // ========================================================
         
-        // IMPORTANT: Zero-initialize the target buffer before each use
-        // This prevents crashes from stale data left by previous casts
-        for (int i = 0; i < TARGET_STRUCT_SIZE; i++) 
-            *((byte*)_targetStructBuffer + i) = 0;
+        // Note: targetBuffer is already zero-initialized by AllocateTargetBuffer()
         
         long targetStructPtr = 0;
         string targetResolution = "Unknown";
@@ -347,8 +340,8 @@ internal unsafe class MagicCastingEngine : IDisposable
                 : TargetStruct.FromPosition(request.TargetPosition.Value);
             
             // Copy to our buffer
-            *(TargetStruct*)_targetStructBuffer = targetStruct;
-            targetStructPtr = (long)_targetStructBuffer;
+            *(TargetStruct*)targetBuffer = targetStruct;
+            targetStructPtr = (long)targetBuffer;
             targetResolution = $"Explicit Position ({request.TargetPosition.Value.X:F2}, {request.TargetPosition.Value.Y:F2}, {request.TargetPosition.Value.Z:F2})";
         }
         else if (request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
@@ -369,8 +362,8 @@ internal unsafe class MagicCastingEngine : IDisposable
                 
             if (targetResult.HasValue)
             {
-                *(TargetStruct*)_targetStructBuffer = targetResult.Value;
-                targetStructPtr = (long)_targetStructBuffer;
+                *(TargetStruct*)targetBuffer = targetResult.Value;
+                targetStructPtr = (long)targetBuffer;
                 targetResolution = $"Explicit Actor via {apiUsed} (StaticActorInfo: 0x{request.TargetActor.Value:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
             }
         }
@@ -395,8 +388,8 @@ internal unsafe class MagicCastingEngine : IDisposable
                     
                 if (targetResult.HasValue)
                 {
-                    *(TargetStruct*)_targetStructBuffer = targetResult.Value;
-                    targetStructPtr = (long)_targetStructBuffer;
+                    *(TargetStruct*)targetBuffer = targetResult.Value;
+                    targetStructPtr = (long)targetBuffer;
                     targetResolution = $"Locked Target via {apiUsed} (StaticActorInfo: 0x{lockedTarget:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
                 }
             }
@@ -452,8 +445,8 @@ internal unsafe class MagicCastingEngine : IDisposable
                     
                 if (targetResult.HasValue)
                 {
-                    *(TargetStruct*)_targetStructBuffer = targetResult.Value;
-                    targetStructPtr = (long)_targetStructBuffer;
+                    *(TargetStruct*)targetBuffer = targetResult.Value;
+                    targetStructPtr = (long)targetBuffer;
                     targetResolution = $"Source Actor Position ({sourceType}) via {apiUsed} (0x{sourceForPosition:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
                 }
             }
@@ -498,12 +491,12 @@ internal unsafe class MagicCastingEngine : IDisposable
         try
         {
             // Inject cached VTable into our TargetStruct buffer if we created it ourselves
-            // (targetStructPtr == _targetStructBuffer means we own it)
-            if (targetStructPtr == (long)_targetStructBuffer)
+            // (targetStructPtr == targetBuffer means we own it)
+            if (targetStructPtr == (long)targetBuffer)
             {
                 if (_cachedTargetVTable != 0)
                 {
-                    var targetStruct = (TargetStruct*)_targetStructBuffer;
+                    var targetStruct = (TargetStruct*)targetBuffer;
                     targetStruct->VTable = _cachedTargetVTable;
                     _logger.WriteLine($"[{_modId}] [CastSpell] Injected VTable 0x{_cachedTargetVTable:X} into TargetStruct", _logger.ColorYellow);
                 }
@@ -520,7 +513,7 @@ internal unsafe class MagicCastingEngine : IDisposable
             
             // Setup the magic struct
             _setupMagicHook!.OriginalFunction(
-                (long)_magicStructBuffer, 
+                (long)magicBuffer, 
                 request.MagicId, 
                 casterActorRef, 
                 targetStructPtr, 
@@ -540,7 +533,7 @@ internal unsafe class MagicCastingEngine : IDisposable
             if (executorClient != 0)
             {
                 _logger.WriteLine($"[{_modId}] [CastSpell] Calling InsertNewMagic with executor 0x{executorClient:X}", _logger.ColorYellow);
-                _castMagicWrapper!((long)executorClient, (long)_magicStructBuffer);
+                _castMagicWrapper!((long)executorClient, (long)magicBuffer);
                 _logger.WriteLine($"[{_modId}] [CastSpell] InsertNewMagic completed successfully", _logger.ColorGreen);
                 return true;
             }
@@ -649,20 +642,6 @@ internal unsafe class MagicCastingEngine : IDisposable
     // HELPERS
     // ============================================================
     
-    private void SetupPositionStruct(Vector3 position)
-    {
-        // Position struct layout (simplified):
-        // +0x00: X (float)
-        // +0x04: Y (float)
-        // +0x08: Z (float)
-        // ... additional data
-        
-        float* posPtr = (float*)_targetStructBuffer;
-        posPtr[0] = position.X;
-        posPtr[1] = position.Y;
-        posPtr[2] = position.Z;
-    }
-    
     private List<MagicModEntry> ConvertToMagicModEntries(List<MagicModification> modifications)
     {
         var entries = new List<MagicModEntry>();
@@ -744,6 +723,86 @@ internal unsafe class MagicCastingEngine : IDisposable
     }
     
     // ============================================================
+    // BUFFER POOL MANAGEMENT
+    // ============================================================
+    
+    /// <summary>
+    /// Allocates a fresh magic struct buffer for a single cast.
+    /// The game may hold references to these buffers, so we can't reuse them immediately.
+    /// Old buffers are cleaned up when the pool exceeds MAX_BUFFER_POOL_SIZE.
+    /// </summary>
+    private IntPtr AllocateMagicBuffer()
+    {
+        // Clean up old buffers if pool is too large
+        CleanupBufferPoolIfNeeded();
+        
+        // Allocate fresh buffer
+        IntPtr buffer = Marshal.AllocHGlobal(MAGIC_STRUCT_SIZE);
+        
+        // Zero-initialize
+        for (int i = 0; i < MAGIC_STRUCT_SIZE; i++)
+            *((byte*)buffer + i) = 0;
+        
+        // Track for later cleanup
+        _allocatedMagicBuffers.Add(buffer);
+        
+        return buffer;
+    }
+    
+    /// <summary>
+    /// Allocates a fresh target struct buffer for a single cast.
+    /// </summary>
+    private IntPtr AllocateTargetBuffer()
+    {
+        // Clean up old buffers if pool is too large
+        CleanupBufferPoolIfNeeded();
+        
+        // Allocate fresh buffer
+        IntPtr buffer = Marshal.AllocHGlobal(TARGET_STRUCT_SIZE);
+        
+        // Zero-initialize
+        for (int i = 0; i < TARGET_STRUCT_SIZE; i++)
+            *((byte*)buffer + i) = 0;
+        
+        // Track for later cleanup
+        _allocatedTargetBuffers.Add(buffer);
+        
+        return buffer;
+    }
+    
+    /// <summary>
+    /// Cleans up old buffers when pool exceeds the max size.
+    /// We keep the most recent buffers as the game may still be using them.
+    /// Only free the oldest buffers that are likely no longer in use.
+    /// </summary>
+    private void CleanupBufferPoolIfNeeded()
+    {
+        // Only cleanup if we exceed the max pool size
+        if (_allocatedMagicBuffers.Count > MAX_BUFFER_POOL_SIZE)
+        {
+            // Free the oldest half of the buffers
+            int toFree = _allocatedMagicBuffers.Count / 2;
+            for (int i = 0; i < toFree; i++)
+            {
+                Marshal.FreeHGlobal(_allocatedMagicBuffers[i]);
+            }
+            _allocatedMagicBuffers.RemoveRange(0, toFree);
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cleaned up {toFree} old magic buffers", _logger.ColorYellow);
+        }
+        
+        if (_allocatedTargetBuffers.Count > MAX_BUFFER_POOL_SIZE)
+        {
+            int toFree = _allocatedTargetBuffers.Count / 2;
+            for (int i = 0; i < toFree; i++)
+            {
+                Marshal.FreeHGlobal(_allocatedTargetBuffers[i]);
+            }
+            _allocatedTargetBuffers.RemoveRange(0, toFree);
+            _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Cleaned up {toFree} old target buffers", _logger.ColorYellow);
+        }
+    }
+    
+    // ============================================================
     // STATE MANAGEMENT
     // ============================================================
     
@@ -768,15 +827,21 @@ internal unsafe class MagicCastingEngine : IDisposable
     
     public void Dispose()
     {
-        if (_magicStructBuffer != IntPtr.Zero) 
+        // Free all allocated buffers
+        foreach (var buffer in _allocatedMagicBuffers)
         {
-            Marshal.FreeHGlobal(_magicStructBuffer);
-            _magicStructBuffer = IntPtr.Zero;
+            if (buffer != IntPtr.Zero)
+                Marshal.FreeHGlobal(buffer);
         }
-        if (_targetStructBuffer != IntPtr.Zero)
+        _allocatedMagicBuffers.Clear();
+        
+        foreach (var buffer in _allocatedTargetBuffers)
         {
-            Marshal.FreeHGlobal(_targetStructBuffer);
-            _targetStructBuffer = IntPtr.Zero;
+            if (buffer != IntPtr.Zero)
+                Marshal.FreeHGlobal(buffer);
         }
+        _allocatedTargetBuffers.Clear();
+        
+        _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Disposed - freed all buffers", _logger.ColorYellow);
     }
 }
