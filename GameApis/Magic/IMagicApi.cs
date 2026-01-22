@@ -45,6 +45,16 @@ public interface IMagicApi
     bool Cast(int magicId, nint? sourceActor = null, nint? targetActor = null);
     
     /// <summary>
+    /// Casts a magic spell using the GAME'S OWN TargetStruct for the locked enemy.
+    /// This is the correct way to get body-targeting (Y=1.23 vs Y=0.26).
+    /// The game's targeting system already calculates the proper body position.
+    /// </summary>
+    /// <param name="magicId">The ID of the magic spell to cast.</param>
+    /// <param name="sourceActor">The actor casting the spell. If null, defaults to player.</param>
+    /// <returns>True if the spell was cast successfully.</returns>
+    bool CastWithGameTarget(int magicId, nint? sourceActor = null);
+    
+    /// <summary>
     /// Gets the currently soft-locked or hard-locked target actor from the camera system.
     /// Returns nint.Zero if no target is locked.
     /// </summary>

@@ -30,6 +30,9 @@ public unsafe class EntityApi
     public delegate Vector3* StaticActorInfo_GetRotationDelegate(nint pStaticEntityInfo, Vector3* outPair);
     public delegate Vector3* StaticActorInfo_GetForwardVectorDelegate(nint pStaticEntityInfo, Vector3* outPair);
     
+    // World position delegate (converts Node-relative position to world coordinates)
+    public delegate nint NodePositionPair_ComputeWorldPositionDelegate(NodePositionPair* @this, Vector3* outVec);
+    
     // Targeting delegates (from UnkList35Hooks)
     public delegate nint UnkSingletonPlayer_GetList35EntryDelegate(nint @this);
     public delegate TargetStruct* UnkList35Entry_GetCurrentTargettedEnemyDelegate(nint @this, byte forceUnk);
@@ -54,6 +57,7 @@ public unsafe class EntityApi
     private StaticActorInfo_GetForwardVectorDelegate? _getForwardVectorFunc;
     private UnkSingletonPlayer_GetList35EntryDelegate? _getList35EntryFunc;
     private UnkList35Entry_GetCurrentTargettedEnemyDelegate? _getCurrentTargetFunc;
+    private NodePositionPair_ComputeWorldPositionDelegate? _computeWorldPositionFunc;
     
     // ============================================================
     // SINGLETONS (captured at runtime)
@@ -268,6 +272,19 @@ public unsafe class EntityApi
             var addr = GetAddressFromResult(result.Offset);
             _getCurrentTargetFunc = hooks.CreateWrapper<UnkList35Entry_GetCurrentTargettedEnemyDelegate>(addr, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] [EntityApi] Found UnkList35Entry_GetCurrentTargettedEnemy at 0x{addr:X}", _logger.ColorGreen);
+        });
+        
+        // NodePositionPair_ComputeWorldPosition - converts Node-relative position to world coordinates
+        scans.AddMainModuleScan("48 8B C4 48 89 58 ?? 48 89 78 ?? 55 48 8D 68 ?? 48 81 EC ?? ?? ?? ?? C5 F8 29 70 ?? C5 F8 29 78 ?? C5 78 29 40 ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 ?? 48 8B F9 48 8B DA 48 8B 49", result =>
+        {
+            if (!result.Found)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [EntityApi] FAILED to find NodePositionPair_ComputeWorldPosition", _logger.ColorRed);
+                return;
+            }
+            var addr = GetAddressFromResult(result.Offset);
+            _computeWorldPositionFunc = hooks.CreateWrapper<NodePositionPair_ComputeWorldPositionDelegate>(addr, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [EntityApi] Found NodePositionPair_ComputeWorldPosition at 0x{addr:X}", _logger.ColorGreen);
         });
     }
     
@@ -486,6 +503,57 @@ public unsafe class EntityApi
         return new Vector3(target->X, target->Y, target->Z);
     }
     
+    /// <summary>
+    /// Copies the game's own TargetStruct for the currently locked enemy.
+    /// This is the correct way to get body-targeting position (Y=1.23 instead of Y=0.26).
+    /// The game's targeting system already calculates the correct position.
+    /// </summary>
+    /// <returns>A copy of the game's TargetStruct, or null if no target locked.</returns>
+    public TargetStruct? CopyGameTargetStruct()
+    {
+        var gameTarget = GetTargetedEnemy();
+        if (gameTarget == null)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [EntityApi] CopyGameTargetStruct: No target locked", _logger.ColorYellow);
+            return null;
+        }
+        
+        // Copy all fields from the game's TargetStruct
+        // Force Type = 1 so the spell tracks/follows the enemy
+        var copy = new TargetStruct
+        {
+            VTable = gameTarget->VTable,
+            Field_8 = gameTarget->Field_8,
+            Field_10 = gameTarget->Field_10,
+            Field_18 = gameTarget->Field_18,
+            GlobalOffset = gameTarget->GlobalOffset,
+            Node = gameTarget->Node,
+            X = gameTarget->X,
+            Y = gameTarget->Y,
+            Z = gameTarget->Z,
+            Dword1C = gameTarget->Dword1C,
+            DirectionX = gameTarget->DirectionX,
+            DirectionY = gameTarget->DirectionY,
+            DirectionZ = gameTarget->DirectionZ,
+            Padding4C = gameTarget->Padding4C,
+            Type = 1,  // Force actor-tracking mode (spell follows enemy)
+            Field_54 = gameTarget->Field_54,
+            Field_58 = gameTarget->Field_58,
+            Field_5C = gameTarget->Field_5C,
+            Field_60 = gameTarget->Field_60,
+            Field_64 = gameTarget->Field_64,
+            Field_68 = gameTarget->Field_68,
+            ActorId = gameTarget->ActorId,
+            Field_70 = gameTarget->Field_70,
+            Field_74 = gameTarget->Field_74,
+            Field_78 = gameTarget->Field_78
+        };
+        
+        _logger.WriteLine($"[{_modConfig.ModId}] [EntityApi] CopyGameTargetStruct: ActorId={copy.ActorId:X}, Type={copy.Type} (forced=1), GameType={gameTarget->Type}, Pos=({copy.X:F2}, {copy.Y:F2}, {copy.Z:F2})", _logger.ColorGreen);
+        
+        return copy;
+    }
+    
     // ============================================================
     // ENTITY LOOKUP API
     // ============================================================
@@ -569,6 +637,40 @@ public unsafe class EntityApi
             return null;
         
         return _getForwardVectorFunc(staticActorInfo, outForward);
+    }
+    
+    /// <summary>
+    /// Computes world position from a NodePositionPair.
+    /// This transforms the position from node-relative coordinates to world space,
+    /// which includes the vertical offset from the parent node's transform.
+    /// </summary>
+    public Vector3? ComputeWorldPosition(NodePositionPair* positionPair)
+    {
+        if (_computeWorldPositionFunc == null || positionPair == null)
+            return null;
+        
+        Vector3 worldPos;
+        _computeWorldPositionFunc(positionPair, &worldPos);
+        return worldPos;
+    }
+    
+    /// <summary>
+    /// Gets the world position of an actor (includes Node transform offset).
+    /// This is the correct position to target for spells - it's the body center, not the feet.
+    /// </summary>
+    public Vector3? GetActorWorldPosition(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || _getPositionFunc == null || _computeWorldPositionFunc == null)
+            return null;
+        
+        NodePositionPair position;
+        var result = _getPositionFunc(staticActorInfo, &position);
+        if (result == null)
+            return null;
+        
+        Vector3 worldPos;
+        _computeWorldPositionFunc(&position, &worldPos);
+        return worldPos;
     }
     
     // ============================================================
@@ -655,6 +757,7 @@ public unsafe class EntityApi
     
     /// <summary>
     /// Creates a TargetStruct from a StaticActorInfo's position.
+    /// Uses position-only targeting (Type = 0).
     /// </summary>
     public TargetStruct? CreateTargetFromActor(nint staticActorInfo)
     {
@@ -668,6 +771,35 @@ public unsafe class EntityApi
         
         var target = TargetStruct.FromPosition(position.Position);
         target.Node = position.ParentNode;
+        return target;
+    }
+    
+    /// <summary>
+    /// Creates a TargetStruct from a StaticActorInfo that tracks the actor.
+    /// Uses actor-based targeting (Type = 1) with ActorId set.
+    /// The spell will follow/track this actor.
+    /// </summary>
+    public TargetStruct? CreateTargetFromActorWithTracking(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || _getPositionFunc == null)
+            return null;
+        
+        // Get position
+        NodePositionPair position;
+        var result = _getPositionFunc(staticActorInfo, &position);
+        if (result == null)
+            return null;
+        
+        // Get ActorId from StaticActorInfo
+        var actorInfo = (StaticActorInfo*)staticActorInfo;
+        int actorId = (int)actorInfo->ActorId;
+        
+        // Create with actor tracking
+        var target = TargetStruct.FromActorId(actorId, position.Position);
+        target.Node = position.ParentNode;
+        
+        _logger.WriteLine($"[EntityApi] CreateTargetFromActorWithTracking: ActorId={actorId}, Type={target.Type}, Pos=({position.Position.X:F2}, {position.Position.Y:F2}, {position.Position.Z:F2})", _logger.ColorYellow);
+        
         return target;
     }
     

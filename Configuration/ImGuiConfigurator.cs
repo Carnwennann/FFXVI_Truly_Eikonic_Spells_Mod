@@ -379,46 +379,44 @@ public class ImGuiConfigurator : IImGuiComponent
         _imgui.Separator();
         _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Cast Methods:");
 
-        // Simple cast button (from player, no target)
-        if (_imgui.Button("Cast (Player)"))
+        // Cast targeting locked enemy (uses game's targeting for correct body position)
+        if (_imgui.Button("Cast (Player -> Enemy)"))
         {
             if (_magicApi.IsReady)
             {
                 for (int i = 0; i < _config.TestMagicCount; i++)
                 {
-                    _magicApi.Cast(_config.TestMagicID);
+                    nint playerActor = _magicApi.GetPlayerActor();
+                    _magicApi.CastWithGameTarget(_config.TestMagicID, sourceActor: playerActor);
                 }
             }
         }
         if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
         {
-            _imgui.SetTooltip("Casts the spell from player (Clive), no target.");
+            _imgui.SetTooltip("Casts from player TO locked enemy (uses game's targeting for body position).");
         }
         _imgui.SameLine();
 
-        // Cast from enemy (soft-locked target as source)
-        if (_imgui.Button("Cast (From Enemy)"))
+        // Cast from player, no target (spell goes forward)
+        if (_imgui.Button("Cast (Player -> No Target)"))
         {
             if (_magicApi.IsReady)
             {
-                nint enemyActor = _magicApi.GetLockedTarget();
-                if (enemyActor != nint.Zero)
+                for (int i = 0; i < _config.TestMagicCount; i++)
                 {
-                    for (int i = 0; i < _config.TestMagicCount; i++)
-                    {
-                        _magicApi.Cast(_config.TestMagicID, sourceActor: enemyActor, targetActor: null);
-                    }
+                    nint playerActor = _magicApi.GetPlayerActor();
+                    _magicApi.Cast(_config.TestMagicID, sourceActor: playerActor, targetActor: nint.Zero);
                 }
             }
         }
         if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
         {
-            _imgui.SetTooltip("Casts the spell FROM the soft-locked enemy (enemy as source, no target).");
+            _imgui.SetTooltip("Casts from player with NO target (spell goes straight ahead).");
         }
         _imgui.SameLine();
 
         // Cast from enemy targeting player
-        if (_imgui.Button("Cast (Enemy → Player)"))
+        if (_imgui.Button("Cast (Enemy -> Player)"))
         {
             if (_magicApi.IsReady)
             {
@@ -436,6 +434,27 @@ public class ImGuiConfigurator : IImGuiComponent
         if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
         {
             _imgui.SetTooltip("Casts the spell FROM enemy TO player (reversed targeting).");
+        }
+        _imgui.SameLine();
+
+        // Cast from enemy (soft-locked target as source)
+        if (_imgui.Button("Cast (Enemy -> No Target)"))
+        {
+            if (_magicApi.IsReady)
+            {
+                nint enemyActor = _magicApi.GetLockedTarget();
+                if (enemyActor != nint.Zero)
+                {
+                    for (int i = 0; i < _config.TestMagicCount; i++)
+                    {
+                        _magicApi.Cast(_config.TestMagicID, sourceActor: enemyActor, targetActor: null);
+                    }
+                }
+            }
+        }
+        if (_imgui.IsItemHovered(ImGuiHoveredFlags.ImGuiHoveredFlags_None))
+        {
+            _imgui.SetTooltip("Casts FROM the soft-locked enemy (enemy as source, no explicit target).");
         }
 
         _imgui.Separator();

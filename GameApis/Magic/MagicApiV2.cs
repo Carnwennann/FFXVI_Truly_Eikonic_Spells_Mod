@@ -95,6 +95,19 @@ public class MagicApiV2 : IMagicApi, IDisposable
     }
     
     /// <inheritdoc/>
+    public bool CastWithGameTarget(int magicId, nint? sourceActor = null)
+    {
+        var request = new MagicCastRequest
+        {
+            MagicId = magicId,
+            SourceActor = sourceActor,
+            // Don't set TargetActor - UseGameTarget will copy from game's targeting system
+            UseGameTarget = true
+        };
+        return _engine.CastSpell(request);
+    }
+    
+    /// <inheritdoc/>
     public nint GetLockedTarget()
     {
         return _engine.GetLockedTarget();

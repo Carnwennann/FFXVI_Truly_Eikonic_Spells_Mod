@@ -597,5 +597,12 @@ internal record MagicCastRequest
     /// </summary>
     public Vector3? TargetDirection { get; init; }
     
+    /// <summary>
+    /// If true, copies the game's own TargetStruct directly from GetTargetedEnemy().
+    /// This is the correct way to get body-targeting (Y=1.23 vs Y=0.26 from StaticActorInfo).
+    /// Takes priority over all other targeting options.
+    /// </summary>
+    public bool UseGameTarget { get; init; } = false;
+    
     public List<MagicModification> Modifications { get; init; } = new();
 }

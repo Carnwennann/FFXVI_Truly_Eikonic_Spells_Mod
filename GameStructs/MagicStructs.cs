@@ -255,11 +255,14 @@ public unsafe struct TargetStruct
     /// <summary>
     /// Creates a TargetStruct from an actor ID and position.
     /// </summary>
-    public static TargetStruct FromActorId(int actorId, System.Numerics.Vector3 position)
+    /// <param name="actorId">The target actor's ID.</param>
+    /// <param name="position">The target position.</param>
+    /// <param name="targetType">The targeting mode (0=Position, 1=Actor, 2+=Unknown/Testing).</param>
+    public static TargetStruct FromActorId(int actorId, System.Numerics.Vector3 position, int targetType = 1)
     {
         return new TargetStruct
         {
-            Type = 1,  // Actor-based targeting
+            Type = targetType,
             Node = 0,
             X = position.X,
             Y = position.Y,

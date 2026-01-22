@@ -225,6 +225,11 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// </summary>
     public nint GetPlayerActor()
     {
+        // Priority: EntityApi > Callback
+        if (_entityApi != null)
+        {
+            return _entityApi.GetPlayerStaticActorInfo();
+        }
         return GetPlayerStaticActorInfo?.Invoke() ?? nint.Zero;
     }
     
@@ -324,7 +329,7 @@ internal unsafe class MagicCastingEngine : IDisposable
         
         // ========================================================
         // RESOLVE TARGET POSITION STRUCT
-        // Priority: Explicit Position > Explicit Actor > Locked Target > Source Actor > Cached
+        // Priority: UseGameTarget > Explicit Position > Explicit Actor > Locked Target > Source Actor > Cached
         // ========================================================
         
         // Note: targetBuffer is already zero-initialized by AllocateTargetBuffer()
@@ -332,7 +337,24 @@ internal unsafe class MagicCastingEngine : IDisposable
         long targetStructPtr = 0;
         string targetResolution = "Unknown";
         
-        if (request.TargetPosition.HasValue)
+        // HIGHEST PRIORITY: UseGameTarget - copy the game's own TargetStruct directly
+        if (request.UseGameTarget && _entityApi != null)
+        {
+            var gameTarget = _entityApi.CopyGameTargetStruct();
+            if (gameTarget.HasValue)
+            {
+                *(TargetStruct*)targetBuffer = gameTarget.Value;
+                targetStructPtr = (long)targetBuffer;
+                targetResolution = $"Game Target (ActorId: {gameTarget.Value.ActorId:X}, Type: {gameTarget.Value.Type}, Pos: {gameTarget.Value.X:F2}, {gameTarget.Value.Y:F2}, {gameTarget.Value.Z:F2})";
+                _logger.WriteLine($"[{_modId}] [CastSpell] Using GAME TARGET with body position!", _logger.ColorGreen);
+            }
+            else
+            {
+                _logger.WriteLine($"[{_modId}] [CastSpell] UseGameTarget requested but no target locked in game", _logger.ColorYellow);
+            }
+        }
+        
+        if (targetStructPtr == 0 && request.TargetPosition.HasValue)
         {
             // Create TargetStruct from explicit position
             var targetStruct = request.TargetDirection.HasValue
@@ -344,30 +366,31 @@ internal unsafe class MagicCastingEngine : IDisposable
             targetStructPtr = (long)targetBuffer;
             targetResolution = $"Explicit Position ({request.TargetPosition.Value.X:F2}, {request.TargetPosition.Value.Y:F2}, {request.TargetPosition.Value.Z:F2})";
         }
-        else if (request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
+        else if (targetStructPtr == 0 && request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
         {
-            // Create TargetStruct from explicit target actor's position
+            // Create TargetStruct from explicit target actor with tracking
             TargetStruct? targetResult = null;
             string apiUsed = "None";
+            
             if (_entityApi != null)
             {
-                targetResult = _entityApi.CreateTargetFromActor(request.TargetActor.Value);
-                apiUsed = "EntityApi";
+                targetResult = _entityApi.CreateTargetFromActorWithTracking(request.TargetActor.Value);
+                apiUsed = "EntityApi (Tracking)";
             }
             else if (_functionApi != null)
             {
                 targetResult = _functionApi.CreateTargetFromActor(request.TargetActor.Value);
-                apiUsed = "FunctionApi";
+                apiUsed = "FunctionApi (Position Only)";
             }
                 
             if (targetResult.HasValue)
             {
                 *(TargetStruct*)targetBuffer = targetResult.Value;
                 targetStructPtr = (long)targetBuffer;
-                targetResolution = $"Explicit Actor via {apiUsed} (StaticActorInfo: 0x{request.TargetActor.Value:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                targetResolution = $"Explicit Actor via {apiUsed} (StaticActorInfo: 0x{request.TargetActor.Value:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
             }
         }
-        else if (!request.TargetActor.HasValue)
+        else if (targetStructPtr == 0 && !request.TargetActor.HasValue)
         {
             // TargetActor is null (not specified) - try to get locked target from camera
             var lockedTarget = GetLockedTarget();
@@ -375,22 +398,23 @@ internal unsafe class MagicCastingEngine : IDisposable
             {
                 TargetStruct? targetResult = null;
                 string apiUsed = "None";
+                
                 if (_entityApi != null)
                 {
-                    targetResult = _entityApi.CreateTargetFromActor(lockedTarget);
-                    apiUsed = "EntityApi";
+                    targetResult = _entityApi.CreateTargetFromActorWithTracking(lockedTarget);
+                    apiUsed = "EntityApi (Tracking)";
                 }
                 else if (_functionApi != null)
                 {
                     targetResult = _functionApi.CreateTargetFromActor(lockedTarget);
-                    apiUsed = "FunctionApi";
+                    apiUsed = "FunctionApi (Position Only)";
                 }
                     
                 if (targetResult.HasValue)
                 {
                     *(TargetStruct*)targetBuffer = targetResult.Value;
                     targetStructPtr = (long)targetBuffer;
-                    targetResolution = $"Locked Target via {apiUsed} (StaticActorInfo: 0x{lockedTarget:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                    targetResolution = $"Locked Target via {apiUsed} (StaticActorInfo: 0x{lockedTarget:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
                 }
             }
             else
