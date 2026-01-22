@@ -1,6 +1,7 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;
@@ -97,7 +98,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
     private FunctionApi _functionApi;
-    private EntityApi _entityApi;
+    private ActorApi _actorApi;
     private MagicApiV2 _magicApiV2;
     private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
@@ -154,12 +155,12 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private void SetupGameApis()
     {
-        // Initialize FunctionApi (legacy, gradually being replaced by EntityApi)
+        // Initialize FunctionApi (legacy, gradually being replaced by ActorApi)
         _functionApi = new FunctionApi(_logger, _modConfig);
 
-        // Initialize EntityApi (consolidated entity/player management)
-        _entityApi = new EntityApi(_logger, _modConfig);
-        _entityApi.SetupScans(_startupScanner, _hooks);
+        // Initialize ActorApi (consolidated actor/player management)
+        _actorApi = new ActorApi(_logger, _modConfig);
+        _actorApi.SetupScans(_startupScanner, _hooks);
 
         // Initialize MagicApiV2 (unified Magic API)
         _magicApiV2 = new MagicApiV2(_logger, _modConfig.ModId, _configuration, _startupScanner);
@@ -173,8 +174,8 @@ public class TrulyEikonicSpellsMod : ModBase
         // Pass FunctionApi for explicit source/target support
         _magicApiV2.SetFunctionApi(_functionApi);
         
-        // Pass EntityApi for consolidated entity management (takes precedence)
-        _magicApiV2.SetEntityApi(_entityApi);
+        // Pass ActorApi for consolidated actor management (takes precedence)
+        _magicApiV2.SetActorApi(_actorApi);
         
         // Set locked target callback (TODO: implement camera lock target retrieval)
         // For now returns nint.Zero, which causes the system to use player position as target
@@ -660,15 +661,15 @@ public class TrulyEikonicSpellsMod : ModBase
     
     /// <summary>
     /// Gets the currently locked target actor (from camera system).
-    /// Uses EntityApi.GetLockedTargetStaticActorInfo() to get the camera's locked target.
+    /// Uses ActorApi.GetLockedTargetStaticActorInfo() to get the camera's locked target.
     /// Falls back to DiaraSystem's last attacked enemy if targeting is unavailable.
     /// </summary>
     private nint GetLockedTargetActor()
     {
-        // Try EntityApi first (proper camera lock implementation)
-        if (_entityApi != null && _entityApi.HasTargetingFunctions)
+        // Try ActorApi first (proper camera lock implementation)
+        if (_actorApi != null && _actorApi.HasTargetingFunctions)
         {
-            nint lockedTarget = _entityApi.GetLockedTargetStaticActorInfo();
+            nint lockedTarget = _actorApi.GetLockedTargetStaticActorInfo();
             if (lockedTarget != nint.Zero)
             {
                 return lockedTarget;

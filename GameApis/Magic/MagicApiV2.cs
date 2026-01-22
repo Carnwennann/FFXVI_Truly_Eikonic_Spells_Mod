@@ -3,6 +3,7 @@ using Reloaded.Hooks.Definitions;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
@@ -67,12 +68,12 @@ public class MagicApiV2 : IMagicApi, IDisposable
     }
     
     /// <summary>
-    /// Sets the EntityApi for consolidated entity/player management.
-    /// EntityApi takes precedence over FunctionApi when both are available.
+    /// Sets the ActorApi for consolidated actor/player management.
+    /// ActorApi takes precedence over FunctionApi when both are available.
     /// </summary>
-    internal void SetEntityApi(EntityApi entityApi)
+    internal void SetActorApi(IActorApi actorApi)
     {
-        _engine.SetEntityApi(entityApi);
+        _engine.SetActorApi(actorApi);
     }
     
     // ========================================

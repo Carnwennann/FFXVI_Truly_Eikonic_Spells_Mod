@@ -5,6 +5,7 @@ using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 
@@ -89,11 +90,11 @@ internal unsafe class MagicCastingEngine : IDisposable
     private readonly MagicProcessor _processor;
     private readonly long _baseAddress;
     
-    // Function API reference for actor lookups (legacy, being replaced by EntityApi)
+    // Function API reference for actor lookups (legacy)
     private FunctionApi? _functionApi;
     
-    // Entity API reference for consolidated actor/player management
-    private EntityApi? _entityApi;
+    // Actor API reference for consolidated actor/player management
+    private IActorApi? _actorApi;
     
     // External callbacks for getting player info
     public Func<nint>? GetPlayerStaticActorInfo { get; set; }
@@ -156,12 +157,12 @@ internal unsafe class MagicCastingEngine : IDisposable
     }
     
     /// <summary>
-    /// Sets the EntityApi reference for consolidated entity/player management.
-    /// EntityApi takes precedence over FunctionApi when both are available.
+    /// Sets the ActorApi reference for consolidated actor/player management.
+    /// ActorApi takes precedence over FunctionApi when both are available.
     /// </summary>
-    public void SetEntityApi(EntityApi entityApi)
+    public void SetActorApi(IActorApi actorApi)
     {
-        _entityApi = entityApi;
+        _actorApi = actorApi;
     }
     
     // ============================================================
@@ -225,10 +226,10 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// </summary>
     public nint GetPlayerActor()
     {
-        // Priority: EntityApi > Callback
-        if (_entityApi != null)
+        // Priority: ActorApi > Callback
+        if (_actorApi != null)
         {
-            return _entityApi.GetPlayerStaticActorInfo();
+            return _actorApi.GetPlayerStaticActorInfo();
         }
         return GetPlayerStaticActorInfo?.Invoke() ?? nint.Zero;
     }
@@ -269,10 +270,10 @@ internal unsafe class MagicCastingEngine : IDisposable
         if (request.SourceActor.HasValue && request.SourceActor.Value != nint.Zero)
         {
             // Explicit source actor provided - get ActorRef from StaticActorInfo
-            if (_entityApi != null)
+            if (_actorApi != null)
             {
-                casterActorRef = _entityApi.GetActorRef(request.SourceActor.Value);
-                sourceResolution = $"Explicit via EntityApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
+                casterActorRef = _actorApi.GetActorRef(request.SourceActor.Value);
+                sourceResolution = $"Explicit via ActorApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
             }
             else if (_functionApi != null)
             {
@@ -287,14 +288,14 @@ internal unsafe class MagicCastingEngine : IDisposable
                 sourceResolution = $"Explicit via Direct Struct (StaticActorInfo: 0x{request.SourceActor.Value:X})";
             }
         }
-        else if (_entityApi != null)
+        else if (_actorApi != null)
         {
-            // Try to get player actor via EntityApi (preferred)
-            var playerInfo = _entityApi.GetPlayerStaticActorInfo();
+            // Try to get player actor via ActorApi (preferred)
+            var playerInfo = _actorApi.GetPlayerStaticActorInfo();
             if (playerInfo != 0)
             {
-                casterActorRef = _entityApi.GetActorRef(playerInfo);
-                sourceResolution = $"Player via EntityApi (StaticActorInfo: 0x{playerInfo:X})";
+                casterActorRef = _actorApi.GetActorRef(playerInfo);
+                sourceResolution = $"Player via ActorApi (StaticActorInfo: 0x{playerInfo:X})";
             }
         }
         else if (_functionApi != null)
@@ -338,9 +339,9 @@ internal unsafe class MagicCastingEngine : IDisposable
         string targetResolution = "Unknown";
         
         // HIGHEST PRIORITY: UseGameTarget - copy the game's own TargetStruct directly
-        if (request.UseGameTarget && _entityApi != null)
+        if (request.UseGameTarget && _actorApi != null)
         {
-            var gameTarget = _entityApi.CopyGameTargetStruct();
+            var gameTarget = _actorApi.CopyGameTargetStruct();
             if (gameTarget.HasValue)
             {
                 *(TargetStruct*)targetBuffer = gameTarget.Value;
@@ -372,10 +373,10 @@ internal unsafe class MagicCastingEngine : IDisposable
             TargetStruct? targetResult = null;
             string apiUsed = "None";
             
-            if (_entityApi != null)
+            if (_actorApi != null)
             {
-                targetResult = _entityApi.CreateTargetFromActorWithTracking(request.TargetActor.Value);
-                apiUsed = "EntityApi (Tracking)";
+                targetResult = _actorApi.CreateTargetFromActorWithTracking(request.TargetActor.Value);
+                apiUsed = "ActorApi (Tracking)";
             }
             else if (_functionApi != null)
             {
@@ -399,10 +400,10 @@ internal unsafe class MagicCastingEngine : IDisposable
                 TargetStruct? targetResult = null;
                 string apiUsed = "None";
                 
-                if (_entityApi != null)
+                if (_actorApi != null)
                 {
-                    targetResult = _entityApi.CreateTargetFromActorWithTracking(lockedTarget);
-                    apiUsed = "EntityApi (Tracking)";
+                    targetResult = _actorApi.CreateTargetFromActorWithTracking(lockedTarget);
+                    apiUsed = "ActorApi (Tracking)";
                 }
                 else if (_functionApi != null)
                 {
@@ -435,11 +436,11 @@ internal unsafe class MagicCastingEngine : IDisposable
                 sourceForPosition = request.SourceActor.Value;
                 sourceType = "Explicit Source Actor";
             }
-            else if (_entityApi != null)
+            else if (_actorApi != null)
             {
-                // Get player as source via EntityApi
-                sourceForPosition = (nint)_entityApi.GetPlayerStaticActorInfo();
-                sourceType = "Player via EntityApi";
+                // Get player as source via ActorApi
+                sourceForPosition = (nint)_actorApi.GetPlayerStaticActorInfo();
+                sourceType = "Player via ActorApi";
             }
             else if (_functionApi != null)
             {
@@ -456,10 +457,10 @@ internal unsafe class MagicCastingEngine : IDisposable
             {
                 TargetStruct? targetResult = null;
                 string apiUsed = "None";
-                if (_entityApi != null)
+                if (_actorApi != null)
                 {
-                    targetResult = _entityApi.CreateTargetFromActor(sourceForPosition);
-                    apiUsed = "EntityApi";
+                    targetResult = _actorApi.CreateTargetFromActor(sourceForPosition);
+                    apiUsed = "ActorApi";
                 }
                 else if (_functionApi != null)
                 {

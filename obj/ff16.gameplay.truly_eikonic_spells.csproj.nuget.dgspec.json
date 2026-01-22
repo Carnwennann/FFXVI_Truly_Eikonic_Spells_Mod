@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {}
+    "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {}
   },
   "projects": {
-    "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {
+    "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
+        "projectUniqueName": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
         "projectName": "ff16.gameplay.truly_eikonic_spells",
-        "projectPath": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
+        "projectPath": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\ff16.gameplay.truly_eikonic_spells.csproj",
         "packagesPath": "C:\\Users\\Alejandro\\.nuget\\packages\\",
-        "outputPath": "E:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\obj\\",
+        "outputPath": "e:\\Documentos\\GitHub\\Carnwennann\\ff16.gameplay.truly_eikonic_spells\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Alejandro\\AppData\\Roaming\\NuGet\\NuGet.Config"
