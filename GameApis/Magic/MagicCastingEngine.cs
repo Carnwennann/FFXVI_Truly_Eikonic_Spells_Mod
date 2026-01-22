@@ -90,23 +90,12 @@ internal unsafe class MagicCastingEngine : IDisposable
     private readonly MagicProcessor _processor;
     private readonly long _baseAddress;
     
-    // Function API reference for actor lookups (legacy)
-    private FunctionApi? _functionApi;
-    
-    // Actor API reference for consolidated actor/player management
+    // Actor API reference for actor/player management
     private IActorApi? _actorApi;
     
-    // External callbacks for getting player info
-    public Func<nint>? GetPlayerStaticActorInfo { get; set; }
-    public Func<long>? GetPlayerActorRef { get; set; }
+    // Callback for active Eikon detection (still needed for Eikon-specific behavior)
     public Func<int>? GetActiveEikon { get; set; }
     public Func<int, long, long, bool>? OnChargedShotDetected { get; set; }
-    
-    /// <summary>
-    /// Callback to get the currently locked target actor (from camera system).
-    /// Returns nint.Zero if no target is locked.
-    /// </summary>
-    public Func<nint>? GetLockedTargetCallback { get; set; }
     
     // ============================================================
     // PROPERTIES
@@ -149,16 +138,7 @@ internal unsafe class MagicCastingEngine : IDisposable
     }
     
     /// <summary>
-    /// Sets the FunctionApi reference for actor lookups.
-    /// </summary>
-    public void SetFunctionApi(FunctionApi functionApi)
-    {
-        _functionApi = functionApi;
-    }
-    
-    /// <summary>
-    /// Sets the ActorApi reference for consolidated actor/player management.
-    /// ActorApi takes precedence over FunctionApi when both are available.
+    /// Sets the ActorApi reference for actor/player management.
     /// </summary>
     public void SetActorApi(IActorApi actorApi)
     {
@@ -217,8 +197,7 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// </summary>
     public nint GetLockedTarget()
     {
-        // Use callback if available
-        return GetLockedTargetCallback?.Invoke() ?? nint.Zero;
+        return _actorApi?.GetLockedTargetStaticActorInfo() ?? nint.Zero;
     }
     
     /// <summary>
@@ -226,12 +205,7 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// </summary>
     public nint GetPlayerActor()
     {
-        // Priority: ActorApi > Callback
-        if (_actorApi != null)
-        {
-            return _actorApi.GetPlayerStaticActorInfo();
-        }
-        return GetPlayerStaticActorInfo?.Invoke() ?? nint.Zero;
+        return _actorApi?.GetPlayerStaticActorInfo() ?? nint.Zero;
     }
     
     /// <summary>
@@ -261,7 +235,7 @@ internal unsafe class MagicCastingEngine : IDisposable
         
         // ========================================================
         // RESOLVE SOURCE ACTOR
-        // Priority: Explicit > EntityApi/FunctionApi (Player) > Cached > Callback
+        // Priority: Explicit > ActorApi (Player) > Cached
         // ========================================================
         long casterActorRef = 0;
         
@@ -275,11 +249,6 @@ internal unsafe class MagicCastingEngine : IDisposable
                 casterActorRef = _actorApi.GetActorRef(request.SourceActor.Value);
                 sourceResolution = $"Explicit via ActorApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
             }
-            else if (_functionApi != null)
-            {
-                casterActorRef = _functionApi.GetActorRef(request.SourceActor.Value);
-                sourceResolution = $"Explicit via FunctionApi (StaticActorInfo: 0x{request.SourceActor.Value:X})";
-            }
             else
             {
                 // Fallback: direct struct access
@@ -290,7 +259,7 @@ internal unsafe class MagicCastingEngine : IDisposable
         }
         else if (_actorApi != null)
         {
-            // Try to get player actor via ActorApi (preferred)
+            // Get player actor via ActorApi
             var playerInfo = _actorApi.GetPlayerStaticActorInfo();
             if (playerInfo != 0)
             {
@@ -298,31 +267,12 @@ internal unsafe class MagicCastingEngine : IDisposable
                 sourceResolution = $"Player via ActorApi (StaticActorInfo: 0x{playerInfo:X})";
             }
         }
-        else if (_functionApi != null)
-        {
-            // Try to get player actor via FunctionApi (fallback)
-            var playerInfo = _functionApi.GetPlayerStaticActorInfo();
-            if (playerInfo != 0)
-            {
-                casterActorRef = _functionApi.GetActorRef(playerInfo);
-                sourceResolution = $"Player via FunctionApi (StaticActorInfo: 0x{playerInfo:X})";
-            }
-        }
         
-        // Fallback to cached or callback
-        if (casterActorRef == 0)
+        // Fallback to cached
+        if (casterActorRef == 0 && _cachedCasterActorRef != 0)
         {
-            if (_cachedCasterActorRef != 0)
-            {
-                casterActorRef = _cachedCasterActorRef;
-                sourceResolution = "Cached from previous game cast";
-            }
-            else
-            {
-                casterActorRef = GetPlayerActorRef?.Invoke() ?? 0;
-                if (casterActorRef != 0)
-                    sourceResolution = "Callback (GetPlayerActorRef)";
-            }
+            casterActorRef = _cachedCasterActorRef;
+            sourceResolution = "Cached from previous game cast";
         }
         
         // Log source resolution
@@ -370,62 +320,39 @@ internal unsafe class MagicCastingEngine : IDisposable
         else if (targetStructPtr == 0 && request.TargetActor.HasValue && request.TargetActor.Value != nint.Zero)
         {
             // Create TargetStruct from explicit target actor with tracking
-            TargetStruct? targetResult = null;
-            string apiUsed = "None";
-            
             if (_actorApi != null)
             {
-                targetResult = _actorApi.CreateTargetFromActorWithTracking(request.TargetActor.Value);
-                apiUsed = "ActorApi (Tracking)";
-            }
-            else if (_functionApi != null)
-            {
-                targetResult = _functionApi.CreateTargetFromActor(request.TargetActor.Value);
-                apiUsed = "FunctionApi (Position Only)";
-            }
-                
-            if (targetResult.HasValue)
-            {
-                *(TargetStruct*)targetBuffer = targetResult.Value;
-                targetStructPtr = (long)targetBuffer;
-                targetResolution = $"Explicit Actor via {apiUsed} (StaticActorInfo: 0x{request.TargetActor.Value:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                var targetResult = _actorApi.CreateTargetFromActorWithTracking(request.TargetActor.Value);
+                if (targetResult.HasValue)
+                {
+                    *(TargetStruct*)targetBuffer = targetResult.Value;
+                    targetStructPtr = (long)targetBuffer;
+                    targetResolution = $"Explicit Actor via ActorApi (StaticActorInfo: 0x{request.TargetActor.Value:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                }
             }
         }
         else if (targetStructPtr == 0 && !request.TargetActor.HasValue)
         {
             // TargetActor is null (not specified) - try to get locked target from camera
             var lockedTarget = GetLockedTarget();
-            if (lockedTarget != nint.Zero)
+            if (lockedTarget != nint.Zero && _actorApi != null)
             {
-                TargetStruct? targetResult = null;
-                string apiUsed = "None";
-                
-                if (_actorApi != null)
-                {
-                    targetResult = _actorApi.CreateTargetFromActorWithTracking(lockedTarget);
-                    apiUsed = "ActorApi (Tracking)";
-                }
-                else if (_functionApi != null)
-                {
-                    targetResult = _functionApi.CreateTargetFromActor(lockedTarget);
-                    apiUsed = "FunctionApi (Position Only)";
-                }
-                    
+                var targetResult = _actorApi.CreateTargetFromActorWithTracking(lockedTarget);
                 if (targetResult.HasValue)
                 {
                     *(TargetStruct*)targetBuffer = targetResult.Value;
                     targetStructPtr = (long)targetBuffer;
-                    targetResolution = $"Locked Target via {apiUsed} (StaticActorInfo: 0x{lockedTarget:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                    targetResolution = $"Locked Target via ActorApi (StaticActorInfo: 0x{lockedTarget:X}, ActorId: {targetResult.Value.ActorId}, Type: {targetResult.Value.Type}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
                 }
             }
-            else
+            else if (lockedTarget == nint.Zero)
             {
                 _logger.WriteLine($"[{_modId}] [CastSpell] No locked target available (GetLockedTarget returned Zero)", _logger.ColorYellow);
             }
         }
         
         // If no target yet, try using source actor's position
-        if (targetStructPtr == 0)
+        if (targetStructPtr == 0 && _actorApi != null)
         {
             // Determine source actor to use for position
             nint sourceForPosition = nint.Zero;
@@ -436,43 +363,20 @@ internal unsafe class MagicCastingEngine : IDisposable
                 sourceForPosition = request.SourceActor.Value;
                 sourceType = "Explicit Source Actor";
             }
-            else if (_actorApi != null)
+            else
             {
-                // Get player as source via ActorApi
                 sourceForPosition = (nint)_actorApi.GetPlayerStaticActorInfo();
                 sourceType = "Player via ActorApi";
-            }
-            else if (_functionApi != null)
-            {
-                // Get player as source via FunctionApi
-                sourceForPosition = GetPlayerStaticActorInfo?.Invoke() ?? nint.Zero;
-                if (sourceForPosition == nint.Zero)
-                {
-                    sourceForPosition = _functionApi.GetPlayerStaticActorInfo();
-                }
-                sourceType = "Player via FunctionApi";
             }
             
             if (sourceForPosition != nint.Zero)
             {
-                TargetStruct? targetResult = null;
-                string apiUsed = "None";
-                if (_actorApi != null)
-                {
-                    targetResult = _actorApi.CreateTargetFromActor(sourceForPosition);
-                    apiUsed = "ActorApi";
-                }
-                else if (_functionApi != null)
-                {
-                    targetResult = _functionApi.CreateTargetFromActor(sourceForPosition);
-                    apiUsed = "FunctionApi";
-                }
-                    
+                var targetResult = _actorApi.CreateTargetFromActor(sourceForPosition);
                 if (targetResult.HasValue)
                 {
                     *(TargetStruct*)targetBuffer = targetResult.Value;
                     targetStructPtr = (long)targetBuffer;
-                    targetResolution = $"Source Actor Position ({sourceType}) via {apiUsed} (0x{sourceForPosition:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
+                    targetResolution = $"Source Actor Position ({sourceType}) via ActorApi (0x{sourceForPosition:X}, Pos: {targetResult.Value.X:F2}, {targetResult.Value.Y:F2}, {targetResult.Value.Z:F2})";
                 }
             }
         }

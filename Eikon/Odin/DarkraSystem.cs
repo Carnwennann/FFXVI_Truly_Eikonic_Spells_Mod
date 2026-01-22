@@ -3,6 +3,7 @@ using Reloaded.Mod.Interfaces;
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 
 namespace ff16.gameplay.truly_eikonic_spells;
 
@@ -57,7 +58,7 @@ public class DarkraSystem
     public bool ZantetsukenTicksEnabled { get; set; }
     public int ZantetsukenTickAmount { get; set; }
     public ZantetsukenApi? ZantetsukenApi { get; set; }
-    public FunctionApi? FunctionApi { get; set; }
+    public IActorApi? ActorApi { get; set; }
     
     #region Action IDs
     
@@ -175,9 +176,9 @@ public class DarkraSystem
             // Capture airborne state NOW while pointers are guaranteed valid
             bool isAirborneState = false;
             
-            // Pass the bnpcRow (RCX) directly, as FunctionApi now uses the IDA path (Row + 0x20)
-            if (FunctionApi != null)
-                isAirborneState = FunctionApi.IsAirborne((long)bnpcRow);
+            // Pass the bnpcRow (RCX) directly, as ActorApi now uses the IDA path (Row + 0x20)
+            if (ActorApi != null)
+                isAirborneState = ActorApi.IsAirborne((long)bnpcRow);
 
             Log($">>> Shadow hit triggered! Target=0x{(long)bnpcRow:X}, Damage=+{result.ShadowDamage}, Airborne={isAirborneState}", _logger?.ColorGreen);
             

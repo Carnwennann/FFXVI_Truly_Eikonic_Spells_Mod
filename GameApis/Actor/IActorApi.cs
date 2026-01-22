@@ -1,4 +1,3 @@
-using System.Numerics;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
@@ -82,4 +81,18 @@ public interface IActorApi
     /// <param name="staticActorInfo">The target actor's StaticActorInfo pointer.</param>
     /// <returns>A TargetStruct with position only, or null if failed.</returns>
     TargetStruct? CreateTargetFromActor(nint staticActorInfo);
+    
+
+    
+    // ============================================================
+    // STATE DETECTION API
+    // ============================================================
+    
+    /// <summary>
+    /// Detects if an entity is currently airborne (not on the ground).
+    /// Uses reverse-engineered offsets from state check logic.
+    /// </summary>
+    /// <param name="bnpcRow">Pointer to the NpcBaseEntity row.</param>
+    /// <returns>True if the entity is airborne.</returns>
+    bool IsAirborne(long bnpcRow);
 }

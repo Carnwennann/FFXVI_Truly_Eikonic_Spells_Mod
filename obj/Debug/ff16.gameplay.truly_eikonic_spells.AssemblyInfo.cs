@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ff16.gameplay.truly_eikonic_spells")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4caaa74a8d2d1fb49336834a455b048bdcd50834")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+17d4eb9645954db76ef37717d7b65d7eb6d06722")]
 [assembly: System.Reflection.AssemblyProductAttribute("ff16.gameplay.truly_eikonic_spells")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ff16.gameplay.truly_eikonic_spells")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

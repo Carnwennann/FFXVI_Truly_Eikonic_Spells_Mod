@@ -97,10 +97,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private DiaraSystem _diaraSystem;
     private DarkraSystem _darkraSystem;
     private PhysicsApi _physicsApi;
-    private FunctionApi _functionApi;
     private ActorApi _actorApi;
     private MagicApiV2 _magicApiV2;
-    private PlayerApi _playerApi;
     private ZantetsukenApi _zantetsukenApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
@@ -155,9 +153,6 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private void SetupGameApis()
     {
-        // Initialize FunctionApi (legacy, gradually being replaced by ActorApi)
-        _functionApi = new FunctionApi(_logger, _modConfig);
-
         // Initialize ActorApi (consolidated actor/player management)
         _actorApi = new ActorApi(_logger, _modConfig);
         _actorApi.SetupScans(_startupScanner, _hooks);
@@ -166,26 +161,13 @@ public class TrulyEikonicSpellsMod : ModBase
         _magicApiV2 = new MagicApiV2(_logger, _modConfig.ModId, _configuration, _startupScanner);
         _magicApiV2.SetupScans(_startupScanner, _hooks);
         _magicApiV2.InitializeProcessor(_hooks);
-        _magicApiV2.SetCallbacks(
-            () => _playerApi?.GetPlayerStaticActorInfo() ?? nint.Zero,
-            () => GetPlayerActorRefFromStaticInfo(),
-            GetActiveEikon
-        );
-        // Pass FunctionApi for explicit source/target support
-        _magicApiV2.SetFunctionApi(_functionApi);
+        _magicApiV2.SetCallbacks(GetActiveEikon);
         
-        // Pass ActorApi for consolidated actor management (takes precedence)
+        // Set ActorApi for consolidated actor management
         _magicApiV2.SetActorApi(_actorApi);
         
-        // Set locked target callback (TODO: implement camera lock target retrieval)
-        // For now returns nint.Zero, which causes the system to use player position as target
-        _magicApiV2.SetLockedTargetCallback(GetLockedTargetActor);
-
-        // Initialize PlayerApi (handles all player-related information)
-        _playerApi = new PlayerApi(_logger, _modConfig, _functionApi);
-        
-        // Initialize VfxApi (requires FunctionApi for Clive's factory)
-        VfxApi.SetFunctionApi(_functionApi);
+        // Initialize VfxApi (requires ActorApi for Clive's factory)
+        VfxApi.SetActorApi(_actorApi);
         VfxApi.Logger = (msg, color) => _logger.WriteLine($"[{_modConfig.ModId}] {msg}", _logger.ColorGreen);
         
         // Get NEX API
@@ -277,16 +259,12 @@ public class TrulyEikonicSpellsMod : ModBase
         // Connect systems
         _darkraSystem.GetBattleContext = () => _battleContextForReaction;
         _darkraSystem.ZantetsukenApi = _zantetsukenApi;
-        _darkraSystem.FunctionApi = _functionApi;
+        _darkraSystem.ActorApi = _actorApi;
     }
     
 
     private unsafe void SetupScans(IStartupScanner scans)
     {
-        
-        // En SetupScans:
-        _playerApi.SetupScans(scans, _hooks!);
-        
         // OnHit hook - same signature as combo meter
         scans.AddScan("48 89 5C 24 ?? 55 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 44 8B 82", address =>
         {
@@ -417,13 +395,10 @@ public class TrulyEikonicSpellsMod : ModBase
         try {
             if (R15 > 0x10000)
             {
-                // En OnHit, parece que R15 + 0x114 o similar es la posición directa
-                VfxApi.LastPosition = *(System.Numerics.Vector3*)(R15 + 0x114); 
-                VfxApi.LastNode = 0; // Forzar spawn en el mundo para evitar crash de nodos
-                VfxApi.HasValidPosition = true;
-                
-                _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {VfxApi.LastPosition}", _logger.ColorYellow);
-                VfxApi.SpawnVFX(2880);
+                // Extract hit position and spawn VFX directly
+                var hitPosition = *(System.Numerics.Vector3*)(R15 + 0x114);
+                _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {hitPosition}", _logger.ColorYellow);
+                VfxApi.SpawnVFX(2880, hitPosition.X, hitPosition.Y, hitPosition.Z);
             }
         } catch (Exception ex) { 
             _logger.WriteLine($"[{_modConfig.ModId}] Error spawning hit VFX: {ex.Message}", _logger.ColorRed);
@@ -688,9 +663,9 @@ public class TrulyEikonicSpellsMod : ModBase
     // Helper to get ActorRef from StaticActorInfo
     private unsafe long GetPlayerActorRefFromStaticInfo()
     {
-        if (_playerApi == null) return 0;
+        if (_actorApi == null) return 0;
         
-        nint staticInfo = _playerApi.GetPlayerStaticActorInfo();
+        nint staticInfo = _actorApi.GetPlayerStaticActorInfo();
         if (staticInfo == nint.Zero) return 0;
         
         var info = (GameStructs.StaticActorInfo*)staticInfo;

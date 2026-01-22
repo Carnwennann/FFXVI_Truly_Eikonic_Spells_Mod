@@ -21,6 +21,8 @@ public unsafe class ActorApi : IActorApi
     public delegate ActorReference* ActorManager_SetupEntityDelegate(ActorManager* @this, nint entityPtr);
     public delegate ActorReference* ActorManager_GetActorByKeyDelegate(ActorManager* @this, uint actorId);
     public delegate NodePositionPair* StaticActorInfo_GetPositionDelegate(nint pStaticEntityInfo, NodePositionPair* outPair);
+    public delegate Vector3* StaticActorInfo_GetRotationDelegate(nint pStaticEntityInfo, Vector3* outRotation);
+    public delegate Vector3* StaticActorInfo_GetForwardVectorDelegate(nint pStaticEntityInfo, Vector3* outForward);
     public delegate nint UnkSingletonPlayer_GetList35EntryDelegate(nint @this);
     public delegate TargetStruct* UnkList35Entry_GetCurrentTargettedEnemyDelegate(nint @this, byte forceUnk);
     
@@ -39,6 +41,8 @@ public unsafe class ActorApi : IActorApi
     private StaticActorManager_GetOrCreateDelegate? _getOrCreateEntityFunc;
     private ActorManager_GetActorByKeyDelegate? _getActorByKeyFunc;
     private StaticActorInfo_GetPositionDelegate? _getPositionFunc;
+    private StaticActorInfo_GetRotationDelegate? _getRotationFunc;
+    private StaticActorInfo_GetForwardVectorDelegate? _getForwardVectorFunc;
     private UnkSingletonPlayer_GetList35EntryDelegate? _getList35EntryFunc;
     private UnkList35Entry_GetCurrentTargettedEnemyDelegate? _getCurrentTargetFunc;
     
@@ -88,6 +92,18 @@ public unsafe class ActorApi : IActorApi
     public bool HasTargetingFunctions =>
         _getList35EntryFunc != null &&
         _getCurrentTargetFunc != null;
+    
+    // ============================================================
+    // INTERNAL HELPERS
+    // ============================================================
+    
+    /// <summary>
+    /// Returns true if position/rotation functions are available.
+    /// </summary>
+    private bool HasPositionFunctions =>
+        _getPositionFunc != null &&
+        _getRotationFunc != null &&
+        _getForwardVectorFunc != null;
     
     // ============================================================
     // CONSTRUCTOR
@@ -173,6 +189,32 @@ public unsafe class ActorApi : IActorApi
             var addr = (nint)(_baseAddress + result.Offset);
             _getPositionFunc = hooks.CreateWrapper<StaticActorInfo_GetPositionDelegate>(addr, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found StaticActorInfo_GetPosition at 0x{addr:X}", _logger.ColorGreen);
+        });
+        
+        // StaticActorInfo_GetRotation
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B DA E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 40", result =>
+        {
+            if (!result.Found)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] FAILED to find StaticActorInfo_GetRotation", _logger.ColorYellow);
+                return;
+            }
+            var addr = (nint)(_baseAddress + result.Offset);
+            _getRotationFunc = hooks.CreateWrapper<StaticActorInfo_GetRotationDelegate>(addr, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found StaticActorInfo_GetRotation at 0x{addr:X}", _logger.ColorGreen);
+        });
+        
+        // StaticActorInfo_GetForwardVector
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B DA E8 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B 50", result =>
+        {
+            if (!result.Found)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] FAILED to find StaticActorInfo_GetForwardVector", _logger.ColorYellow);
+                return;
+            }
+            var addr = (nint)(_baseAddress + result.Offset);
+            _getForwardVectorFunc = hooks.CreateWrapper<StaticActorInfo_GetForwardVectorDelegate>(addr, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found StaticActorInfo_GetForwardVector at 0x{addr:X}", _logger.ColorGreen);
         });
         
         // UnkSingletonPlayer_GetList35Entry (for targeting)
@@ -261,16 +303,6 @@ public unsafe class ActorApi : IActorApi
             return 0;
         
         return *(uint*)(UnkSingletonPlayerOrCameraRelated + UnkSingletonOffsets.CurrentActorId);
-    }
-    
-    private nint GetStaticActorInfo(uint actorId)
-    {
-        if (StaticActorManager == 0 || _getOrCreateEntityFunc == null)
-            return 0;
-        
-        nint* staticActorInfo = null;
-        _getOrCreateEntityFunc(StaticActorManager, &staticActorInfo, actorId);
-        return staticActorInfo != null ? (nint)staticActorInfo : 0;
     }
     
     // ============================================================
@@ -422,5 +454,91 @@ public unsafe class ActorApi : IActorApi
         var target = TargetStruct.FromPosition(position.Position);
         target.Node = position.ParentNode;
         return target;
+    }
+    
+    // ============================================================
+    // INTERNAL POSITION HELPER (used by CreateTargetFromActor)
+    // ============================================================
+    
+    private NodePositionPair* GetPositionInternal(nint staticActorInfo)
+    {
+        if (staticActorInfo == 0 || _getPositionFunc == null)
+            return null;
+        
+        NodePositionPair position;
+        return _getPositionFunc(staticActorInfo, &position);
+    }
+    
+    // ============================================================
+    // PRIVATE ACTOR LOOKUP (used internally)
+    // ============================================================
+    
+    /// <summary>
+    /// Gets the StaticActorInfo pointer by actor ID. Internal use only.
+    /// </summary>
+    private nint GetStaticActorInfo(uint actorId)
+    {
+        if (StaticActorManager == 0 || _getOrCreateEntityFunc == null)
+            return 0;
+        
+        nint* staticActorInfo = null;
+        _getOrCreateEntityFunc(StaticActorManager, &staticActorInfo, actorId);
+        return staticActorInfo != null ? (nint)staticActorInfo : 0;
+    }
+    
+    // ============================================================
+    // IACTORAPI IMPLEMENTATION - STATE DETECTION (PUBLIC)
+    // ============================================================
+    
+    // Track vertical push to detect post-launch state
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<long, float> _npcVerticalPush = new();
+    
+    /// <inheritdoc/>
+    public bool IsAirborne(long bnpcRow)
+    {
+        if (bnpcRow < 0x10000 || bnpcRow > 0x00007FFFFFFFFFFF) return false;
+
+        try
+        {
+            StaticActorInfo* info = (StaticActorInfo*)*(long*)(bnpcRow + BnpcRowOffsets.StaticActorInfoPtr);
+            
+            long actorPtr = 0;
+            if (info != null && (long)info > 0x10000)
+            {
+                actorPtr = info->ActorRef;
+            }
+            
+            // Fallback: read bnpcRow + 0 directly (old method)
+            if (actorPtr == 0) 
+            {
+                actorPtr = *(long*)bnpcRow;
+            }
+
+            if (actorPtr > 0x10000 && actorPtr < 0x00007FFFFFFFFFFF)
+            {
+                // ReactionState (Byte):
+                // 0x02 = Ground / Neutral
+                // 0x03-0x05 = Ground reactions (Step Back/Slide)
+                // > 0x05 = Airborne / Launch reaction (0x67, 0xC0, etc)
+                byte reactionState = *(byte*)(actorPtr + ActorOffsets.ReactionState);
+                if (reactionState > 5) return true;
+                
+                // If state is 0x02 but we have recent vertical push, maintain airborne
+                if (reactionState == 2)
+                {
+                    if (_npcVerticalPush.TryGetValue(bnpcRow, out float push) && push > 0.1f)
+                    {
+                        _npcVerticalPush.TryRemove(bnpcRow, out _);
+                        return false; 
+                    }
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] IsAirborne Error: {ex.Message}", _logger.ColorRed);
+        }
+        return false;
     }
 }

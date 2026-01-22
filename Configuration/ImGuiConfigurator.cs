@@ -1,4 +1,5 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
+using ff16.gameplay.truly_eikonic_spells.GameApis;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 using NenTools.ImGui.Interfaces;
@@ -72,6 +73,12 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.BeginTabItem("Magic Tester", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
                 {
                     RenderMagicTesterTab();
+                    _imgui.EndTabItem();
+                }
+
+                if (_imgui.BeginTabItem("VFX Tester", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
+                {
+                    RenderVfxTesterTab();
                     _imgui.EndTabItem();
                 }
 
@@ -509,5 +516,144 @@ public class ImGuiConfigurator : IImGuiComponent
         if (_imgui.RadioButton($"On##{label}", current == TriState.On)) setter(TriState.On);
         _imgui.SameLine();
         if (_imgui.RadioButton($"Off##{label}", current == TriState.Off)) setter(TriState.Off);
+    }
+
+    // --- VFX Tester State ---
+    private int _vfxTestId = 2880;
+    private int _vfxTargetMode = 0; // 0=Player, 1=LockedTarget, 2=Coordinates
+    private float _vfxX = 0f;
+    private float _vfxY = 0f;
+    private float _vfxZ = 0f;
+    private string _vfxLastResult = "";
+
+    private void RenderVfxTesterTab()
+    {
+        _imgui.TextColored(new Vector4(0.4f, 1.0f, 0.8f, 1.0f), "VFX Spawning Tester");
+        _imgui.TextWrapped("Test the VfxApi by spawning visual effects. Uses Clive's BattleBehavior factory.");
+        
+        _imgui.Separator();
+
+        // VFX ID Input
+        if (_imgui.InputInt("VFX ID", ref _vfxTestId)) { }
+        
+        _imgui.Separator();
+        _imgui.Text("Spawn Target:");
+        
+        // Target mode selection
+        if (_imgui.RadioButton("On Player", _vfxTargetMode == 0)) _vfxTargetMode = 0;
+        _imgui.SameLine();
+        if (_imgui.RadioButton("On Locked Target", _vfxTargetMode == 1)) _vfxTargetMode = 1;
+        _imgui.SameLine();
+        if (_imgui.RadioButton("At Coordinates", _vfxTargetMode == 2)) _vfxTargetMode = 2;
+
+        // Show coordinate inputs if mode is coordinates
+        if (_vfxTargetMode == 2)
+        {
+            _imgui.SetNextItemWidth(100);
+            if (_imgui.InputFloat("X", ref _vfxX)) { }
+            _imgui.SameLine();
+            _imgui.SetNextItemWidth(100);
+            if (_imgui.InputFloat("Y", ref _vfxY)) { }
+            _imgui.SameLine();
+            _imgui.SetNextItemWidth(100);
+            if (_imgui.InputFloat("Z", ref _vfxZ)) { }
+        }
+
+        _imgui.Separator();
+        
+        // Spawn button
+        _imgui.TextColored(new Vector4(1.0f, 1.0f, 0.4f, 1.0f), ">>> ");
+        _imgui.SameLine();
+        if (_imgui.Button("SPAWN VFX"))
+        {
+            try
+            {
+                switch (_vfxTargetMode)
+                {
+                    case 0: // Player
+                        VfxApi.SpawnVFX((uint)_vfxTestId, 0);
+                        _vfxLastResult = $"Spawned VFX {_vfxTestId} on Player";
+                        break;
+                    case 1: // Locked Target
+                        nint target = _magicApi.GetLockedTarget();
+                        if (target != nint.Zero)
+                        {
+                            VfxApi.SpawnVFX((uint)_vfxTestId, target);
+                            _vfxLastResult = $"Spawned VFX {_vfxTestId} on Locked Target (0x{target:X})";
+                        }
+                        else
+                        {
+                            _vfxLastResult = "No locked target!";
+                        }
+                        break;
+                    case 2: // Coordinates
+                        VfxApi.SpawnVFX((uint)_vfxTestId, _vfxX, _vfxY, _vfxZ);
+                        _vfxLastResult = $"Spawned VFX {_vfxTestId} at ({_vfxX:F1}, {_vfxY:F1}, {_vfxZ:F1})";
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                _vfxLastResult = $"Error: {ex.Message}";
+            }
+        }
+
+        // Show last result
+        if (!string.IsNullOrEmpty(_vfxLastResult))
+        {
+            _imgui.Separator();
+            bool isError = _vfxLastResult.StartsWith("Error") || _vfxLastResult.Contains("No locked");
+            _imgui.TextColored(
+                isError ? new Vector4(1.0f, 0.4f, 0.4f, 1.0f) : new Vector4(0.4f, 1.0f, 0.4f, 1.0f),
+                _vfxLastResult);
+        }
+
+        _imgui.Separator();
+        _imgui.TextColored(new Vector4(0.8f, 0.8f, 0.4f, 1.0f), "Common VFX IDs (Click to set):");
+        
+        // Common VFX quick buttons
+        if (_imgui.CollapsingHeader("Bahamut VFX", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_None))
+        {
+            RenderVfxButton("Light Orb (Dia)", 2880);
+            RenderVfxButton("Light Burst", 2881);
+            RenderVfxButton("Megaflare Charge", 2890);
+            RenderVfxButton("Gigaflare Explosion", 2895);
+        }
+        
+        if (_imgui.CollapsingHeader("Phoenix VFX", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_None))
+        {
+            RenderVfxButton("Fire Burst", 1001);
+            RenderVfxButton("Flames of Rebirth", 1010);
+            RenderVfxButton("Rising Flames", 1015);
+        }
+        
+        if (_imgui.CollapsingHeader("Odin VFX", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_None))
+        {
+            RenderVfxButton("Dark Slash", 3001);
+            RenderVfxButton("Shadow Trail", 3010);
+            RenderVfxButton("Zantetsuken Flash", 3020);
+        }
+        
+        if (_imgui.CollapsingHeader("Titan VFX", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_None))
+        {
+            RenderVfxButton("Earth Impact", 2001);
+            RenderVfxButton("Rock Shatter", 2010);
+            RenderVfxButton("Titan Block", 2020);
+        }
+    }
+
+    private void RenderVfxButton(string name, int vfxId)
+    {
+        if (_imgui.Button($"{name} ({vfxId})##vfx_{vfxId}"))
+        {
+            _vfxTestId = vfxId;
+        }
+        _imgui.SameLine();
+        if (_imgui.SmallButton($"Spawn##spawn_{vfxId}"))
+        {
+            _vfxTestId = vfxId;
+            VfxApi.SpawnVFX((uint)vfxId, 0); // Spawn on player
+            _vfxLastResult = $"Spawned VFX {vfxId} on Player";
+        }
     }
 }

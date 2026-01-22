@@ -1,16 +1,18 @@
 using System;
-using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using Reloaded.Hooks.Definitions;
 using Reloaded.Hooks.Definitions.X64;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
+using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
+/// <summary>
+/// API for spawning VFX effects. Always fetches factory fresh from Clive's BattleBehavior.
+/// </summary>
 public static class VfxApi
 {
-    private static FunctionApi? _functionApi;
+    private static IActorApi? _actorApi;
     public static Action<string, System.Drawing.Color?>? Logger;
 
     // --- Scanned Functions ---
@@ -20,91 +22,16 @@ public static class VfxApi
     public static SetNodeDelegate? SetNode;
     public static ActivateDelegate? Activate;
 
-    // --- Context ---
-    public static long LastMagicInstance;
-    public static Vector3 LastPosition;
-    public static long LastNode;
-    public static bool HasValidPosition;
-    
-    // --- Factory Validity Tracking ---
-    private static Stopwatch _factoryTimer = Stopwatch.StartNew();
-    private const int FACTORY_TIMEOUT_MS = 500; // Reduced timeout - factory is only valid during active magic context
-    
-    // Known valid VTable addresses for MagicFileInstance (cached during successful spawns)
-    private static long _knownValidVTable = 0;
-
     /// <summary>
-    /// Call this when capturing a new MagicFileInstance to reset the timer.
+    /// Gets a fresh MagicFileInstance from Clive's BattleBehavior.
     /// </summary>
-    public static void UpdateFactory(long magicFileInstance)
+    private static unsafe long GetFactory()
     {
-        if (magicFileInstance > 0x10000)
-        {
-            LastMagicInstance = magicFileInstance;
-            _factoryTimer.Restart();
-        }
-    }
-    
-    /// <summary>
-    /// Check if the factory is still considered valid.
-    /// Performs structural validation to prevent crashes on stale pointers.
-    /// </summary>
-    public static unsafe bool IsFactoryValid()
-    {
-        if (LastMagicInstance < 0x10000 || _factoryTimer.ElapsedMilliseconds > FACTORY_TIMEOUT_MS)
-            return false;
-            
-        try
-        {
-            // Validate the VTable pointer - MagicFileInstance has VTable at offset 0
-            long vtable = *(long*)LastMagicInstance;
-            
-            // Basic pointer validation
-            if (vtable < 0x140000000 || vtable > 0x145000000) // Game code section range
-                return false;
-                
-            // If we have a known valid VTable, compare against it
-            if (_knownValidVTable != 0 && vtable != _knownValidVTable)
-            {
-                // VTable changed - factory was recycled
-                Logger?.Invoke($"[VFX] Factory VTable changed (0x{vtable:X} != 0x{_knownValidVTable:X}), invalidating", System.Drawing.Color.Orange);
-                return false;
-            }
-            
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-    
-    /// <summary>
-    /// Called after a successful VFX spawn to cache the valid VTable.
-    /// </summary>
-    private static unsafe void CacheValidVTable()
-    {
-        if (LastMagicInstance > 0x10000)
-        {
-            try
-            {
-                _knownValidVTable = *(long*)LastMagicInstance;
-            }
-            catch { }
-        }
-    }
-    
-    /// <summary>
-    /// Attempts to get a valid MagicFileInstance from Clive's BattleBehavior.
-    /// This is more stable than the factory captured during magic casting.
-    /// </summary>
-    public static unsafe long GetCliveFactory()
-    {
-        if (_functionApi == null) return 0;
+        if (_actorApi == null) return 0;
         
         try
         {
-            nint clivePtr = _functionApi.GetPlayerStaticActorInfo();
+            nint clivePtr = _actorApi.GetPlayerStaticActorInfo();
             if (clivePtr == 0) return 0;
             
             var clive = (GameStructs.StaticActorInfo*)clivePtr;
@@ -127,68 +54,13 @@ public static class VfxApi
             return 0;
         }
     }
-    
-    /// <summary>
-    /// Gets the best available factory - prefers Clive's stable factory over cached one.
-    /// </summary>
-    public static unsafe long GetBestFactory()
-    {
-        // First try Clive's BattleBehavior factory (most stable)
-        long cliveFactory = GetCliveFactory();
-        if (cliveFactory != 0)
-        {
-            // Update our cached instance if we got a fresh one
-            if (cliveFactory != LastMagicInstance)
-            {
-                Logger?.Invoke($"[VFX] Using Clive's factory: 0x{cliveFactory:X}", System.Drawing.Color.Cyan);
-                LastMagicInstance = cliveFactory;
-                _factoryTimer.Restart();
-            }
-            return cliveFactory;
-        }
-        
-        // Fall back to time-validated cached factory
-        if (IsFactoryValid())
-        {
-            return LastMagicInstance;
-        }
-        
-        return 0;
-    }
 
     /// <summary>
-    /// Stores a reference to FunctionApi for lazy initialization.
+    /// Stores a reference to ActorApi for actor-based spawning.
     /// </summary>
-    public static void SetFunctionApi(FunctionApi functionApi) => _functionApi = functionApi;
-
-    /// <summary>
-    /// Initializes the VFX API using Clive's factory.
-    /// The factory is captured automatically by MagicGameSystem hooks when Clive casts any spell.
-    /// </summary>
-    public static unsafe void Initialize()
-    {
-        // Try to get Clive's factory first
-        long cliveFactory = GetCliveFactory();
-        if (cliveFactory != 0)
-        {
-            LastMagicInstance = cliveFactory;
-            _factoryTimer.Restart();
-            Logger?.Invoke($"[VFX] Initialized with Clive's factory: 0x{cliveFactory:X}", System.Drawing.Color.Green);
-            return;
-        }
-        
-        // Fall back to previously captured factory
-        if (LastMagicInstance > 0x10000)
-        {
-            Logger?.Invoke($"[VFX] Factory already captured: 0x{LastMagicInstance:X}", System.Drawing.Color.Green);
-            return;
-        }
-        
-        Logger?.Invoke("[VFX] Factory not yet captured. Cast any spell to initialize.", System.Drawing.Color.Yellow);
-    }
+    public static void SetActorApi(IActorApi actorApi) => _actorApi = actorApi;
 
     // --- Delegates ---
-    // ... (mantenemos los delegados igual)
 
     [Function(CallingConventions.Microsoft)]
     public delegate long UnkVATBDelegate(long magicFileInstance, long outPtr, int vatbId, int unk);
@@ -251,17 +123,17 @@ public static class VfxApi
     }
 
     /// <summary>
-    /// Spawns a VFX at a specific world coordinate.
-    /// Creates a temporary NodePositionPair to satisfy the game's SetPosition requirements.
+    /// Spawns a VFX using a TargetStruct for position and optional node attachment.
+    /// This is the primary interface for spawning VFX effects.
     /// </summary>
-    public static unsafe void SpawnVFX(uint vfxId, float x, float y, float z)
+    /// <param name="vfxId">The VFX ID to spawn.</param>
+    /// <param name="target">Target containing position, node, and optional direction.</param>
+    public static unsafe void SpawnVFX(uint vfxId, TargetStruct target)
     {
-        Logger?.Invoke($"[VFX] SpawnVFX-Coord({vfxId}, {x}, {y}, {z}) called.", System.Drawing.Color.Gray);
-        
-        long factory = GetBestFactory();
+        long factory = GetFactory();
         if (factory == 0 || UnkVatb == null || Activate == null) 
         {
-            Logger?.Invoke("[VFX] Aborting Coord Spawn: No valid factory available", System.Drawing.Color.Orange);
+            Logger?.Invoke("[VFX] No valid factory available", System.Drawing.Color.Orange);
             return;
         }
 
@@ -269,152 +141,81 @@ public static class VfxApi
         {
             long outPtr = 0;
             long result = UnkVatb(factory, (long)(&outPtr), (int)vfxId, 1);
-            long vfxInstance = outPtr; // The actual instance is in outPtr
-            Logger?.Invoke($"[VFX-Coord] UnkVatb returned 0x{result:X}, outPtr=0x{vfxInstance:X}", System.Drawing.Color.Cyan);
-
-            if (vfxInstance > 0x10000 && vfxInstance < 0x00007FFFFFFFFFFF)
-            {
-                // Create NodePositionPair for placement
-                GameStructs.NodePositionPair pair = new GameStructs.NodePositionPair
-                {
-                    ParentNode = 0, // World space
-                    Position = new Vector3(x, y, z)
-                };
-
-                if (SetPosition != null)
-                {
-                    Logger?.Invoke($"[VFX-Coord] Calling SetPosition", System.Drawing.Color.DarkGray);
-                    SetPosition(vfxInstance, (long)(&pair));
-                }
-
-                Logger?.Invoke($"[VFX-Coord] Calling Activate", System.Drawing.Color.DarkGray);
-                Activate(vfxInstance, 1);
-                
-                // Cache the VTable for future validation
-                CacheValidVTable();
-                Logger?.Invoke($"[VFX] Successfully spawned VFX {vfxId}", System.Drawing.Color.Green);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Spawns a VFX attached to the player or a specific actor ID.
-    /// </summary>
-    public static unsafe void SpawnVFXOnPlayer(uint vfxId)
-    {
-        if (_functionApi == null)
-        {
-            Logger?.Invoke("[VFX-Player] _functionApi is null", System.Drawing.Color.Red);
-            return;
-        }
-        
-        GameStructs.StaticActorInfo* cliveInfo = (GameStructs.StaticActorInfo*)_functionApi.GetPlayerStaticActorInfo();
-        if (cliveInfo == null) 
-        {
-            Logger?.Invoke("[VFX-Player] Clive not found", System.Drawing.Color.Orange);
-            return;
-        }
-
-        Logger?.Invoke($"[VFX-Player] Spawning {vfxId} on Clive", System.Drawing.Color.Gray);
-        GameStructs.NodePositionPair pair = default;
-        _functionApi.GetPosition((nint)cliveInfo, &pair);
-        SpawnVFX(vfxId, pair.Position.X, pair.Position.Y, pair.Position.Z);
-    }
-    
-    /// <summary>
-    /// The easiest way to spawn a VFX using only the ID.
-    /// It uses Clive's factory (stable) or falls back to cached magic factory.
-    /// </summary>
-    public static unsafe void SpawnVFX(int vfxId)
-    {
-        Logger?.Invoke($"[VFX] SpawnVFX({vfxId}) called. LastMagicInstance: 0x{LastMagicInstance:X}", System.Drawing.Color.Gray);
-        
-        // Get the best available factory (Clive's or cached)
-        long factory = GetBestFactory();
-        if (factory == 0 || UnkVatb == null || Activate == null)
-        {
-            Logger?.Invoke($"[VFX] No valid factory available. CliveFactory={GetCliveFactory():X}, Cached={LastMagicInstance:X}", System.Drawing.Color.Orange);
-            return;
-        }
-
-        try
-        {
-            long outPtr = 0;
-            Logger?.Invoke($"[VFX] Calling UnkVatb(0x{factory:X}, &outPtr, {vfxId}, 1)", System.Drawing.Color.DarkGray);
-            
-            // UnkVatb writes the VFX instance to outPtr, return value is status/pointer to outPtr
-            long result = UnkVatb(factory, (long)(&outPtr), vfxId, 1);
-            
-            // The actual VFX instance is in outPtr, not the return value
             long vfxInstance = outPtr;
             Logger?.Invoke($"[VFX] UnkVatb returned 0x{result:X}, outPtr=0x{vfxInstance:X}", System.Drawing.Color.Cyan);
 
             if (vfxInstance > 0x10000 && vfxInstance < 0x00007FFFFFFFFFFF)
             {
-                if (HasValidPosition)
+                // Create NodePositionPair from TargetStruct
+                GameStructs.NodePositionPair pair = new GameStructs.NodePositionPair
                 {
-                    Logger?.Invoke($"[VFX] Setting Position: {LastPosition} | Node: 0x{LastNode:X}", System.Drawing.Color.Cyan);
-                    GameStructs.NodePositionPair pair = new GameStructs.NodePositionPair
-                    {
-                        ParentNode = (nint)LastNode,
-                        Position = LastPosition
-                    };
-                    
-                    if (SetPosition != null)
-                    {
-                        Logger?.Invoke($"[VFX] Calling SetPosition(0x{vfxInstance:X}, 0x{(long)&pair:X})", System.Drawing.Color.DarkGray);
-                        SetPosition(vfxInstance, (long)(&pair));
-                    }
-                        
-                    // Only apply node if it's a valid pointer range
-                    if (SetNode != null && LastNode > 0x10000 && LastNode < 0x00007FFFFFFFFFFF)
-                    {
-                        Logger?.Invoke($"[VFX] Calling SetNode(0x{vfxInstance:X}, 0x{LastNode:X})", System.Drawing.Color.DarkGray);
-                        SetNode(vfxInstance, LastNode);
-                    }
-                    else
-                    {
-                        Logger?.Invoke($"[VFX] Skipping SetNode (LastNode=0x{LastNode:X})", System.Drawing.Color.Gray);
-                    }
+                    ParentNode = (nint)target.Node,
+                    Position = new Vector3(target.X, target.Y, target.Z)
+                };
+
+                if (SetPosition != null)
+                {
+                    Logger?.Invoke($"[VFX] Calling SetPosition", System.Drawing.Color.DarkGray);
+                    SetPosition(vfxInstance, (long)(&pair));
+                }
+                
+                // Apply node attachment if valid
+                if (SetNode != null && target.Node > 0x10000 && target.Node < 0x00007FFFFFFFFFFF)
+                {
+                    Logger?.Invoke($"[VFX] Calling SetNode(0x{target.Node:X})", System.Drawing.Color.DarkGray);
+                    SetNode(vfxInstance, target.Node);
+                }
+                
+                // Apply rotation if direction is set
+                if (SetRotation != null && (target.DirectionX != 0 || target.DirectionY != 0 || target.DirectionZ != 0))
+                {
+                    Vector3 rotation = new Vector3(target.DirectionX, target.DirectionY, target.DirectionZ);
+                    Logger?.Invoke($"[VFX] Calling SetRotation({rotation})", System.Drawing.Color.DarkGray);
+                    SetRotation(vfxInstance, (long)(&rotation));
                 }
 
-                Logger?.Invoke($"[VFX] Calling Activate(0x{vfxInstance:X}, 1)", System.Drawing.Color.DarkGray);
                 Activate(vfxInstance, 1);
-                
-                // Cache the VTable for future validation
-                CacheValidVTable();
-                Logger?.Invoke($"[VFX] Successfully spawned VFX {vfxId}", System.Drawing.Color.Lime);
-            }
-            else
-            {
-                Logger?.Invoke($"[VFX] UnkVatb returned invalid instance: 0x{vfxInstance:X}", System.Drawing.Color.Red);
             }
         }
-        catch (Exception ex)
-        { 
-            Logger?.Invoke($"[VFX] Engine CRASH caught in SpawnVFX: {ex.Message}", System.Drawing.Color.Red);
-        }
+    }
+    
+    /// <summary>
+    /// Spawns a VFX at a specific world coordinate (convenience overload).
+    /// </summary>
+    public static void SpawnVFX(uint vfxId, float x, float y, float z)
+    {
+        SpawnVFX(vfxId, TargetStruct.FromPosition(new Vector3(x, y, z)));
     }
 
     /// <summary>
-    /// Full version of SpawnVFX for manual control with safe pointer access.
+    /// Spawns a VFX on a specific actor using their StaticActorInfo pointer.
+    /// Pass 0 for player, or a valid StaticActorInfo pointer for any other actor.
     /// </summary>
-    public static unsafe void SpawnVFX(long magicFileInstance, int vfxId, long positionPtr)
+    public static unsafe void SpawnVFX(uint vfxId, nint staticActorInfo)
     {
-        if (UnkVatb == null || Activate == null || magicFileInstance == 0) return;
-
-        long outPtr = 0;
-        long result = UnkVatb(magicFileInstance, (long)(&outPtr), vfxId, 1);
-        long vfxInstance = outPtr; // The actual instance is in outPtr
-        
-        if (vfxInstance > 0x10000 && vfxInstance < 0x00007FFFFFFFFFFF)
+        if (_actorApi == null)
         {
-            if (SetPosition != null && positionPtr != 0)
-            {
-                SetPosition(vfxInstance, positionPtr);
-            }
-
-            Activate(vfxInstance, 1);
+            Logger?.Invoke("[VFX] _actorApi is null", System.Drawing.Color.Red);
+            return;
+        }
+        
+        // If 0, use player
+        nint actor = staticActorInfo != 0 ? staticActorInfo : _actorApi.GetPlayerStaticActorInfo();
+        if (actor == 0)
+        {
+            Logger?.Invoke("[VFX] Invalid actor pointer", System.Drawing.Color.Orange);
+            return;
+        }
+        
+        var target = _actorApi.CreateTargetFromActor(actor);
+        if (target.HasValue)
+        {
+            SpawnVFX(vfxId, target.Value);
+        }
+        else
+        {
+            Logger?.Invoke("[VFX] Could not create target from actor", System.Drawing.Color.Orange);
         }
     }
+
 }
