@@ -8,12 +8,16 @@ using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 
 /// <summary>
-/// API for spawning VFX effects. Always fetches factory fresh from Clive's BattleBehavior.
+/// API for spawning VFX effects. Captures factory from magic system hooks.
 /// </summary>
 public static class VfxApi
 {
     private static IActorApi? _actorApi;
     public static Action<string, System.Drawing.Color?>? Logger;
+    
+    // Cached factory from magic hooks
+    private static long _cachedFactory = 0;
+    private static nint _cachedVTable = 0;
 
     // --- Scanned Functions ---
     public static UnkVATBDelegate? UnkVatb;
@@ -23,37 +27,36 @@ public static class VfxApi
     public static ActivateDelegate? Activate;
 
     /// <summary>
-    /// Gets a fresh MagicFileInstance from Clive's BattleBehavior.
+    /// Updates the cached factory from a MagicFileInstance.
+    /// Called by MagicProcessor when magic is executed.
     /// </summary>
-    private static unsafe long GetFactory()
+    public static unsafe void UpdateFactory(long magicFileInstance)
     {
-        if (_actorApi == null) return 0;
+        if (magicFileInstance < 0x10000 || magicFileInstance > 0x00007FFFFFFFFFFF)
+            return;
         
         try
         {
-            nint clivePtr = _actorApi.GetPlayerStaticActorInfo();
-            if (clivePtr == 0) return 0;
-            
-            var clive = (GameStructs.StaticActorInfo*)clivePtr;
-            if (clive->BattleBehavior < 0x10000) return 0;
-            
-            var behavior = (GameStructs.BattleBehavior*)clive->BattleBehavior;
-            long factory = behavior->MagicFileInstance;
-            
-            // Validate the factory pointer
-            if (factory < 0x10000 || factory > 0x00007FFFFFFFFFFF) return 0;
-            
             // Validate VTable is in game code range
-            long vtable = *(long*)factory;
-            if (vtable < 0x140000000 || vtable > 0x145000000) return 0;
+            long vtable = *(long*)magicFileInstance;
+            if (vtable < 0x140000000 || vtable > 0x145000000)
+                return;
             
-            return factory;
+            // Only log if this is a new factory
+            if (_cachedFactory != magicFileInstance)
+            {
+                _cachedFactory = magicFileInstance;
+                _cachedVTable = (nint)vtable;
+                Logger?.Invoke($"[VFX] Captured factory 0x{magicFileInstance:X} (VTable: 0x{vtable:X})", System.Drawing.Color.Green);
+            }
         }
-        catch
-        {
-            return 0;
-        }
+        catch { }
     }
+    
+    /// <summary>
+    /// Returns true if the VFX system has a valid factory.
+    /// </summary>
+    public static bool IsReady => _cachedFactory != 0 && UnkVatb != null && Activate != null;
 
     /// <summary>
     /// Stores a reference to ActorApi for actor-based spawning.
@@ -130,17 +133,22 @@ public static class VfxApi
     /// <param name="target">Target containing position, node, and optional direction.</param>
     public static unsafe void SpawnVFX(uint vfxId, TargetStruct target)
     {
-        long factory = GetFactory();
-        if (factory == 0 || UnkVatb == null || Activate == null) 
+        if (UnkVatb == null || Activate == null)
         {
-            Logger?.Invoke("[VFX] No valid factory available", System.Drawing.Color.Orange);
+            Logger?.Invoke("[VFX] Functions not resolved. Signature scan failed.", System.Drawing.Color.Red);
+            return;
+        }
+        
+        if (_cachedFactory == 0) 
+        {
+            Logger?.Invoke("[VFX] No factory captured yet. Cast any spell (Fire, etc.) first to capture context.", System.Drawing.Color.Orange);
             return;
         }
 
         unsafe
         {
             long outPtr = 0;
-            long result = UnkVatb(factory, (long)(&outPtr), (int)vfxId, 1);
+            long result = UnkVatb(_cachedFactory, (long)(&outPtr), (int)vfxId, 1);
             long vfxInstance = outPtr;
             Logger?.Invoke($"[VFX] UnkVatb returned 0x{result:X}, outPtr=0x{vfxInstance:X}", System.Drawing.Color.Cyan);
 

@@ -24,8 +24,7 @@
         { "PropertyId": 187, "Value": 2 },
         { "PropertyId": 8, "Value": 55.0 },
         { "PropertyId": 2430, "Value": [-90.0, 0.0, 0.0] },
-        { "PropertyId": 2593, "Value": 5.0 },
-        { "PropertyId": 2351, "Value": 50.0 }
+        { "PropertyId": 2593, "Value": 2.0 }
       ]
     }
   ]

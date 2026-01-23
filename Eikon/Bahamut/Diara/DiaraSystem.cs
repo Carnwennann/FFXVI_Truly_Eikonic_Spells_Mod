@@ -214,6 +214,7 @@ public class DiaraSystem
         // Calculate start angle to center the fan
         float startAngle = -(DiaSpellsPerDodge - 1) * FanAngleStep / 2f;
         int successCount = 0;
+        float speed = 0.0f; // Example speed override
         
         for (int i = 0; i < DiaSpellsPerDodge; i++)
         {
@@ -241,9 +242,11 @@ public class DiaraSystem
             {
                 builder.SetProperty(4338, 51, 69, 0);
             }
+            speed += 5.0f;
+            builder.SetProperty(4338, 2493, 8, speed);
             
             // Override trajectory angle for fan pattern (this will replace the one from JSON)
-            builder.SetProperty(4338, 2493, 2430, new System.Numerics.Vector3(-90f, currentAngle, 0f));
+            builder.SetProperty(4338, 2493, 2430, new System.Numerics.Vector3(-90f, 0f, currentAngle));
             
             LogDebug($"Projectile {i}: Angle {currentAngle:F2}");
             

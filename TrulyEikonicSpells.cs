@@ -100,6 +100,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private ActorApi _actorApi;
     private MagicApiV2 _magicApiV2;
     private ZantetsukenApi _zantetsukenApi;
+    private MegaflareApi _megaflareApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
@@ -204,6 +205,13 @@ public class TrulyEikonicSpellsMod : ModBase
 
         // Initialize APIs
         _zantetsukenApi = new ZantetsukenApi(
+            () => _globalPlayerStatePtr, 
+            () => _isSummonModeActive, 
+            _logger, 
+            _modConfig.ModId
+        );
+
+        _megaflareApi = new MegaflareApi(
             () => _globalPlayerStatePtr, 
             () => _isSummonModeActive, 
             _logger, 
@@ -391,6 +399,20 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private unsafe long OnHitImpl(long* bnpcRow, long R15, long a3, long a4)
     {
+        // Add Megaflare gauge on hit (if Bahamut is active)
+        try
+        {
+            if (_megaflareApi.IsBahamutActive)
+            {
+                _megaflareApi.AddUnits(1000);
+                _logger.WriteLine($"[{_modConfig.ModId}] [MEGAFLARE] Added 1000 units. Current: {_megaflareApi.GetUnits()}", _logger.ColorGreen);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] Error in MegaflareApi: {ex.Message}", _logger.ColorRed);
+        }
+        
         // TEST: Trigger VFX 1001 on every hit to verify main thread stability
         try {
             if (R15 > 0x10000)

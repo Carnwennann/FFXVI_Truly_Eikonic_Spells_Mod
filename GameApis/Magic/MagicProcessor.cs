@@ -233,6 +233,9 @@ internal unsafe class MagicProcessor
 
     private void MagicUnkExecuteImpl(long magicFileInstance, int opType, int propertyId, long dataPtr)
     {
+        // Update VfxApi with the current factory
+        VfxApi.UpdateFactory(magicFileInstance);
+        
         var (magicId, groupId) = ResolveIds(magicFileInstance);
 
         // Activate queued entries

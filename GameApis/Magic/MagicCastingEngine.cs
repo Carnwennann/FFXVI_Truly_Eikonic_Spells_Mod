@@ -72,7 +72,6 @@ internal unsafe class MagicCastingEngine : IDisposable
     private const int MAX_BUFFER_POOL_SIZE = 32;  // Keep at most 32 buffers alive
     
     private long _cachedCasterActorRef = 0;
-    private long _cachedTargetActorRef = 0;
     private long _cachedPositionStruct = 0;
     private nint _cachedTargetVTable = 0;  // VTable from game's TargetStruct
     private int _cachedCommandId = 0;
@@ -95,7 +94,7 @@ internal unsafe class MagicCastingEngine : IDisposable
     
     // Callback for active Eikon detection (still needed for Eikon-specific behavior)
     public Func<int>? GetActiveEikon { get; set; }
-    public Func<int, long, long, bool>? OnChargedShotDetected { get; set; }
+    public Func<int, bool>? OnChargedShotDetected { get; set; }
     
     // ============================================================
     // PROPERTIES
@@ -106,18 +105,6 @@ internal unsafe class MagicCastingEngine : IDisposable
     /// With explicit source/target support, we may not need cached context anymore.
     /// </summary>
     public bool IsReady => _setupMagicHook != null && _castMagicWrapper != null;
-    
-    /// <summary>
-    /// Returns true if we have captured context from a previous game spell cast.
-    /// This is useful for debugging and for fallback behavior.
-    /// </summary>
-    public bool HasCachedContext => _hasMagicContext && _cachedExecutorClient != 0;
-    
-    /// <summary>
-    /// Returns true if the TargetStruct VTable has been captured.
-    /// Without this, casting with custom targets will fail.
-    /// </summary>
-    public bool HasTargetVTable => _cachedTargetVTable != 0;
     
     // ============================================================
     // CONSTRUCTOR
@@ -556,7 +543,7 @@ internal unsafe class MagicCastingEngine : IDisposable
             if (shotType == (int)MagicShotType.Charged && OnChargedShotDetected != null && GetActiveEikon != null)
             {
                 int activeEikon = GetActiveEikon();
-                if (OnChargedShotDetected(activeEikon, magicManagerPtr, projectileDataPtr))
+                if (OnChargedShotDetected(activeEikon))
                 {
                     _logger.WriteLine($"[{_modId}] [MagicCastingEngine] Suppressing Charged Shot for Eikon {activeEikon}", _logger.ColorYellow);
                     return (char)0;
@@ -740,7 +727,6 @@ internal unsafe class MagicCastingEngine : IDisposable
         _hasMagicContext = false;
         _cachedExecutorClient = 0;
         _cachedCasterActorRef = 0;
-        _cachedTargetActorRef = 0;
         _cachedPositionStruct = 0;
         _cachedCommandId = 0;
         _cachedActionId = 0;

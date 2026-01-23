@@ -74,6 +74,43 @@ internal static class OdinEikonOffsets
 }
 
 // ============================================================
+// BAHAMUT EIKON STRUCTURE
+// ============================================================
+
+/// <summary>
+/// Offsets within the Bahamut Eikon structure.
+/// Used for Megaflare gauge management.
+/// 
+/// Megaflare system:
+/// - 4000 units = 1 level
+/// - Max level depends on skill potency (typically 1-4)
+/// 
+/// Note: Wings activation is NOT stored here.
+/// It's checked via ActorData35Entry::GetCurrentPlayerMode() == 75
+/// </summary>
+internal static class BahamutEikonOffsets
+{
+    /// <summary>
+    /// Megaflare gauge total units.
+    /// Level = units / 4000, UnitsInLevel = units % 4000
+    /// Type: float (dword, converted to int via vcvttss2si)
+    /// </summary>
+    public const int MegaflareGauge = 0x1C38; // 7224 decimal
+    
+    /// <summary>
+    /// Unknown state byte (checked == 2 for some UI trigger).
+    /// Type: byte
+    /// </summary>
+    public const int UnkState1C4A = 0x1C4A; // 7242 decimal
+    
+    /// <summary>
+    /// Unknown state byte (checked for some condition).
+    /// Type: byte
+    /// </summary>
+    public const int UnkState1C4B = 0x1C4B; // 7243 decimal
+}
+
+// ============================================================
 // BNPC ROW (NPC Entity)
 // ============================================================
 

@@ -100,7 +100,7 @@ public class MagicApiV2 : IMagicApi, IDisposable
     /// <inheritdoc/>
     public void RegisterChargedShotHandler(Func<int, bool> handler)
     {
-        _engine.OnChargedShotDetected = (eikon, mgr, proj) => handler(eikon);
+        _engine.OnChargedShotDetected = handler;
     }
     
     /// <inheritdoc/>
