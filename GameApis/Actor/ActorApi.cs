@@ -25,6 +25,8 @@ public unsafe class ActorApi : IActorApi
     public delegate Vector3* StaticActorInfo_GetForwardVectorDelegate(nint pStaticEntityInfo, Vector3* outForward);
     public delegate nint UnkSingletonPlayer_GetList35EntryDelegate(nint @this);
     public delegate TargetStruct* UnkList35Entry_GetCurrentTargettedEnemyDelegate(nint @this, byte forceUnk);
+    public delegate bool StaticActorInfo_HasActorDataDelegate(nint* pStaticActorInfo);
+    public delegate nint StaticActorInfo_GetActorData35EntryDelegate(nint staticActorInfo);
     
     // ============================================================
     // HOOKS
@@ -45,6 +47,8 @@ public unsafe class ActorApi : IActorApi
     private StaticActorInfo_GetForwardVectorDelegate? _getForwardVectorFunc;
     private UnkSingletonPlayer_GetList35EntryDelegate? _getList35EntryFunc;
     private UnkList35Entry_GetCurrentTargettedEnemyDelegate? _getCurrentTargetFunc;
+    private StaticActorInfo_HasActorDataDelegate? _hasActorDataFunc;
+    private StaticActorInfo_GetActorData35EntryDelegate? _getActorData35EntryFunc;
     
     // ============================================================
     // SINGLETONS
@@ -242,6 +246,34 @@ public unsafe class ActorApi : IActorApi
             _getCurrentTargetFunc = hooks.CreateWrapper<UnkList35Entry_GetCurrentTargettedEnemyDelegate>(addr, out _);
             _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found UnkList35Entry_GetCurrentTargettedEnemy at 0x{addr:X}", _logger.ColorGreen);
         });
+        
+        // StaticActorInfo::HasActorData - checks if StaticActorInfo has valid ActorData
+        // Pattern from IDA: E8 ?? ?? ?? ?? 48 8B F8 84 C0 74 (call HasActorData, test result)
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 33 DB 48 39 19", result =>
+        {
+            if (!result.Found)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] FAILED to find StaticActorInfo::HasActorData", _logger.ColorYellow);
+                return;
+            }
+            var addr = (nint)(_baseAddress + result.Offset);
+            _hasActorDataFunc = hooks.CreateWrapper<StaticActorInfo_HasActorDataDelegate>(addr, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found StaticActorInfo::HasActorData at 0x{addr:X}", _logger.ColorGreen);
+        });
+        
+        // StaticActorInfo::GetActorData35Entry - gets ActorData35Entry from StaticActorInfo
+        // Pattern from IDA: similar structure to HasActorData but returns the entry
+        scans.AddMainModuleScan("40 53 48 83 EC ?? 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 8D 51 ?? 48 83 FA ?? 73 ?? 48 8B C2 41 B8 ?? ?? ?? ?? 83 E0 ?? 48 C1 EA ?? C4 42 F9 F7 C0 48 8B 44 D3 ?? 49 85 C0 75 ?? 49 0B C0 48 89 44 D3 ?? 48 8B 05 ?? ?? ?? ?? 8B 53 ?? 48 8B 8C C8 ?? ?? ?? ?? 48 8B 01 FF 50 ?? 48 89 83 ?? ?? ?? ?? 48 8B 83 ?? ?? ?? ?? 48 83 C4 ?? 5B C3 E8 ?? ?? ?? ?? CC CC 40 53 48 83 EC ?? 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 8D 51 ?? 48 83 FA ?? 73 ?? 48 8B C2 41 B8 ?? ?? ?? ?? 83 E0 ?? 48 C1 EA ?? C4 42 F9 F7 C0 48 8B 44 D3 ?? 49 85 C0 75 ?? 49 0B C0 48 89 44 D3 ?? 48 8B 05 ?? ?? ?? ?? 8B 53 ?? 48 8B 8C C8 ?? ?? ?? ?? 48 8B 01 FF 50 ?? 48 89 83 ?? ?? ?? ?? 48 8B 83 ?? ?? ?? ?? 48 83 C4 ?? 5B C3 E8 ?? ?? ?? ?? CC CC 40 53 48 83 EC ?? 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 8D 51 ?? 48 83 FA ?? 73 ?? 48 8B C2 41 B8 ?? ?? ?? ?? 83 E0 ?? 48 C1 EA ?? C4 42 F9 F7 C0 48 8B 44 D3 ?? 49 85 C0 75 ?? 49 0B C0 48 89 44 D3 ?? 48 8B 05 ?? ?? ?? ?? 8B 53 ?? 48 8B 8C C8 ?? ?? ?? ?? 48 8B 01 FF 50 ?? 48 89 43 ?? 48 8B 43 ?? 48 83 C4 ?? 5B C3 E8 ?? ?? ?? ?? CC CC CC CC 40 53 48 83 EC ?? 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 8D 51 ?? 48 83 FA ?? 73 ?? 48 8B C2 41 B8 ?? ?? ?? ?? 83 E0 ?? 48 C1 EA ?? C4 42 F9 F7 C0 48 8B 44 D3 ?? 49 85 C0 75 ?? 49 0B C0 48 89 44 D3 ?? 48 8B 05 ?? ?? ?? ?? 8B 53 ?? 48 8B 8C C8 ?? ?? ?? ?? 48 8B 01 FF 50 ?? 48 89 83 ?? ?? ?? ?? 48 8B 83 ?? ?? ?? ?? 48 83 C4 ?? 5B C3 E8 ?? ?? ?? ?? CC CC 40 53 48 83 EC ?? 48 8B D9 48 8B 0D ?? ?? ?? ?? 48 8D 51 ?? 48 83 FA ?? 73 ?? 48 8B C2 41 B8 ?? ?? ?? ?? 83 E0 ?? 48 C1 EA ?? C4 42 F9 F7 C0 48 8B 44 D3 ?? 49 85 C0 75 ?? 49 0B C0 48 89 44 D3 ?? 48 8B 05 ?? ?? ?? ?? 8B 53 ?? 48 8B 8C C8 ?? ?? ?? ?? 48 8B 01 FF 50 ?? 48 89 83", result =>
+        {
+            if (!result.Found)
+            {
+                _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] FAILED to find StaticActorInfo::GetActorData35Entry", _logger.ColorYellow);
+                return;
+            }
+            var addr = (nint)(_baseAddress + result.Offset);
+            _getActorData35EntryFunc = hooks.CreateWrapper<StaticActorInfo_GetActorData35EntryDelegate>(addr, out _);
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] Found StaticActorInfo::GetActorData35Entry at 0x{addr:X}", _logger.ColorGreen);
+        });
     }
     
     // ============================================================
@@ -292,6 +324,30 @@ public unsafe class ActorApi : IActorApi
             PlayerStaticActorInfo = resolved;
         
         return PlayerStaticActorInfo;
+    }
+    
+    /// <inheritdoc/>
+    public long GetPlayerActorData35Entry()
+    {
+        if (_getActorData35EntryFunc == null)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] [ActorApi] GetPlayerActorData35Entry: Function not available", _logger.ColorYellow);
+            return 0;
+        }
+        
+        nint playerStaticActorInfo = GetPlayerStaticActorInfo();
+        if (playerStaticActorInfo == 0)
+            return 0;
+        
+        // Check if actor has valid data first (optional safety check)
+        if (_hasActorDataFunc != null)
+        {
+            nint* pInfo = (nint*)playerStaticActorInfo;
+            if (!_hasActorDataFunc(pInfo))
+                return 0;
+        }
+        
+        return _getActorData35EntryFunc(playerStaticActorInfo);
     }
     
     private uint GetPlayerActorId()

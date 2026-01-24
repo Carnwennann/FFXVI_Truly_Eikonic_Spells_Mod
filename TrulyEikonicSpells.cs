@@ -101,6 +101,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private MagicApiV2 _magicApiV2;
     private ZantetsukenApi _zantetsukenApi;
     private MegaflareApi _megaflareApi;
+    private LeviathanApi _leviathanApi;
+    private BlindJusticeApi _blindJusticeApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
     // NEX
@@ -214,6 +216,21 @@ public class TrulyEikonicSpellsMod : ModBase
         _megaflareApi = new MegaflareApi(
             () => _globalPlayerStatePtr, 
             () => _isSummonModeActive, 
+            _logger, 
+            _modConfig.ModId
+        );
+
+        _leviathanApi = new LeviathanApi(
+            () => _globalPlayerStatePtr, 
+            () => _isSummonModeActive, 
+            _logger, 
+            _modConfig.ModId
+        );
+
+        _blindJusticeApi = new BlindJusticeApi(
+            () => _globalPlayerStatePtr, 
+            () => _isSummonModeActive, 
+            _actorApi,
             _logger, 
             _modConfig.ModId
         );
@@ -399,18 +416,41 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private unsafe long OnHitImpl(long* bnpcRow, long R15, long a3, long a4)
     {
-        // Add Megaflare gauge on hit (if Bahamut is active)
+        // Add Leviathan gauge on hit (if Leviathan is active)
         try
         {
-            if (_megaflareApi.IsBahamutActive)
+            if (_leviathanApi.IsLeviathanActive)
             {
-                _megaflareApi.AddUnits(1000);
-                _logger.WriteLine($"[{_modConfig.ModId}] [MEGAFLARE] Added 1000 units. Current: {_megaflareApi.GetUnits()}", _logger.ColorGreen);
+                //_leviathanApi.AddUnits(1000);
+                _leviathanApi.AddAbyssalTearCurrentLevel(1);  // Adds 8 seconds to gauge
+                _leviathanApi.AddTidalGauge(10);  // Gain 1 unit of tidal gauge (decreases TidalUnitsUsed by 1)
+                _leviathanApi.ResetTidalRecoveryTimer();
+                _leviathanApi.LogState();
             }
         }
         catch (Exception ex)
         {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error in MegaflareApi: {ex.Message}", _logger.ColorRed);
+            _logger.WriteLine($"[{_modConfig.ModId}] Error in LeviathanApi: {ex.Message}", _logger.ColorRed);
+        }
+
+        // Add Blind Justice stack on hit (if Ramuh is active)
+        try
+        {
+            if (_blindJusticeApi.IsRamuhActive)
+            {
+                long actorData35 = _blindJusticeApi.GetActorData35EntryPtr();
+                _logger.WriteLine($"[{_modConfig.ModId}] [BLIND JUSTICE DEBUG] ActorData35Entry ptr: 0x{actorData35:X}", _logger.ColorYellow);
+                
+                if (actorData35 != 0)
+                {
+                    _blindJusticeApi.AddStacks(1);
+                    _logger.WriteLine($"[{_modConfig.ModId}] [BLIND JUSTICE] Added 1 stack. Current: {_blindJusticeApi.GetStacks()}", _logger.ColorGreen);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.WriteLine($"[{_modConfig.ModId}] Error in BlindJusticeApi: {ex.Message}", _logger.ColorRed);
         }
         
         // TEST: Trigger VFX 1001 on every hit to verify main thread stability

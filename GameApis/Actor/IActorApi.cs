@@ -85,6 +85,17 @@ public interface IActorApi
 
     
     // ============================================================
+    // ACTOR DATA API
+    // ============================================================
+    
+    /// <summary>
+    /// Gets the ActorData35Entry pointer for the player (Clive).
+    /// This is required for Blind Justice (Ramuh) satellite count access.
+    /// </summary>
+    /// <returns>ActorData35Entry pointer, or 0 if not available.</returns>
+    long GetPlayerActorData35Entry();
+    
+    // ============================================================
     // STATE DETECTION API
     // ============================================================
     

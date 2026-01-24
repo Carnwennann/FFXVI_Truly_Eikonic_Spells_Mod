@@ -6,17 +6,18 @@ namespace ff16.gameplay.truly_eikonic_spells.Utils;
 public static class EikonUtils
 {
     // SummonModeIds (corrected from testing):
-    // 0=Phoenix/Leviathan/Ultima, 2=Garuda, 3=Titan, 4=Ramuh, 5=Shiva, 7=Odin, 8=Bahamut
-    public static readonly int[] KnownEikonIds = { 0, 2, 3, 4, 5, 7, 8 };
+    // 0=Phoenix/Ultima, 2=Garuda, 3=Titan, 4=Ramuh, 5=Shiva, 7=Odin, 8=Bahamut, 9=Leviathan (DLC)
+    public static readonly int[] KnownEikonIds = { 0, 2, 3, 4, 5, 7, 8, 9 };
     
     // Eikon ID constants
-    public const int EIKON_PHOENIX = 0;    // Also Leviathan/Ultima (DLC)
+    public const int EIKON_PHOENIX = 0;    // Also Ultima (DLC)
     public const int EIKON_GARUDA = 2;
     public const int EIKON_TITAN = 3;
     public const int EIKON_RAMUH = 4;
     public const int EIKON_SHIVA = 5;
     public const int EIKON_ODIN = 7;
     public const int EIKON_BAHAMUT = 8;
+    public const int EIKON_LEVIATHAN = 9; // DLC
     
     // Spell element types
     public enum SpellElement { None, Fire, Dia, Dark, Aero, Ice, Thunder, Earth, Water, Ruin }
@@ -28,13 +29,14 @@ public static class EikonUtils
     {
         return eikonId switch
         {
-            EIKON_PHOENIX => "Phoenix",  // Also Leviathan/Ultima (DLC)
+            EIKON_PHOENIX => "Phoenix",  // Also Ultima (DLC)
             EIKON_GARUDA => "Garuda",
             EIKON_TITAN => "Titan",
             EIKON_RAMUH => "Ramuh",
             EIKON_SHIVA => "Shiva",
             EIKON_ODIN => "Odin",
             EIKON_BAHAMUT => "Bahamut",
+            EIKON_LEVIATHAN => "Leviathan",
             -1 => "No Function",
             -2 => "No PlayerState",
             -3 => "Error",
@@ -56,6 +58,7 @@ public static class EikonUtils
             EIKON_SHIVA => SpellElement.Ice,
             EIKON_RAMUH => SpellElement.Thunder,
             EIKON_TITAN => SpellElement.Earth,
+            EIKON_LEVIATHAN => SpellElement.Water,
             _ => SpellElement.None
         };
     }
