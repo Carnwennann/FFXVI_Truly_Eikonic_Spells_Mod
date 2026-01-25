@@ -2,7 +2,7 @@ using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
 using Reloaded.Mod.Interfaces;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
 /// <summary>
 /// API for managing Leviathan's Abyssal Tear (Vent Gauge).
@@ -17,7 +17,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 /// - CurrentLevel increases as time thresholds are reached (8 seconds per level)
 /// - Offsets: Gauge (0x378), State (0x37C), MaxLevel (0x37D), CurrentLevel (0x37E)
 /// </summary>
-public unsafe class AbyssalTearApi
+public unsafe class AbyssalTearApi : IAbyssalTearApi
 {
     #region Constants
     
@@ -74,77 +74,50 @@ public unsafe class AbyssalTearApi
     /// </summary>
     public bool IsAvailable => GetAbyssalTearPointer() != 0;
 
-    #region Gauge Values
-
-    /// <summary>
-    /// Get the current Abyssal Tear gauge value (float).
-    /// This is TIME IN SECONDS that the ability has been charging.
-    /// Works regardless of whether Leviathan mode is active.
-    /// </summary>
-    public float GetGauge()
-    {
-        long abyssalPtr = GetAbyssalTearPointer();
-        if (abyssalPtr == 0) return 0f;
-        return *(float*)(abyssalPtr + AbyssalTearOffsets.Gauge);
-    }
+    #region Gauge Units
 
     /// <summary>
     /// Get the current Abyssal Tear gauge as int (truncated seconds).
     /// </summary>
     public int GetUnits()
     {
-        return (int)GetGauge();
-    }
-    
-    /// <summary>
-    /// Get the current Abyssal Tear time in seconds (float precision).
-    /// Alias for GetGauge().
-    /// </summary>
-    public float GetSeconds()
-    {
-        return GetGauge();
+        long abyssalPtr = GetAbyssalTearPointer();
+        if (abyssalPtr == 0) return 0;
+        return (int)*(float*)(abyssalPtr + AbyssalTearOffsets.Gauge);
     }
 
     /// <summary>
-    /// Set the Abyssal Tear gauge value directly.
+    /// Set the Abyssal Tear gauge units directly.
     /// </summary>
-    /// <param name="value">New gauge value in seconds</param>
-    public void SetGauge(float value)
+    /// <param name="units">New gauge value in seconds</param>
+    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
+    public void SetUnits(int units, int maxLevel = DefaultMaxLevel)
     {
         long abyssalPtr = GetAbyssalTearPointer();
         if (abyssalPtr == 0) return;
-        if (value < 0f) value = 0f;
-        *(float*)(abyssalPtr + AbyssalTearOffsets.Gauge) = value;
-    }
-
-    /// <summary>
-    /// Set the Abyssal Tear gauge time directly (in seconds).
-    /// </summary>
-    /// <param name="seconds">New gauge time in seconds</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void SetSeconds(float seconds, int maxLevel = DefaultMaxLevel)
-    {
-        float maxSeconds = maxLevel * SecondsPerLevel;
-        if (seconds > maxSeconds) seconds = maxSeconds;
-        if (seconds < 0f) seconds = 0f;
-        SetGauge(seconds);
-    }
-
-    /// <summary>
-    /// Adds seconds to the Abyssal Tear gauge.
-    /// </summary>
-    /// <param name="seconds">Seconds to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void AddSeconds(float seconds, int maxLevel = DefaultMaxLevel)
-    {
-        float currentSeconds = GetGauge();
-        float newSeconds = currentSeconds + seconds;
         
-        float maxSeconds = maxLevel * SecondsPerLevel;
-        if (newSeconds > maxSeconds) newSeconds = maxSeconds;
-        if (newSeconds < 0f) newSeconds = 0f;
+        int maxUnits = (int)(maxLevel * SecondsPerLevel);
+        if (units > maxUnits) units = maxUnits;
+        if (units < 0) units = 0;
+        
+        *(float*)(abyssalPtr + AbyssalTearOffsets.Gauge) = (float)units;
+    }
 
-        SetGauge(newSeconds);
+    /// <summary>
+    /// Adds units (seconds) to the Abyssal Tear gauge.
+    /// </summary>
+    /// <param name="amount">Units to add (can be negative)</param>
+    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
+    public void AddUnits(int amount, int maxLevel = DefaultMaxLevel)
+    {
+        int currentUnits = GetUnits();
+        int newUnits = currentUnits + amount;
+        
+        int maxUnits = (int)(maxLevel * SecondsPerLevel);
+        if (newUnits > maxUnits) newUnits = maxUnits;
+        if (newUnits < 0) newUnits = 0;
+
+        SetUnits(newUnits, maxLevel);
     }
 
     #endregion
@@ -223,15 +196,7 @@ public unsafe class AbyssalTearApi
     /// </summary>
     public int GetLevel()
     {
-        return (int)(GetGauge() / SecondsPerLevel) + MinLevel;
-    }
-
-    /// <summary>
-    /// Get seconds within the current Abyssal Tear level (0 to SecondsPerLevel).
-    /// </summary>
-    public float GetSecondsInCurrentLevel()
-    {
-        return GetGauge() % SecondsPerLevel;
+        return (GetUnits() / (int)SecondsPerLevel) + MinLevel;
     }
 
     /// <summary>
@@ -244,7 +209,7 @@ public unsafe class AbyssalTearApi
     {
         if (level < MinLevel) level = MinLevel;
         if (level > maxLevel) level = maxLevel;
-        SetSeconds((level - MinLevel) * SecondsPerLevel, maxLevel);
+        SetUnits((int)((level - MinLevel) * SecondsPerLevel), maxLevel);
     }
 
     /// <summary>
@@ -255,8 +220,12 @@ public unsafe class AbyssalTearApi
     /// <param name="maxLevel">Maximum level cap</param>
     public void AddLevels(int levels, int maxLevel = DefaultMaxLevel)
     {
-        AddSeconds(levels * SecondsPerLevel, maxLevel);
+        AddUnits((int)(levels * SecondsPerLevel), maxLevel);
     }
+
+    #endregion
+
+    #region Utilities
 
     /// <summary>
     /// Fill the Abyssal Tear gauge to maximum level.
@@ -293,14 +262,14 @@ public unsafe class AbyssalTearApi
             return;
         }
         
-        float gauge = GetGauge();
+        int units = GetUnits();
         byte state = GetState();
-        byte maxLevel = GetMaxLevelStored();
-        byte currentLevel = GetCurrentLevelStored();
-        int calculatedLevel = GetLevel();
+        int level = GetLevel();
+        bool isActive = IsActive;
+        bool isExecuted = IsExecuted;
         
         _logger.WriteLine($"[{_modId}] [Abyssal Tear] Ptr=0x{abyssalPtr:X}");
-        _logger.WriteLine($"[{_modId}] [Abyssal Tear] Gauge: {gauge:F2}s | Level: {calculatedLevel} | State: {state} | MaxLvl: {maxLevel} | CurLvl: {currentLevel}");
+        _logger.WriteLine($"[{_modId}] [Abyssal Tear] Units: {units}s | Level: {level} | State: {state} | IsActive: {isActive} | IsExecuted: {isExecuted}");
     }
 
     #endregion

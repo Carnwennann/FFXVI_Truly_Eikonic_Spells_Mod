@@ -8,7 +8,7 @@ using Reloaded.Hooks.Definitions.X64;
 using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
 using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
 /// <summary>
 /// API for managing Ramuh's Blind Justice stack gauge.
@@ -26,7 +26,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 /// Unlike other Eikon gauges, this is stored in ActorData35Entry,
 /// not in the Eikon summon structure.
 /// </summary>
-public unsafe class BlindJusticeApi
+public unsafe class BlindJusticeApi : IBlindJusticeApi
 {
     #region Signatures
     
@@ -155,12 +155,12 @@ public unsafe class BlindJusticeApi
     
     #endregion
     
-    #region Max Level Override
+    #region Max Units Override
     
     /// <summary>
-    /// Gets the current maximum stacks (either override or vanilla value).
+    /// Gets the current maximum units (either override or vanilla value).
     /// </summary>
-    public int GetMaxLevel()
+    public int GetMaxUnits()
     {
         if (_maxLevelOverride.HasValue)
         {
@@ -178,36 +178,36 @@ public unsafe class BlindJusticeApi
     }
     
     /// <summary>
-    /// Sets a custom maximum level for Blind Justice.
+    /// Sets a custom maximum units for Blind Justice.
     /// This will override the vanilla value from Skill::GetPotencyParameter(29).
     /// </summary>
-    /// <param name="maxLevel">The new maximum level (number of projectiles)</param>
-    public void SetMaxLevel(int maxLevel)
+    /// <param name="maxUnits">The new maximum units (number of projectiles)</param>
+    public void SetMaxUnits(int maxUnits)
     {
-        if (maxLevel < 1) maxLevel = 1;
-        _maxLevelOverride = maxLevel;
-        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max level override set to {maxLevel}", _logger.ColorGreen);
+        if (maxUnits < 1) maxUnits = 1;
+        _maxLevelOverride = maxUnits;
+        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max units override set to {maxUnits}", _logger.ColorGreen);
     }
     
     /// <summary>
-    /// Resets the maximum level to the vanilla value.
+    /// Resets the maximum units to the vanilla value.
     /// After calling this, GetBlindJusticeMaxGaugeMaxLevel will return the game's default.
     /// </summary>
-    public void ResetMaxLevel()
+    public void ResetMaxUnits()
     {
         _maxLevelOverride = null;
-        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max level override reset to vanilla", _logger.ColorGreen);
+        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max units override reset to vanilla", _logger.ColorGreen);
     }
     
     /// <summary>
-    /// Check if max level is currently being overridden.
+    /// Check if max units is currently being overridden.
     /// </summary>
-    public bool IsMaxLevelOverridden => _maxLevelOverride.HasValue;
+    public bool IsMaxUnitsOverridden => _maxLevelOverride.HasValue;
     
     /// <summary>
-    /// Gets the vanilla max level (from game function, ignoring any override).
+    /// Gets the vanilla max units (from game function, ignoring any override).
     /// </summary>
-    public int GetVanillaMaxLevel()
+    private int GetVanillaMaxUnits()
     {
         if (_getMaxLevelHook != null)
         {
@@ -218,7 +218,7 @@ public unsafe class BlindJusticeApi
     
     #endregion
     
-    #region Ramuh State
+    #region Availability
 
     /// <summary>
     /// Gets the pointer to the Ramuh-specific Eikon structure.
@@ -248,7 +248,7 @@ public unsafe class BlindJusticeApi
     /// The lock count is stored at ActorData35Entry + 0xE0.
     /// </summary>
     /// <returns>Pointer to ActorData35Entry, or 0 if not available</returns>
-    public long GetActorData35EntryPtr()
+    private long GetActorData35EntryPtr()
     {
         if (_actorApi != null)
             return _actorApi.GetPlayerActorData35Entry();
@@ -259,13 +259,13 @@ public unsafe class BlindJusticeApi
     
     #endregion
 
-    #region Stack Count
+    #region Gauge Units
 
     /// <summary>
     /// Get the current stack count.
     /// Reads from ActorData35Entry + 0xE0 (224 decimal).
     /// </summary>
-    public int GetStacks()
+    public int GetUnits()
     {
         long actorData35 = GetActorData35EntryPtr();
         if (actorData35 == 0) return 0;
@@ -275,33 +275,16 @@ public unsafe class BlindJusticeApi
     /// <summary>
     /// Set the stack count directly.
     /// Writes to ActorData35Entry + 0xE0.
-    /// Uses the current max level (override or vanilla) for capping.
+    /// Uses the current max units (override or vanilla) for capping.
     /// </summary>
     /// <param name="count">New stack count</param>
-    public void SetStacks(int count)
+    public void SetUnits(int count)
     {
         long actorData35 = GetActorData35EntryPtr();
         if (actorData35 == 0) return;
 
-        int maxStacks = GetMaxLevel();
-        if (count > maxStacks) count = maxStacks;
-        if (count < 0) count = 0;
-
-        *(int*)(actorData35 + ActorData35Offsets.BlindJusticeLockCount) = count;
-    }
-    
-    /// <summary>
-    /// Set the stack count directly with explicit max cap.
-    /// Writes to ActorData35Entry + 0xE0.
-    /// </summary>
-    /// <param name="count">New stack count</param>
-    /// <param name="maxStacks">Maximum stack cap</param>
-    public void SetStacks(int count, int maxStacks)
-    {
-        long actorData35 = GetActorData35EntryPtr();
-        if (actorData35 == 0) return;
-
-        if (count > maxStacks) count = maxStacks;
+        int maxUnits = GetMaxUnits();
+        if (count > maxUnits) count = maxUnits;
         if (count < 0) count = 0;
 
         *(int*)(actorData35 + ActorData35Offsets.BlindJusticeLockCount) = count;
@@ -309,40 +292,20 @@ public unsafe class BlindJusticeApi
 
     /// <summary>
     /// Adds stacks to the count.
-    /// Uses the current max level (override or vanilla) for capping.
+    /// Uses the current max units (override or vanilla) for capping.
     /// </summary>
     /// <param name="amount">Amount of stacks to add (can be negative)</param>
-    public void AddStacks(int amount)
+    public void AddUnits(int amount)
     {
         long actorData35 = GetActorData35EntryPtr();
         if (actorData35 == 0) return;
 
-        int maxStacks = GetMaxLevel();
+        int maxUnits = GetMaxUnits();
         int* pCount = (int*)(actorData35 + ActorData35Offsets.BlindJusticeLockCount);
         int currentCount = *pCount;
         int newCount = currentCount + amount;
         
-        if (newCount > maxStacks) newCount = maxStacks;
-        if (newCount < 0) newCount = 0;
-
-        *pCount = newCount;
-    }
-    
-    /// <summary>
-    /// Adds stacks to the count with explicit max cap.
-    /// </summary>
-    /// <param name="amount">Amount of stacks to add (can be negative)</param>
-    /// <param name="maxStacks">Maximum stack cap</param>
-    public void AddStacks(int amount, int maxStacks)
-    {
-        long actorData35 = GetActorData35EntryPtr();
-        if (actorData35 == 0) return;
-
-        int* pCount = (int*)(actorData35 + ActorData35Offsets.BlindJusticeLockCount);
-        int currentCount = *pCount;
-        int newCount = currentCount + amount;
-        
-        if (newCount > maxStacks) newCount = maxStacks;
+        if (newCount > maxUnits) newCount = maxUnits;
         if (newCount < 0) newCount = 0;
 
         *pCount = newCount;
@@ -350,56 +313,25 @@ public unsafe class BlindJusticeApi
 
     #endregion
 
-    #region Helpers
+    #region Utilities
 
     /// <summary>
     /// Fill stacks to maximum.
-    /// Uses the current max level (override or vanilla).
+    /// Uses the current max units (override or vanilla).
     /// </summary>
-    public void FillStacks()
+    public void FillGauge()
     {
-        int maxStacks = GetMaxLevel();
-        SetStacks(maxStacks, maxStacks);
-    }
-    
-    /// <summary>
-    /// Fill stacks to specified maximum.
-    /// </summary>
-    /// <param name="maxStacks">Maximum stacks</param>
-    public void FillStacks(int maxStacks)
-    {
-        SetStacks(maxStacks, maxStacks);
+        int maxUnits = GetMaxUnits();
+        SetUnits(maxUnits);
     }
 
     /// <summary>
     /// Empty all stacks.
     /// </summary>
-    public void EmptyStacks()
+    public void EmptyGauge()
     {
-        SetStacks(0);
+        SetUnits(0);
     }
-
-    /// <summary>
-    /// Check if stacks are at maximum capacity.
-    /// Uses the current max level (override or vanilla).
-    /// </summary>
-    public bool IsFull()
-    {
-        return GetStacks() >= GetMaxLevel();
-    }
-    
-    /// <summary>
-    /// Check if stacks are at specified maximum capacity.
-    /// </summary>
-    public bool IsFull(int maxStacks)
-    {
-        return GetStacks() >= maxStacks;
-    }
-
-    /// <summary>
-    /// Check if there are any stacks available.
-    /// </summary>
-    public bool HasStacks => GetStacks() > 0;
 
     #endregion
 
@@ -412,17 +344,19 @@ public unsafe class BlindJusticeApi
     {
         if (_logger == null) return;
         
-        long actorData35 = GetActorData35EntryPtr();
-        if (actorData35 == 0)
+        long ramuhPtr = GetRamuhEikonPointer();
+        if (ramuhPtr == 0)
         {
-            _logger.WriteLine($"[{_modId}] [BlindJustice] ActorData35Entry not available");
+            _logger.WriteLine($"[{_modId}] [BlindJustice] Ramuh mode not active");
             return;
         }
-
-        int maxLevel = GetMaxLevel();
-        int vanillaMax = GetVanillaMaxLevel();
-        string overrideStr = IsMaxLevelOverridden ? $" (overriding vanilla {vanillaMax})" : "";
-        _logger.WriteLine($"[{_modId}] [BlindJustice] Stacks: {GetStacks()}/{maxLevel}{overrideStr}, ActorData35: 0x{actorData35:X}, RamuhActive: {IsRamuhActive}");
+        
+        int units = GetUnits();
+        int maxUnits = GetMaxUnits();
+        bool isOverridden = IsMaxUnitsOverridden;
+        
+        _logger.WriteLine($"[{_modId}] [BlindJustice] Ptr=0x{ramuhPtr:X}");
+        _logger.WriteLine($"[{_modId}] [BlindJustice] Stacks: {units}/{maxUnits} | MaxOverridden: {isOverridden}");
     }
 
     #endregion

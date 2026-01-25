@@ -2,6 +2,7 @@ using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
+using ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using FF16Framework.Interfaces.Nex;
 using FF16Framework.Interfaces.Nex.Structures;

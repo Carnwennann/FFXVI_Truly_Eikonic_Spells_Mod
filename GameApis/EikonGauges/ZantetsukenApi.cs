@@ -2,7 +2,7 @@ using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
 using Reloaded.Mod.Interfaces;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
 /// <summary>
 /// API for managing Odin's Zantetsuken gauge and related state.
@@ -13,7 +13,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 /// - 0 units = Level 1, 1500 units = Level 2, etc.
 /// - Max 7500 units = Level 5
 /// </summary>
-public unsafe class ZantetsukenApi
+public unsafe class ZantetsukenApi : IZantetsukenApi
 {
     /// <summary>
     /// Units required per Zantetsuken level.
@@ -76,12 +76,12 @@ public unsafe class ZantetsukenApi
     /// </summary>
     public bool IsOdinActive => GetOdinEikonPointer() != 0;
 
-    #region Gauge Units (Raw)
+    #region Gauge Units
 
     /// <summary>
-    /// Get the current Zantetsuken gauge units (0-7500).
+    /// Get the current Zantetsuken gauge units (0-6000).
     /// </summary>
-    public short GetUnits()
+    public int GetUnits()
     {
         long odinPtr = GetOdinEikonPointer();
         if (odinPtr == 0) return 0;
@@ -125,7 +125,7 @@ public unsafe class ZantetsukenApi
 
     #endregion
 
-    #region Level Helpers
+    #region Level
 
     /// <summary>
     /// Get the current Zantetsuken level (1 to 5).
@@ -134,14 +134,6 @@ public unsafe class ZantetsukenApi
     public int GetLevel()
     {
         return (GetUnits() / UnitsPerLevel) + MinLevel;
-    }
-
-    /// <summary>
-    /// Get units within the current level (0 to UnitsPerLevel-1).
-    /// </summary>
-    public int GetUnitsInCurrentLevel()
-    {
-        return GetUnits() % UnitsPerLevel;
     }
 
     /// <summary>
@@ -179,6 +171,31 @@ public unsafe class ZantetsukenApi
     public void EmptyGauge()
     {
         SetLevel(MinLevel);
+    }
+
+    #endregion
+
+    #region Debug
+
+    /// <summary>
+    /// Log current Zantetsuken state for debugging.
+    /// </summary>
+    public void LogState()
+    {
+        if (_logger == null) return;
+        
+        long odinPtr = GetOdinEikonPointer();
+        if (odinPtr == 0)
+        {
+            _logger.WriteLine($"[{_modId}] [Zantetsuken] Odin mode not active");
+            return;
+        }
+        
+        int units = GetUnits();
+        int level = GetLevel();
+        
+        _logger.WriteLine($"[{_modId}] [Zantetsuken] Ptr=0x{odinPtr:X}");
+        _logger.WriteLine($"[{_modId}] [Zantetsuken] Units: {units}/{MaxUnits} | Level: {level}/{MaxLevel}");
     }
 
     #endregion

@@ -1,5 +1,6 @@
 using ff16.gameplay.truly_eikonic_spells.Configuration;
 using ff16.gameplay.truly_eikonic_spells.GameApis;
+using ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Magic.MagicFile;
 using NenTools.ImGui.Interfaces;
@@ -695,10 +696,9 @@ public class ImGuiConfigurator : IImGuiComponent
     private int _apiTestZantetsukenUnits = 0;
     private int _apiTestMegaflareUnits = 0;
     private int _apiTestMegaflareLevel = 0;
-    private float _apiTestAbyssalTearGauge = 0f;
+    private int _apiTestAbyssalTearUnits = 0;
     private int _apiTestAbyssalTearLevel = 1;
     private int _apiTestTidalGauge = 0;
-    private float _apiTestUnlimitedTidalSeconds = 10f;
     private string _apiTestLastResult = "";
     
     private void RenderEikonApiTesterTab()
@@ -738,9 +738,9 @@ public class ImGuiConfigurator : IImGuiComponent
                     isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
                     $"Ramuh Active: {isActive}");
                 _imgui.SameLine();
-                _imgui.Text($"| Stacks: {bj.GetStacks()}/{bj.GetMaxLevel()}");
+                _imgui.Text($"| Stacks: {bj.GetUnits()}/{bj.GetMaxUnits()}");
                 _imgui.SameLine();
-                _imgui.Text($"| Override: {(bj.IsMaxLevelOverridden ? "YES" : "No")}");
+                _imgui.Text($"| Override: {(bj.IsMaxUnitsOverridden ? "YES" : "No")}");
                 
                 _imgui.Separator();
                 
@@ -750,13 +750,13 @@ public class ImGuiConfigurator : IImGuiComponent
                 _imgui.SameLine();
                 if (_imgui.Button("Set##bjmax"))
                 {
-                    bj.SetMaxLevel(_apiTestBlindJusticeMaxLevel);
+                    bj.SetMaxUnits(_apiTestBlindJusticeMaxLevel);
                     _apiTestLastResult = $"Blind Justice Max Level set to {_apiTestBlindJusticeMaxLevel}";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("Reset##bjmax"))
                 {
-                    bj.ResetMaxLevel();
+                    bj.ResetMaxUnits();
                     _apiTestLastResult = "Blind Justice Max Level reset to vanilla";
                 }
                 
@@ -766,35 +766,35 @@ public class ImGuiConfigurator : IImGuiComponent
                 _imgui.SameLine();
                 if (_imgui.Button("Set##bjstacks"))
                 {
-                    bj.SetStacks(_apiTestBlindJusticeStacks);
-                    int actualStacks = bj.GetStacks();
-                    string clampInfo = actualStacks != _apiTestBlindJusticeStacks ? $" (clamped to max {bj.GetMaxLevel()})" : "";
+                    bj.SetUnits(_apiTestBlindJusticeStacks);
+                    int actualStacks = bj.GetUnits();
+                    string clampInfo = actualStacks != _apiTestBlindJusticeStacks ? $" (clamped to max {bj.GetMaxUnits()})" : "";
                     _apiTestLastResult = $"Blind Justice Stacks set to {actualStacks}{clampInfo}";
                 }
                 
                 // Quick buttons
                 if (_imgui.Button("Fill Stacks##bj"))
                 {
-                    bj.FillStacks();
-                    _apiTestLastResult = $"Blind Justice Stacks filled to {bj.GetMaxLevel()}";
+                    bj.FillGauge();
+                    _apiTestLastResult = $"Blind Justice Stacks filled to {bj.GetMaxUnits()}";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("Empty Stacks##bj"))
                 {
-                    bj.EmptyStacks();
+                    bj.EmptyGauge();
                     _apiTestLastResult = "Blind Justice Stacks emptied";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("+1##bjstack"))
                 {
-                    bj.AddStacks(1);
-                    _apiTestLastResult = $"Blind Justice: Added 1 stack (now {bj.GetStacks()})";
+                    bj.AddUnits(1);
+                    _apiTestLastResult = $"Blind Justice: Added 1 stack (now {bj.GetUnits()})";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("-1##bjstack"))
                 {
-                    bj.AddStacks(-1);
-                    _apiTestLastResult = $"Blind Justice: Removed 1 stack (now {bj.GetStacks()})";
+                    bj.AddUnits(-1);
+                    _apiTestLastResult = $"Blind Justice: Removed 1 stack (now {bj.GetUnits()})";
                 }
             }
         }
@@ -991,19 +991,18 @@ public class ImGuiConfigurator : IImGuiComponent
                     available ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
                     $"Available: {available}");
                 _imgui.SameLine();
-                _imgui.Text($"| State: {at.GetState()} | Level: {at.GetCurrentLevelStored()}/{at.GetMaxLevelStored()}");
-                _imgui.Text($"Gauge (seconds): {at.GetGauge():F2} | Calculated Level: {at.GetLevel()}/{AbyssalTearApi.DefaultMaxLevel}");
+                _imgui.Text($"| Units: {at.GetUnits()} | Level: {at.GetLevel()}/{AbyssalTearApi.DefaultMaxLevel}");
                 
                 _imgui.Separator();
                 
-                // Gauge input (seconds) - first
-                _imgui.Text($"Gauge (seconds, {AbyssalTearApi.SecondsPerLevel}s = 1 Level):");
-                _imgui.InputFloat("Gauge (s)##at", ref _apiTestAbyssalTearGauge);
+                // Units input (seconds)
+                _imgui.Text($"Units (seconds, {AbyssalTearApi.SecondsPerLevel}s = 1 Level):");
+                _imgui.InputInt("Units##at", ref _apiTestAbyssalTearUnits);
                 _imgui.SameLine();
-                if (_imgui.Button("Set##atgauge"))
+                if (_imgui.Button("Set##atunits"))
                 {
-                    at.SetGauge(_apiTestAbyssalTearGauge);
-                    _apiTestLastResult = $"Abyssal Tear Gauge set to {_apiTestAbyssalTearGauge:F2} seconds";
+                    at.SetUnits(_apiTestAbyssalTearUnits);
+                    _apiTestLastResult = $"Abyssal Tear Units set to {at.GetUnits()} seconds";
                 }
                 
                 // Level input - second, with +1/-1 on same row
@@ -1013,7 +1012,7 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.Button("Set##atlevel"))
                 {
                     at.SetLevel(_apiTestAbyssalTearLevel);
-                    _apiTestLastResult = $"Abyssal Tear Level set to {_apiTestAbyssalTearLevel} ({_apiTestAbyssalTearLevel * AbyssalTearApi.SecondsPerLevel}s)";
+                    _apiTestLastResult = $"Abyssal Tear Level set to {_apiTestAbyssalTearLevel} ({(int)(_apiTestAbyssalTearLevel * AbyssalTearApi.SecondsPerLevel)}s)";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("+1 Lvl##at"))
@@ -1063,14 +1062,10 @@ public class ImGuiConfigurator : IImGuiComponent
                 
                 if (levActive)
                 {
-                    int tidalUsed = sc.GetTidalUnitsUsed();
-                    int tidalMax = sc.GetStoredMaxTidalUnits();
-                    if (tidalMax <= 0) tidalMax = SerpentsCryApi.UpgradedTidalMax;
-                    int tidalAvailable = tidalMax - tidalUsed;
-                    float unlimitedSecs = sc.GetUnlimitedTidalSeconds();
+                    int tidalAvailable = sc.GetUnits();
+                    int tidalMax = sc.GetMaxUnits();
                     
-                    _imgui.Text($"Tidal Available: {tidalAvailable}/{tidalMax} (Used: {tidalUsed})");
-                    _imgui.Text($"Unlimited Tidal Seconds: {unlimitedSecs:F2}");
+                    _imgui.Text($"Tidal Available: {tidalAvailable}/{tidalMax}");
                     
                     _imgui.Separator();
                     
@@ -1079,57 +1074,27 @@ public class ImGuiConfigurator : IImGuiComponent
                     _imgui.SameLine();
                     if (_imgui.Button("Add##tidal"))
                     {
-                        sc.AddTidalGauge(_apiTestTidalGauge);
+                        sc.AddUnits(_apiTestTidalGauge);
                         _apiTestLastResult = $"Tidal: Added {_apiTestTidalGauge} to gauge";
                     }
                     _imgui.SameLine();
                     if (_imgui.Button("Subtract##tidal"))
                     {
-                        sc.SubtractTidalGauge(_apiTestTidalGauge);
+                        sc.AddUnits(-_apiTestTidalGauge);
                         _apiTestLastResult = $"Tidal: Subtracted {_apiTestTidalGauge} from gauge";
                     }
                     
                     // Quick buttons
                     if (_imgui.Button("Fill##tidal"))
                     {
-                        sc.FillTidalGauge();
+                        sc.FillGauge();
                         _apiTestLastResult = "Tidal Gauge filled";
                     }
                     _imgui.SameLine();
                     if (_imgui.Button("Empty##tidal"))
                     {
-                        sc.EmptyTidalGauge();
+                        sc.EmptyGauge();
                         _apiTestLastResult = "Tidal Gauge emptied";
-                    }
-                    _imgui.SameLine();
-                    if (_imgui.Button("Reset Timer##tidal"))
-                    {
-                        sc.ResetTidalRecoveryTimer();
-                        _apiTestLastResult = "Tidal Recovery Timer reset";
-                    }
-                    
-                    _imgui.Separator();
-                    
-                    // Unlimited Tidal Seconds
-                    _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Unlimited Tidal Mode:");
-                    _imgui.InputFloat("Seconds##unlimited", ref _apiTestUnlimitedTidalSeconds);
-                    _imgui.SameLine();
-                    if (_imgui.Button("Add##unlimited"))
-                    {
-                        sc.AddUnlimitedTidalSeconds(_apiTestUnlimitedTidalSeconds);
-                        _apiTestLastResult = $"Added {_apiTestUnlimitedTidalSeconds:F1} Unlimited Tidal seconds (now {sc.GetUnlimitedTidalSeconds():F1}s)";
-                    }
-                    _imgui.SameLine();
-                    if (_imgui.Button("Set##unlimited"))
-                    {
-                        sc.SetUnlimitedTidalSeconds(_apiTestUnlimitedTidalSeconds);
-                        _apiTestLastResult = $"Set Unlimited Tidal to {_apiTestUnlimitedTidalSeconds:F1} seconds";
-                    }
-                    _imgui.SameLine();
-                    if (_imgui.Button("Clear##unlimited"))
-                    {
-                        sc.SetUnlimitedTidalSeconds(0f);
-                        _apiTestLastResult = "Unlimited Tidal cleared";
                     }
                 }
                 else

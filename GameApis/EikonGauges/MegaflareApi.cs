@@ -2,7 +2,7 @@ using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
 using Reloaded.Mod.Interfaces;
 
-namespace ff16.gameplay.truly_eikonic_spells.GameApis;
+namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
 /// <summary>
 /// API for managing Bahamut's Megaflare gauge and related state.
@@ -12,7 +12,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis;
 /// - Max level depends on skill potency (typically 1-4)
 /// - Wings activation state affects UI display
 /// </summary>
-public unsafe class MegaflareApi
+public unsafe class MegaflareApi : IMegaflareApi
 {
     /// <summary>
     /// Units required per Megaflare level.
@@ -64,7 +64,7 @@ public unsafe class MegaflareApi
     /// </summary>
     public bool IsBahamutActive => GetBahamutEikonPointer() != 0;
 
-    #region Gauge Units (Raw)
+    #region Gauge Units
 
     /// <summary>
     /// Get the current Megaflare gauge units (raw float value cast to int).
@@ -76,16 +76,6 @@ public unsafe class MegaflareApi
         if (bahamutPtr == 0) return 0;
         // Game stores as float, we truncate to int like the game does (vcvttss2si)
         return (int)*(float*)(bahamutPtr + BahamutEikonOffsets.MegaflareGauge);
-    }
-
-    /// <summary>
-    /// Get the current Megaflare gauge as raw float (for precision).
-    /// </summary>
-    public float GetUnitsFloat()
-    {
-        long bahamutPtr = GetBahamutEikonPointer();
-        if (bahamutPtr == 0) return 0f;
-        return *(float*)(bahamutPtr + BahamutEikonOffsets.MegaflareGauge);
     }
 
     /// <summary>
@@ -103,23 +93,6 @@ public unsafe class MegaflareApi
         if (units < 0) units = 0;
 
         *(float*)(bahamutPtr + BahamutEikonOffsets.MegaflareGauge) = (float)units;
-    }
-
-    /// <summary>
-    /// Set the Megaflare gauge with float precision.
-    /// </summary>
-    /// <param name="units">New gauge value as float</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void SetUnitsFloat(float units, int maxLevel = DefaultMaxLevel)
-    {
-        long bahamutPtr = GetBahamutEikonPointer();
-        if (bahamutPtr == 0) return;
-
-        float maxUnits = maxLevel * UnitsPerLevel;
-        if (units > maxUnits) units = maxUnits;
-        if (units < 0f) units = 0f;
-
-        *(float*)(bahamutPtr + BahamutEikonOffsets.MegaflareGauge) = units;
     }
 
     /// <summary>
@@ -146,7 +119,7 @@ public unsafe class MegaflareApi
 
     #endregion
 
-    #region Level Helpers
+    #region Level
 
     /// <summary>
     /// Get the current Megaflare level (0 to maxLevel).
@@ -154,14 +127,6 @@ public unsafe class MegaflareApi
     public int GetLevel()
     {
         return GetUnits() / UnitsPerLevel;
-    }
-
-    /// <summary>
-    /// Get units within the current level (0 to UnitsPerLevel-1).
-    /// </summary>
-    public int GetUnitsInCurrentLevel()
-    {
-        return GetUnits() % UnitsPerLevel;
     }
 
     /// <summary>
@@ -210,10 +175,6 @@ public unsafe class MegaflareApi
     // NOTE: Wings activation is NOT stored in the Bahamut Eikon structure.
     // The game checks it via: ActorData35Entry::GetCurrentPlayerMode() == 75
     // To implement wings detection, you need to hook or call GetCurrentPlayerMode.
-    // 
-    // Example from game code:
-    //   v27 = ActorManager->Types[ListId35]->GetByEntry(ControllingActorId);
-    //   areWingsActivated = GetCurrentPlayerMode(v27) == 75;
 
     #endregion
 
@@ -226,19 +187,19 @@ public unsafe class MegaflareApi
     {
         if (_logger == null) return;
         
-        long ptr = GetBahamutEikonPointer();
-        if (ptr == 0)
+        long bahamutPtr = GetBahamutEikonPointer();
+        if (bahamutPtr == 0)
         {
-            _logger.WriteLine($"[{_modId}] [MegaflareApi] Bahamut not active");
+            _logger.WriteLine($"[{_modId}] [Megaflare] Bahamut mode not active");
             return;
         }
-
-        float unitsFloat = GetUnitsFloat();
+        
         int units = GetUnits();
         int level = GetLevel();
-        int unitsInLevel = GetUnitsInCurrentLevel();
+        int maxUnits = DefaultMaxLevel * UnitsPerLevel;
         
-        _logger.WriteLine($"[{_modId}] [MegaflareApi] Units: {units} ({unitsFloat:F2}) | Level: {level} | InLevel: {unitsInLevel}/{UnitsPerLevel}");
+        _logger.WriteLine($"[{_modId}] [Megaflare] Ptr=0x{bahamutPtr:X}");
+        _logger.WriteLine($"[{_modId}] [Megaflare] Units: {units}/{maxUnits} | Level: {level}/{DefaultMaxLevel}");
     }
 
     #endregion
