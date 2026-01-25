@@ -8,6 +8,18 @@ using System.Numerics;
 
 namespace ff16.gameplay.truly_eikonic_spells.Configuration;
 
+/// <summary>
+/// Container for all Eikon APIs for the ImGui tester.
+/// </summary>
+public class EikonApiContainer
+{
+    public BlindJusticeApi? BlindJustice { get; set; }
+    public AbyssalTearApi? AbyssalTear { get; set; }
+    public SerpentsCryApi? SerpentsCry { get; set; }
+    public ZantetsukenApi? Zantetsuken { get; set; }
+    public MegaflareApi? Megaflare { get; set; }
+}
+
 [ImGuiMenu(Category = "Mods", Priority = 100, Owner = "Truly Eikonic Spells")]
 public class ImGuiConfigurator : IImGuiComponent
 {
@@ -17,6 +29,7 @@ public class ImGuiConfigurator : IImGuiComponent
     private Config _config;
     private readonly Action<Config> _onConfigChanged;
     private readonly IMagicApi _magicApi;
+    private EikonApiContainer? _eikonApis;
 
     public ImGuiConfigurator(IImGui imgui, Config config, Action<Config> onConfigChanged, IMagicApi magicApi)
     {
@@ -24,6 +37,14 @@ public class ImGuiConfigurator : IImGuiComponent
         _config = config;
         _onConfigChanged = onConfigChanged;
         _magicApi = magicApi;
+    }
+    
+    /// <summary>
+    /// Set the Eikon APIs for the API tester tab.
+    /// </summary>
+    public void SetEikonApis(EikonApiContainer apis)
+    {
+        _eikonApis = apis;
     }
 
     public void RenderMenu(IImGuiShell imGuiShell)
@@ -79,6 +100,12 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.BeginTabItem("VFX Tester", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
                 {
                     RenderVfxTesterTab();
+                    _imgui.EndTabItem();
+                }
+
+                if (_imgui.BeginTabItem("Eikon API Tester", ref dummy, ImGuiTabItemFlags.ImGuiTabItemFlags_None))
+                {
+                    RenderEikonApiTesterTab();
                     _imgui.EndTabItem();
                 }
 
@@ -654,6 +681,462 @@ public class ImGuiConfigurator : IImGuiComponent
             _vfxTestId = vfxId;
             VfxApi.SpawnVFX((uint)vfxId, 0); // Spawn on player
             _vfxLastResult = $"Spawned VFX {vfxId} on Player";
+        }
+    }
+    
+    // ================================================================
+    // EIKON API TESTER TAB
+    // ================================================================
+    
+    // Eikon API Tester state
+    private int _apiTestBlindJusticeMaxLevel = 6;
+    private int _apiTestBlindJusticeStacks = 1;
+    private int _apiTestZantetsukenLevel = 1;
+    private int _apiTestZantetsukenUnits = 0;
+    private int _apiTestMegaflareUnits = 0;
+    private int _apiTestMegaflareLevel = 0;
+    private float _apiTestAbyssalTearGauge = 0f;
+    private int _apiTestAbyssalTearLevel = 1;
+    private int _apiTestTidalGauge = 0;
+    private float _apiTestUnlimitedTidalSeconds = 10f;
+    private string _apiTestLastResult = "";
+    
+    private void RenderEikonApiTesterTab()
+    {
+        if (_eikonApis == null)
+        {
+            _imgui.TextColored(new Vector4(1.0f, 0.4f, 0.4f, 1.0f), "Eikon APIs not initialized!");
+            _imgui.Text("Call SetEikonApis() to enable this tab.");
+            return;
+        }
+        
+        // Show last result
+        if (!string.IsNullOrEmpty(_apiTestLastResult))
+        {
+            bool isError = _apiTestLastResult.StartsWith("Error") || _apiTestLastResult.Contains("not active");
+            _imgui.TextColored(
+                isError ? new Vector4(1.0f, 0.4f, 0.4f, 1.0f) : new Vector4(0.4f, 1.0f, 0.4f, 1.0f),
+                _apiTestLastResult);
+            _imgui.Separator();
+        }
+        
+        // ================================================================
+        // RAMUH - BLIND JUSTICE
+        // ================================================================
+        if (_imgui.CollapsingHeader("Ramuh - Blind Justice", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            var bj = _eikonApis.BlindJustice;
+            if (bj == null)
+            {
+                _imgui.TextColored(new Vector4(1.0f, 0.5f, 0.0f, 1.0f), "BlindJusticeApi not available");
+            }
+            else
+            {
+                // Status
+                bool isActive = bj.IsRamuhActive;
+                _imgui.TextColored(
+                    isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
+                    $"Ramuh Active: {isActive}");
+                _imgui.SameLine();
+                _imgui.Text($"| Stacks: {bj.GetStacks()}/{bj.GetMaxLevel()}");
+                _imgui.SameLine();
+                _imgui.Text($"| Override: {(bj.IsMaxLevelOverridden ? "YES" : "No")}");
+                
+                _imgui.Separator();
+                
+                // Max Level Override
+                _imgui.Text("Max Level Override:");
+                _imgui.InputInt("Max Level##bj", ref _apiTestBlindJusticeMaxLevel);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##bjmax"))
+                {
+                    bj.SetMaxLevel(_apiTestBlindJusticeMaxLevel);
+                    _apiTestLastResult = $"Blind Justice Max Level set to {_apiTestBlindJusticeMaxLevel}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Reset##bjmax"))
+                {
+                    bj.ResetMaxLevel();
+                    _apiTestLastResult = "Blind Justice Max Level reset to vanilla";
+                }
+                
+                // Stacks
+                _imgui.Text("Stack Count:");
+                _imgui.InputInt("Stacks##bj", ref _apiTestBlindJusticeStacks);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##bjstacks"))
+                {
+                    bj.SetStacks(_apiTestBlindJusticeStacks);
+                    int actualStacks = bj.GetStacks();
+                    string clampInfo = actualStacks != _apiTestBlindJusticeStacks ? $" (clamped to max {bj.GetMaxLevel()})" : "";
+                    _apiTestLastResult = $"Blind Justice Stacks set to {actualStacks}{clampInfo}";
+                }
+                
+                // Quick buttons
+                if (_imgui.Button("Fill Stacks##bj"))
+                {
+                    bj.FillStacks();
+                    _apiTestLastResult = $"Blind Justice Stacks filled to {bj.GetMaxLevel()}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Empty Stacks##bj"))
+                {
+                    bj.EmptyStacks();
+                    _apiTestLastResult = "Blind Justice Stacks emptied";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("+1##bjstack"))
+                {
+                    bj.AddStacks(1);
+                    _apiTestLastResult = $"Blind Justice: Added 1 stack (now {bj.GetStacks()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("-1##bjstack"))
+                {
+                    bj.AddStacks(-1);
+                    _apiTestLastResult = $"Blind Justice: Removed 1 stack (now {bj.GetStacks()})";
+                }
+            }
+        }
+        
+        // ================================================================
+        // ODIN - ZANTETSUKEN
+        // ================================================================
+        if (_imgui.CollapsingHeader("Odin - Zantetsuken", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            var zk = _eikonApis.Zantetsuken;
+            if (zk == null)
+            {
+                _imgui.TextColored(new Vector4(1.0f, 0.5f, 0.0f, 1.0f), "ZantetsukenApi not available");
+            }
+            else
+            {
+                // Status
+                bool isActive = zk.IsOdinActive;
+                int currentUnits = zk.GetUnits();
+                int currentLevel = zk.GetLevel();
+                
+                _imgui.TextColored(
+                    isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
+                    $"Odin Active: {isActive}");
+                _imgui.SameLine();
+                _imgui.Text($"| Units: {currentUnits}/{ZantetsukenApi.MaxUnits} | Level: {currentLevel}/{ZantetsukenApi.MaxLevel}");
+                
+                _imgui.Separator();
+                
+                // Units input
+                _imgui.Text($"Gauge Units ({ZantetsukenApi.UnitsPerLevel} = 1 Level):");
+                _imgui.InputInt("Units##zk", ref _apiTestZantetsukenUnits);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##zkunits"))
+                {
+                    zk.SetUnits(_apiTestZantetsukenUnits);
+                    _apiTestLastResult = $"Zantetsuken Units set to {_apiTestZantetsukenUnits}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Add##zkunits"))
+                {
+                    zk.AddUnits(_apiTestZantetsukenUnits);
+                    _apiTestLastResult = $"Zantetsuken: Added {_apiTestZantetsukenUnits} units (now {zk.GetUnits()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Set Current Lvl##zk"))
+                {
+                    // Add input units to the start of current level (1-based: level 2 starts at 1500)
+                    int levelBaseUnits = (zk.GetLevel() - ZantetsukenApi.MinLevel) * ZantetsukenApi.UnitsPerLevel;
+                    int newUnits = levelBaseUnits + _apiTestZantetsukenUnits;
+                    zk.SetUnits(newUnits);
+                    _apiTestLastResult = $"Zantetsuken set to {newUnits} units (Level {zk.GetLevel()} base + {_apiTestZantetsukenUnits})";
+                }
+                
+                // Level input
+                _imgui.Text($"Level ({ZantetsukenApi.MinLevel}-{ZantetsukenApi.MaxLevel}):");
+                _imgui.InputInt("Level##zk", ref _apiTestZantetsukenLevel);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##zklevel"))
+                {
+                    zk.SetLevel(_apiTestZantetsukenLevel);
+                    _apiTestLastResult = $"Zantetsuken Level set to {_apiTestZantetsukenLevel}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("+1 Lvl##zk"))
+                {
+                    zk.AddLevels(1);
+                    _apiTestLastResult = $"Zantetsuken: Added 1 level (now {zk.GetLevel()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("-1 Lvl##zk"))
+                {
+                    zk.AddLevels(-1);
+                    _apiTestLastResult = $"Zantetsuken: Removed 1 level (now {zk.GetLevel()})";
+                }
+                
+                // Quick buttons
+                if (_imgui.Button($"Fill (Lvl {ZantetsukenApi.MaxLevel})##zk"))
+                {
+                    zk.FillGauge();
+                    _apiTestLastResult = $"Zantetsuken filled to Level {ZantetsukenApi.MaxLevel}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Empty##zk"))
+                {
+                    zk.EmptyGauge();
+                    _apiTestLastResult = "Zantetsuken emptied";
+                }
+            }
+        }
+        
+        // ================================================================
+        // BAHAMUT - MEGAFLARE
+        // ================================================================
+        if (_imgui.CollapsingHeader("Bahamut - Megaflare", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            var mf = _eikonApis.Megaflare;
+            if (mf == null)
+            {
+                _imgui.TextColored(new Vector4(1.0f, 0.5f, 0.0f, 1.0f), "MegaflareApi not available");
+            }
+            else
+            {
+                // Status
+                bool isActive = mf.IsBahamutActive;
+                int currentUnits = mf.GetUnits();
+                int currentLevel = mf.GetLevel();
+                
+                _imgui.TextColored(
+                    isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
+                    $"Bahamut Active: {isActive}");
+                _imgui.SameLine();
+                _imgui.Text($"| Units: {currentUnits}/16000 | Level: {currentLevel}/4");
+                
+                _imgui.Separator();
+                
+                // Units input
+                _imgui.Text("Gauge Units (4000 = 1 Level):");
+                _imgui.InputInt("Units##mf", ref _apiTestMegaflareUnits);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##mfunits"))
+                {
+                    mf.SetUnits(_apiTestMegaflareUnits);
+                    _apiTestLastResult = $"Megaflare Units set to {_apiTestMegaflareUnits}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Add##mfunits"))
+                {
+                    mf.AddUnits(_apiTestMegaflareUnits);
+                    _apiTestLastResult = $"Megaflare: Added {_apiTestMegaflareUnits} units (now {mf.GetUnits()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Set Current Lvl##mf"))
+                {
+                    // Add input units to the start of current level (0-based: level 0 starts at 0)
+                    int levelBaseUnits = mf.GetLevel() * MegaflareApi.UnitsPerLevel;
+                    int newUnits = levelBaseUnits + _apiTestMegaflareUnits;
+                    mf.SetUnits(newUnits);
+                    _apiTestLastResult = $"Megaflare set to {newUnits} units (Level {mf.GetLevel()} base + {_apiTestMegaflareUnits})";
+                }
+                
+                // Level input
+                _imgui.Text("Level (0-4):");
+                _imgui.InputInt("Level##mf", ref _apiTestMegaflareLevel);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##mflevel"))
+                {
+                    mf.SetLevel(_apiTestMegaflareLevel);
+                    _apiTestLastResult = $"Megaflare Level set to {_apiTestMegaflareLevel}";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("+1 Lvl##mf"))
+                {
+                    mf.AddLevels(1);
+                    _apiTestLastResult = $"Megaflare: Added 1 level (now {mf.GetLevel()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("-1 Lvl##mf"))
+                {
+                    mf.AddLevels(-1);
+                    _apiTestLastResult = $"Megaflare: Removed 1 level (now {mf.GetLevel()})";
+                }
+                
+                // Quick buttons
+                if (_imgui.Button("Fill (Lvl 4)##mf"))
+                {
+                    mf.FillGauge();
+                    _apiTestLastResult = "Megaflare filled to Level 4";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Empty##mf"))
+                {
+                    mf.EmptyGauge();
+                    _apiTestLastResult = "Megaflare emptied";
+                }
+            }
+        }
+        
+        // ================================================================
+        // LEVIATHAN - ABYSSAL TEAR (Always available)
+        // ================================================================
+        if (_imgui.CollapsingHeader("Leviathan - Abyssal Tear", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            var at = _eikonApis.AbyssalTear;
+            if (at == null)
+            {
+                _imgui.TextColored(new Vector4(1.0f, 0.5f, 0.0f, 1.0f), "AbyssalTearApi not available");
+            }
+            else
+            {
+                // Status
+                bool available = at.IsAvailable;
+                _imgui.TextColored(
+                    available ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
+                    $"Available: {available}");
+                _imgui.SameLine();
+                _imgui.Text($"| State: {at.GetState()} | Level: {at.GetCurrentLevelStored()}/{at.GetMaxLevelStored()}");
+                _imgui.Text($"Gauge (seconds): {at.GetGauge():F2} | Calculated Level: {at.GetLevel()}/{AbyssalTearApi.DefaultMaxLevel}");
+                
+                _imgui.Separator();
+                
+                // Gauge input (seconds) - first
+                _imgui.Text($"Gauge (seconds, {AbyssalTearApi.SecondsPerLevel}s = 1 Level):");
+                _imgui.InputFloat("Gauge (s)##at", ref _apiTestAbyssalTearGauge);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##atgauge"))
+                {
+                    at.SetGauge(_apiTestAbyssalTearGauge);
+                    _apiTestLastResult = $"Abyssal Tear Gauge set to {_apiTestAbyssalTearGauge:F2} seconds";
+                }
+                
+                // Level input - second, with +1/-1 on same row
+                _imgui.Text($"Level ({AbyssalTearApi.MinLevel}-{AbyssalTearApi.DefaultMaxLevel}):");
+                _imgui.InputInt("Level##at", ref _apiTestAbyssalTearLevel);
+                _imgui.SameLine();
+                if (_imgui.Button("Set##atlevel"))
+                {
+                    at.SetLevel(_apiTestAbyssalTearLevel);
+                    _apiTestLastResult = $"Abyssal Tear Level set to {_apiTestAbyssalTearLevel} ({_apiTestAbyssalTearLevel * AbyssalTearApi.SecondsPerLevel}s)";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("+1 Lvl##at"))
+                {
+                    at.AddLevels(1);
+                    _apiTestLastResult = $"Abyssal Tear: Added 1 level (now {at.GetLevel()})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("-1 Lvl##at"))
+                {
+                    at.AddLevels(-1);
+                    _apiTestLastResult = $"Abyssal Tear: Removed 1 level (now {at.GetLevel()})";
+                }
+                
+                // Quick buttons
+                if (_imgui.Button("Fill##at"))
+                {
+                    at.FillGauge();
+                    _apiTestLastResult = $"Abyssal Tear filled to max level ({AbyssalTearApi.DefaultMaxLevel})";
+                }
+                _imgui.SameLine();
+                if (_imgui.Button("Empty##at"))
+                {
+                    at.EmptyGauge();
+                    _apiTestLastResult = "Abyssal Tear emptied";
+                }
+            }
+        }
+        
+        // ================================================================
+        // LEVIATHAN - SERPENT'S CRY (Leviathan mode only)
+        // ================================================================
+        if (_imgui.CollapsingHeader("Leviathan - Serpent's Cry", ImGuiTreeNodeFlags.ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            var sc = _eikonApis.SerpentsCry;
+            if (sc == null)
+            {
+                _imgui.TextColored(new Vector4(1.0f, 0.5f, 0.0f, 1.0f), "SerpentsCryApi not available");
+            }
+            else
+            {
+                // Status
+                bool levActive = sc.IsLeviathanActive;
+                _imgui.TextColored(
+                    levActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
+                    $"Leviathan Active: {levActive}");
+                
+                if (levActive)
+                {
+                    int tidalUsed = sc.GetTidalUnitsUsed();
+                    int tidalMax = sc.GetStoredMaxTidalUnits();
+                    if (tidalMax <= 0) tidalMax = SerpentsCryApi.UpgradedTidalMax;
+                    int tidalAvailable = tidalMax - tidalUsed;
+                    float unlimitedSecs = sc.GetUnlimitedTidalSeconds();
+                    
+                    _imgui.Text($"Tidal Available: {tidalAvailable}/{tidalMax} (Used: {tidalUsed})");
+                    _imgui.Text($"Unlimited Tidal Seconds: {unlimitedSecs:F2}");
+                    
+                    _imgui.Separator();
+                    
+                    // Tidal Gauge
+                    _imgui.InputInt("Gauge Amount##tidal", ref _apiTestTidalGauge);
+                    _imgui.SameLine();
+                    if (_imgui.Button("Add##tidal"))
+                    {
+                        sc.AddTidalGauge(_apiTestTidalGauge);
+                        _apiTestLastResult = $"Tidal: Added {_apiTestTidalGauge} to gauge";
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.Button("Subtract##tidal"))
+                    {
+                        sc.SubtractTidalGauge(_apiTestTidalGauge);
+                        _apiTestLastResult = $"Tidal: Subtracted {_apiTestTidalGauge} from gauge";
+                    }
+                    
+                    // Quick buttons
+                    if (_imgui.Button("Fill##tidal"))
+                    {
+                        sc.FillTidalGauge();
+                        _apiTestLastResult = "Tidal Gauge filled";
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.Button("Empty##tidal"))
+                    {
+                        sc.EmptyTidalGauge();
+                        _apiTestLastResult = "Tidal Gauge emptied";
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.Button("Reset Timer##tidal"))
+                    {
+                        sc.ResetTidalRecoveryTimer();
+                        _apiTestLastResult = "Tidal Recovery Timer reset";
+                    }
+                    
+                    _imgui.Separator();
+                    
+                    // Unlimited Tidal Seconds
+                    _imgui.TextColored(new Vector4(1.0f, 0.8f, 0.4f, 1.0f), "Unlimited Tidal Mode:");
+                    _imgui.InputFloat("Seconds##unlimited", ref _apiTestUnlimitedTidalSeconds);
+                    _imgui.SameLine();
+                    if (_imgui.Button("Add##unlimited"))
+                    {
+                        sc.AddUnlimitedTidalSeconds(_apiTestUnlimitedTidalSeconds);
+                        _apiTestLastResult = $"Added {_apiTestUnlimitedTidalSeconds:F1} Unlimited Tidal seconds (now {sc.GetUnlimitedTidalSeconds():F1}s)";
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.Button("Set##unlimited"))
+                    {
+                        sc.SetUnlimitedTidalSeconds(_apiTestUnlimitedTidalSeconds);
+                        _apiTestLastResult = $"Set Unlimited Tidal to {_apiTestUnlimitedTidalSeconds:F1} seconds";
+                    }
+                    _imgui.SameLine();
+                    if (_imgui.Button("Clear##unlimited"))
+                    {
+                        sc.SetUnlimitedTidalSeconds(0f);
+                        _apiTestLastResult = "Unlimited Tidal cleared";
+                    }
+                }
+                else
+                {
+                    _imgui.TextColored(new Vector4(0.6f, 0.6f, 0.6f, 1.0f), "(Activate Leviathan mode to use Serpent's Cry)");
+                }
+            }
         }
     }
 }

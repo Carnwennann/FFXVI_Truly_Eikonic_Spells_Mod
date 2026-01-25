@@ -101,7 +101,8 @@ public class TrulyEikonicSpellsMod : ModBase
     private MagicApiV2 _magicApiV2;
     private ZantetsukenApi _zantetsukenApi;
     private MegaflareApi _megaflareApi;
-    private LeviathanApi _leviathanApi;
+    private AbyssalTearApi _abyssalTearApi;
+    private SerpentsCryApi _serpentsCryApi;
     private BlindJusticeApi _blindJusticeApi;
     private ImGuiConfigurator? _imGuiConfigurator;
     
@@ -192,6 +193,17 @@ public class TrulyEikonicSpellsMod : ModBase
             imGuiController.TryGetTarget(out var imGui) && imGuiShellController.TryGetTarget(out var imGuiShell))
         {
             _imGuiConfigurator = new ImGuiConfigurator(imGui, _configuration, ConfigurationUpdated, _magicApiV2);
+            
+            // Set up Eikon APIs for the API tester tab
+            _imGuiConfigurator.SetEikonApis(new EikonApiContainer
+            {
+                BlindJustice = _blindJusticeApi,
+                AbyssalTear = _abyssalTearApi,
+                SerpentsCry = _serpentsCryApi,
+                Zantetsuken = _zantetsukenApi,
+                Megaflare = _megaflareApi
+            });
+            
             imGuiShell.AddComponent(_imGuiConfigurator);
             _logger.WriteLine($"[{_modConfig.ModId}] ImGui Configurator initialized", _logger.ColorGreen);
         }
@@ -220,7 +232,13 @@ public class TrulyEikonicSpellsMod : ModBase
             _modConfig.ModId
         );
 
-        _leviathanApi = new LeviathanApi(
+        _abyssalTearApi = new AbyssalTearApi(
+            () => _globalPlayerStatePtr, 
+            _logger, 
+            _modConfig.ModId
+        );
+
+        _serpentsCryApi = new SerpentsCryApi(
             () => _globalPlayerStatePtr, 
             () => _isSummonModeActive, 
             _logger, 
@@ -234,6 +252,7 @@ public class TrulyEikonicSpellsMod : ModBase
             _logger, 
             _modConfig.ModId
         );
+        _blindJusticeApi.SetupScans(_startupScanner, _hooks);
 
         // DIA SYSTEM
         _diaSystem = new DiaSystem(
@@ -416,55 +435,19 @@ public class TrulyEikonicSpellsMod : ModBase
 
     private unsafe long OnHitImpl(long* bnpcRow, long R15, long a3, long a4)
     {
-        // Add Leviathan gauge on hit (if Leviathan is active)
-        try
-        {
-            if (_leviathanApi.IsLeviathanActive)
-            {
-                //_leviathanApi.AddUnits(1000);
-                _leviathanApi.AddAbyssalTearCurrentLevel(1);  // Adds 8 seconds to gauge
-                _leviathanApi.AddTidalGauge(10);  // Gain 1 unit of tidal gauge (decreases TidalUnitsUsed by 1)
-                _leviathanApi.ResetTidalRecoveryTimer();
-                _leviathanApi.LogState();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error in LeviathanApi: {ex.Message}", _logger.ColorRed);
-        }
-
-        // Add Blind Justice stack on hit (if Ramuh is active)
-        try
-        {
-            if (_blindJusticeApi.IsRamuhActive)
-            {
-                long actorData35 = _blindJusticeApi.GetActorData35EntryPtr();
-                _logger.WriteLine($"[{_modConfig.ModId}] [BLIND JUSTICE DEBUG] ActorData35Entry ptr: 0x{actorData35:X}", _logger.ColorYellow);
-                
-                if (actorData35 != 0)
-                {
-                    _blindJusticeApi.AddStacks(1);
-                    _logger.WriteLine($"[{_modConfig.ModId}] [BLIND JUSTICE] Added 1 stack. Current: {_blindJusticeApi.GetStacks()}", _logger.ColorGreen);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.WriteLine($"[{_modConfig.ModId}] Error in BlindJusticeApi: {ex.Message}", _logger.ColorRed);
-        }
         
-        // TEST: Trigger VFX 1001 on every hit to verify main thread stability
-        try {
-            if (R15 > 0x10000)
-            {
-                // Extract hit position and spawn VFX directly
-                var hitPosition = *(System.Numerics.Vector3*)(R15 + 0x114);
-                _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {hitPosition}", _logger.ColorYellow);
-                VfxApi.SpawnVFX(2880, hitPosition.X, hitPosition.Y, hitPosition.Z);
-            }
-        } catch (Exception ex) { 
-            _logger.WriteLine($"[{_modConfig.ModId}] Error spawning hit VFX: {ex.Message}", _logger.ColorRed);
-        }
+        //// TEST: Trigger VFX 1001 on every hit to verify main thread stability
+        //try {
+        //    if (R15 > 0x10000)
+        //    {
+        //        // Extract hit position and spawn VFX directly
+        //        var hitPosition = *(System.Numerics.Vector3*)(R15 + 0x114);
+        //        _logger.WriteLine($"[{_modConfig.ModId}] [VFX-DEBUG] Hit at {hitPosition}", _logger.ColorYellow);
+        //        VfxApi.SpawnVFX(2880, hitPosition.X, hitPosition.Y, hitPosition.Z);
+        //    }
+        //} catch (Exception ex) { 
+        //    _logger.WriteLine($"[{_modConfig.ModId}] Error spawning hit VFX: {ex.Message}", _logger.ColorRed);
+        //}
         
         
         //try
