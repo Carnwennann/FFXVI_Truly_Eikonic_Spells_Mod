@@ -74,6 +74,28 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     /// </summary>
     public bool IsAvailable => GetAbyssalTearPointer() != 0;
 
+    #region Max Level
+
+    /// <summary>
+    /// Get the maximum level from the game's stored value.
+    /// Falls back to DefaultMaxLevel (4) if not available.
+    /// </summary>
+    public int GetMaxLevel()
+    {
+        byte stored = GetMaxLevelStored();
+        return stored > 0 ? stored : DefaultMaxLevel;
+    }
+
+    /// <summary>
+    /// Get the maximum units based on max level (SecondsPerLevel * MaxLevel).
+    /// </summary>
+    public int GetMaxUnits()
+    {
+        return (int)(GetMaxLevel() * SecondsPerLevel);
+    }
+
+    #endregion
+
     #region Gauge Units
 
     /// <summary>
@@ -88,15 +110,15 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
 
     /// <summary>
     /// Set the Abyssal Tear gauge units directly.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="units">New gauge value in seconds</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void SetUnits(int units, int maxLevel = DefaultMaxLevel)
+    public void SetUnits(int units)
     {
         long abyssalPtr = GetAbyssalTearPointer();
         if (abyssalPtr == 0) return;
         
-        int maxUnits = (int)(maxLevel * SecondsPerLevel);
+        int maxUnits = GetMaxUnits();
         if (units > maxUnits) units = maxUnits;
         if (units < 0) units = 0;
         
@@ -105,19 +127,19 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
 
     /// <summary>
     /// Adds units (seconds) to the Abyssal Tear gauge.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="amount">Units to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void AddUnits(int amount, int maxLevel = DefaultMaxLevel)
+    public void AddUnits(int amount)
     {
         int currentUnits = GetUnits();
         int newUnits = currentUnits + amount;
         
-        int maxUnits = (int)(maxLevel * SecondsPerLevel);
+        int maxUnits = GetMaxUnits();
         if (newUnits > maxUnits) newUnits = maxUnits;
         if (newUnits < 0) newUnits = 0;
 
-        SetUnits(newUnits, maxLevel);
+        SetUnits(newUnits);
     }
 
     #endregion
@@ -202,14 +224,15 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     /// <summary>
     /// Set the Abyssal Tear level directly.
     /// Level 1 = 0 seconds, Level 2 = 8 seconds, etc.
+    /// Capped to game's max level.
     /// </summary>
-    /// <param name="level">Target level (1 to maxLevel)</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    public void SetLevel(int level, int maxLevel = DefaultMaxLevel)
+    /// <param name="level">Target level</param>
+    public void SetLevel(int level)
     {
+        int maxLevel = GetMaxLevel();
         if (level < MinLevel) level = MinLevel;
         if (level > maxLevel) level = maxLevel;
-        SetUnits((int)((level - MinLevel) * SecondsPerLevel), maxLevel);
+        SetUnits((int)((level - MinLevel) * SecondsPerLevel));
     }
 
     /// <summary>
@@ -217,10 +240,9 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     /// Each level = 8 seconds.
     /// </summary>
     /// <param name="levels">Number of levels to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    public void AddLevels(int levels, int maxLevel = DefaultMaxLevel)
+    public void AddLevels(int levels)
     {
-        AddUnits((int)(levels * SecondsPerLevel), maxLevel);
+        AddUnits((int)(levels * SecondsPerLevel));
     }
 
     #endregion
@@ -230,10 +252,10 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     /// <summary>
     /// Fill the Abyssal Tear gauge to maximum level.
     /// </summary>
-    /// <param name="maxLevel">Maximum level (default: 4)</param>
-    public void FillGauge(int maxLevel = DefaultMaxLevel)
+    public void FillGauge()
     {
-        SetLevel(maxLevel, maxLevel);
+        int maxLevel = GetMaxLevel();
+        SetLevel(maxLevel);
     }
 
     /// <summary>

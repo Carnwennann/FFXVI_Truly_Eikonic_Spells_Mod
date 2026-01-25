@@ -64,6 +64,29 @@ public unsafe class MegaflareApi : IMegaflareApi
     /// </summary>
     public bool IsBahamutActive => GetBahamutEikonPointer() != 0;
 
+    #region Max Level
+
+    /// <summary>
+    /// Get the maximum level from the game.
+    /// TODO: Hook Skill::GetPotencyParameter to get actual value.
+    /// Currently returns DefaultMaxLevel (4).
+    /// </summary>
+    public int GetMaxLevel()
+    {
+        // TODO: Get from game via hook
+        return DefaultMaxLevel;
+    }
+
+    /// <summary>
+    /// Get the maximum units based on max level (UnitsPerLevel * MaxLevel).
+    /// </summary>
+    public int GetMaxUnits()
+    {
+        return GetMaxLevel() * UnitsPerLevel;
+    }
+
+    #endregion
+
     #region Gauge Units
 
     /// <summary>
@@ -80,15 +103,15 @@ public unsafe class MegaflareApi : IMegaflareApi
 
     /// <summary>
     /// Set the Megaflare gauge units directly.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="units">New gauge value</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void SetUnits(int units, int maxLevel = DefaultMaxLevel)
+    public void SetUnits(int units)
     {
         long bahamutPtr = GetBahamutEikonPointer();
         if (bahamutPtr == 0) return;
 
-        int maxUnits = maxLevel * UnitsPerLevel;
+        int maxUnits = GetMaxUnits();
         if (units > maxUnits) units = maxUnits;
         if (units < 0) units = 0;
 
@@ -98,10 +121,10 @@ public unsafe class MegaflareApi : IMegaflareApi
     /// <summary>
     /// Adds units to the Megaflare gauge.
     /// 4000 units = 1 Level.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="amount">Amount of gauge units to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    public void AddUnits(int amount, int maxLevel = DefaultMaxLevel)
+    public void AddUnits(int amount)
     {
         long bahamutPtr = GetBahamutEikonPointer();
         if (bahamutPtr == 0) return;
@@ -110,7 +133,7 @@ public unsafe class MegaflareApi : IMegaflareApi
         float currentUnits = *pGauge;
         float newUnits = currentUnits + amount;
         
-        float maxUnits = maxLevel * UnitsPerLevel;
+        float maxUnits = GetMaxUnits();
         if (newUnits > maxUnits) newUnits = maxUnits;
         if (newUnits < 0f) newUnits = 0f;
 
@@ -131,33 +154,32 @@ public unsafe class MegaflareApi : IMegaflareApi
 
     /// <summary>
     /// Set the Megaflare level directly (sets units to level * UnitsPerLevel).
+    /// Capped to game's max level.
     /// </summary>
     /// <param name="level">Target level</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    public void SetLevel(int level, int maxLevel = DefaultMaxLevel)
+    public void SetLevel(int level)
     {
+        int maxLevel = GetMaxLevel();
         if (level < 0) level = 0;
         if (level > maxLevel) level = maxLevel;
-        SetUnits(level * UnitsPerLevel, maxLevel);
+        SetUnits(level * UnitsPerLevel);
     }
 
     /// <summary>
     /// Add full levels to the gauge.
     /// </summary>
     /// <param name="levels">Number of levels to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    public void AddLevels(int levels, int maxLevel = DefaultMaxLevel)
+    public void AddLevels(int levels)
     {
-        AddUnits(levels * UnitsPerLevel, maxLevel);
+        AddUnits(levels * UnitsPerLevel);
     }
 
     /// <summary>
     /// Fill the gauge to maximum.
     /// </summary>
-    /// <param name="maxLevel">Maximum level (default: 4)</param>
-    public void FillGauge(int maxLevel = DefaultMaxLevel)
+    public void FillGauge()
     {
-        SetUnits(maxLevel * UnitsPerLevel, maxLevel);
+        SetUnits(GetMaxUnits());
     }
 
     /// <summary>
@@ -196,10 +218,11 @@ public unsafe class MegaflareApi : IMegaflareApi
         
         int units = GetUnits();
         int level = GetLevel();
-        int maxUnits = DefaultMaxLevel * UnitsPerLevel;
+        int maxUnits = GetMaxUnits();
+        int maxLevel = GetMaxLevel();
         
         _logger.WriteLine($"[{_modId}] [Megaflare] Ptr=0x{bahamutPtr:X}");
-        _logger.WriteLine($"[{_modId}] [Megaflare] Units: {units}/{maxUnits} | Level: {level}/{DefaultMaxLevel}");
+        _logger.WriteLine($"[{_modId}] [Megaflare] Units: {units}/{maxUnits} | Level: {level}/{maxLevel}");
     }
 
     #endregion

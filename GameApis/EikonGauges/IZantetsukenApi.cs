@@ -26,6 +26,21 @@ public interface IZantetsukenApi
 
     #endregion
 
+    #region Max Level
+
+    /// <summary>
+    /// Get the maximum level from the game.
+    /// Typically 5.
+    /// </summary>
+    int GetMaxLevel();
+
+    /// <summary>
+    /// Get the maximum units based on max level.
+    /// </summary>
+    int GetMaxUnits();
+
+    #endregion
+
     #region Gauge Units
 
     /// <summary>

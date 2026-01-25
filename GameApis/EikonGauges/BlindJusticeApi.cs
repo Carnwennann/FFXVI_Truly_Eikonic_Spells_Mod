@@ -80,12 +80,9 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
     private readonly ILogger? _logger;
     private readonly string _modId;
     
-    // Hook for max level override
+    // Hook for getting max level from game
     private IHook<GetBlindJusticeMaxGaugeMaxLevelDelegate>? _getMaxLevelHook;
     private nint _baseAddress;
-    
-    // Max level override state
-    private int? _maxLevelOverride = null;
     
     #endregion
     
@@ -139,34 +136,24 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
     
     /// <summary>
     /// Hook implementation for GetBlindJusticeMaxGaugeMaxLevel.
-    /// Returns override value if set, otherwise calls original function.
+    /// Just calls the original function (hook kept for potential future use).
     /// </summary>
     private long GetMaxLevelImpl()
     {
-        // If we have an override set, return that instead
-        if (_maxLevelOverride.HasValue)
-        {
-            return _maxLevelOverride.Value;
-        }
-        
-        // Otherwise call the original function
+        // Call the original function to get the game's max value
         return _getMaxLevelHook!.OriginalFunction();
     }
     
     #endregion
     
-    #region Max Units Override
+    #region Max Units
     
     /// <summary>
-    /// Gets the current maximum units (either override or vanilla value).
+    /// Gets the maximum units from the game (Skill::GetPotencyParameter).
+    /// Base ability gives 3, mastered gives 6.
     /// </summary>
     public int GetMaxUnits()
     {
-        if (_maxLevelOverride.HasValue)
-        {
-            return _maxLevelOverride.Value;
-        }
-        
         // If hook is active, call original to get vanilla value
         if (_getMaxLevelHook != null)
         {
@@ -174,45 +161,6 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
         }
         
         // Fallback to default
-        return DefaultMaxStacks;
-    }
-    
-    /// <summary>
-    /// Sets a custom maximum units for Blind Justice.
-    /// This will override the vanilla value from Skill::GetPotencyParameter(29).
-    /// </summary>
-    /// <param name="maxUnits">The new maximum units (number of projectiles)</param>
-    public void SetMaxUnits(int maxUnits)
-    {
-        if (maxUnits < 1) maxUnits = 1;
-        _maxLevelOverride = maxUnits;
-        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max units override set to {maxUnits}", _logger.ColorGreen);
-    }
-    
-    /// <summary>
-    /// Resets the maximum units to the vanilla value.
-    /// After calling this, GetBlindJusticeMaxGaugeMaxLevel will return the game's default.
-    /// </summary>
-    public void ResetMaxUnits()
-    {
-        _maxLevelOverride = null;
-        _logger?.WriteLine($"[{_modId}] [BlindJustice] Max units override reset to vanilla", _logger.ColorGreen);
-    }
-    
-    /// <summary>
-    /// Check if max units is currently being overridden.
-    /// </summary>
-    public bool IsMaxUnitsOverridden => _maxLevelOverride.HasValue;
-    
-    /// <summary>
-    /// Gets the vanilla max units (from game function, ignoring any override).
-    /// </summary>
-    private int GetVanillaMaxUnits()
-    {
-        if (_getMaxLevelHook != null)
-        {
-            return (int)_getMaxLevelHook.OriginalFunction();
-        }
         return DefaultMaxStacks;
     }
     
@@ -353,10 +301,9 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
         
         int units = GetUnits();
         int maxUnits = GetMaxUnits();
-        bool isOverridden = IsMaxUnitsOverridden;
         
         _logger.WriteLine($"[{_modId}] [BlindJustice] Ptr=0x{ramuhPtr:X}");
-        _logger.WriteLine($"[{_modId}] [BlindJustice] Stacks: {units}/{maxUnits} | MaxOverridden: {isOverridden}");
+        _logger.WriteLine($"[{_modId}] [BlindJustice] Stacks: {units}/{maxUnits}");
     }
 
     #endregion

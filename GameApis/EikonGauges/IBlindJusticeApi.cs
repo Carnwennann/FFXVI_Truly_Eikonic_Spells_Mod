@@ -39,28 +39,13 @@ public interface IBlindJusticeApi
 
     #endregion
 
-    #region Max Units Override
+    #region Max Units
 
     /// <summary>
-    /// Gets the current maximum units (either override or vanilla value).
+    /// Gets the maximum units from the game (Skill::GetPotencyParameter).
+    /// Base ability gives 3, mastered gives 6.
     /// </summary>
     int GetMaxUnits();
-
-    /// <summary>
-    /// Sets a custom maximum units for Blind Justice.
-    /// </summary>
-    /// <param name="maxUnits">The new maximum units</param>
-    void SetMaxUnits(int maxUnits);
-
-    /// <summary>
-    /// Resets the maximum units to the vanilla value.
-    /// </summary>
-    void ResetMaxUnits();
-
-    /// <summary>
-    /// Check if max units is currently being overridden.
-    /// </summary>
-    bool IsMaxUnitsOverridden { get; }
 
     #endregion
 

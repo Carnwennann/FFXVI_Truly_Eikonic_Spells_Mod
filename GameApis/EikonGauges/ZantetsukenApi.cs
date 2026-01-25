@@ -76,6 +76,29 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
     /// </summary>
     public bool IsOdinActive => GetOdinEikonPointer() != 0;
 
+    #region Max Level
+
+    /// <summary>
+    /// Get the maximum level from the game.
+    /// TODO: Hook Skill::GetPotencyParameter to get actual value.
+    /// Currently returns MaxLevel constant (5).
+    /// </summary>
+    public int GetMaxLevel()
+    {
+        // TODO: Get from game via hook
+        return MaxLevel;
+    }
+
+    /// <summary>
+    /// Get the maximum units based on max level.
+    /// </summary>
+    public int GetMaxUnits()
+    {
+        return (GetMaxLevel() - MinLevel) * UnitsPerLevel;
+    }
+
+    #endregion
+
     #region Gauge Units
 
     /// <summary>
@@ -90,14 +113,16 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
 
     /// <summary>
     /// Set the Zantetsuken gauge units directly.
+    /// Capped to max units based on game's max level.
     /// </summary>
-    /// <param name="units">New gauge value (0-7500)</param>
+    /// <param name="units">New gauge value</param>
     public void SetUnits(int units)
     {
         long odinPtr = GetOdinEikonPointer();
         if (odinPtr == 0) return;
 
-        if (units > MaxUnits) units = MaxUnits;
+        int maxUnits = GetMaxUnits();
+        if (units > maxUnits) units = maxUnits;
         if (units < 0) units = 0;
 
         *(short*)(odinPtr + OdinEikonOffsets.ZantetsukenGauge) = (short)units;
@@ -105,7 +130,8 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
 
     /// <summary>
     /// Adds units to the Zantetsuken gauge.
-    /// 1500 units = 1 Level. Max 7500 (Level 5).
+    /// 1500 units = 1 Level.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="amount">Amount of gauge units to add (can be negative)</param>
     public void AddUnits(int amount)
@@ -117,7 +143,8 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
         int currentUnits = *pGauge;
         int newUnits = currentUnits + amount;
         
-        if (newUnits > MaxUnits) newUnits = MaxUnits;
+        int maxUnits = GetMaxUnits();
+        if (newUnits > maxUnits) newUnits = maxUnits;
         if (newUnits < 0) newUnits = 0;
 
         *pGauge = (short)newUnits;
@@ -139,12 +166,14 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
     /// <summary>
     /// Set the Zantetsuken level directly.
     /// Level 1 = 0 units, Level 2 = 1500 units, etc.
+    /// Capped to game's max level.
     /// </summary>
-    /// <param name="level">Target level (1-5)</param>
+    /// <param name="level">Target level</param>
     public void SetLevel(int level)
     {
+        int maxLevel = GetMaxLevel();
         if (level < MinLevel) level = MinLevel;
-        if (level > MaxLevel) level = MaxLevel;
+        if (level > maxLevel) level = maxLevel;
         SetUnits((level - MinLevel) * UnitsPerLevel);
     }
 
@@ -158,11 +187,11 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
     }
 
     /// <summary>
-    /// Fill the gauge to maximum (Level 5).
+    /// Fill the gauge to maximum (max level from game).
     /// </summary>
     public void FillGauge()
     {
-        SetLevel(MaxLevel);
+        SetLevel(GetMaxLevel());
     }
 
     /// <summary>
@@ -193,9 +222,11 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
         
         int units = GetUnits();
         int level = GetLevel();
+        int maxUnits = GetMaxUnits();
+        int maxLevel = GetMaxLevel();
         
         _logger.WriteLine($"[{_modId}] [Zantetsuken] Ptr=0x{odinPtr:X}");
-        _logger.WriteLine($"[{_modId}] [Zantetsuken] Units: {units}/{MaxUnits} | Level: {level}/{MaxLevel}");
+        _logger.WriteLine($"[{_modId}] [Zantetsuken] Units: {units}/{maxUnits} | Level: {level}/{maxLevel}");
     }
 
     #endregion

@@ -690,7 +690,6 @@ public class ImGuiConfigurator : IImGuiComponent
     // ================================================================
     
     // Eikon API Tester state
-    private int _apiTestBlindJusticeMaxLevel = 6;
     private int _apiTestBlindJusticeStacks = 1;
     private int _apiTestZantetsukenLevel = 1;
     private int _apiTestZantetsukenUnits = 0;
@@ -739,26 +738,8 @@ public class ImGuiConfigurator : IImGuiComponent
                     $"Ramuh Active: {isActive}");
                 _imgui.SameLine();
                 _imgui.Text($"| Stacks: {bj.GetUnits()}/{bj.GetMaxUnits()}");
-                _imgui.SameLine();
-                _imgui.Text($"| Override: {(bj.IsMaxUnitsOverridden ? "YES" : "No")}");
                 
                 _imgui.Separator();
-                
-                // Max Level Override
-                _imgui.Text("Max Level Override:");
-                _imgui.InputInt("Max Level##bj", ref _apiTestBlindJusticeMaxLevel);
-                _imgui.SameLine();
-                if (_imgui.Button("Set##bjmax"))
-                {
-                    bj.SetMaxUnits(_apiTestBlindJusticeMaxLevel);
-                    _apiTestLastResult = $"Blind Justice Max Level set to {_apiTestBlindJusticeMaxLevel}";
-                }
-                _imgui.SameLine();
-                if (_imgui.Button("Reset##bjmax"))
-                {
-                    bj.ResetMaxUnits();
-                    _apiTestLastResult = "Blind Justice Max Level reset to vanilla";
-                }
                 
                 // Stacks
                 _imgui.Text("Stack Count:");

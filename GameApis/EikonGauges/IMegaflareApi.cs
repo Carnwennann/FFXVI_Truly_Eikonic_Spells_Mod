@@ -25,6 +25,21 @@ public interface IMegaflareApi
 
     #endregion
 
+    #region Max Level
+
+    /// <summary>
+    /// Get the maximum level from the game.
+    /// Typically 4 (base) or higher if upgraded.
+    /// </summary>
+    int GetMaxLevel();
+
+    /// <summary>
+    /// Get the maximum units based on max level (UnitsPerLevel * MaxLevel).
+    /// </summary>
+    int GetMaxUnits();
+
+    #endregion
+
     #region Gauge Units
 
     /// <summary>
@@ -34,17 +49,17 @@ public interface IMegaflareApi
 
     /// <summary>
     /// Set the Megaflare gauge units directly.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="units">New gauge value</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    void SetUnits(int units, int maxLevel = 4);
+    void SetUnits(int units);
 
     /// <summary>
     /// Adds units to the Megaflare gauge.
+    /// Capped to max units based on game's max level.
     /// </summary>
     /// <param name="amount">Amount of gauge units to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap (default: 4)</param>
-    void AddUnits(int amount, int maxLevel = 4);
+    void AddUnits(int amount);
 
     #endregion
 
@@ -57,17 +72,16 @@ public interface IMegaflareApi
 
     /// <summary>
     /// Set the Megaflare level directly.
+    /// Capped to game's max level.
     /// </summary>
     /// <param name="level">Target level</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    void SetLevel(int level, int maxLevel = 4);
+    void SetLevel(int level);
 
     /// <summary>
     /// Add full levels to the gauge.
     /// </summary>
     /// <param name="levels">Number of levels to add (can be negative)</param>
-    /// <param name="maxLevel">Maximum level cap</param>
-    void AddLevels(int levels, int maxLevel = 4);
+    void AddLevels(int levels);
 
     #endregion
 
@@ -76,8 +90,7 @@ public interface IMegaflareApi
     /// <summary>
     /// Fill the gauge to maximum.
     /// </summary>
-    /// <param name="maxLevel">Maximum level (default: 4)</param>
-    void FillGauge(int maxLevel = 4);
+    void FillGauge();
 
     /// <summary>
     /// Empty the gauge completely.
