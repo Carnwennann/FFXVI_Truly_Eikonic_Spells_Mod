@@ -15,6 +15,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// - Gauge = TIME IN SECONDS the ability has been charging (NOT damage units!)
 /// - State: 0=inactive, 2=charging, 4=executed
 /// - CurrentLevel increases as time thresholds are reached (8 seconds per level)
+/// - Max level from Skill::GetPotencyParameter(0x34)
 /// - Offsets: Gauge (0x378), State (0x37C), MaxLevel (0x37D), CurrentLevel (0x37E)
 /// </summary>
 public unsafe class AbyssalTearApi : IAbyssalTearApi
@@ -40,15 +41,18 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     #endregion
 
     private readonly Func<long> _getGlobalPlayerStatePtr;
+    private readonly SkillPotencyApi? _skillPotencyApi;
     private readonly ILogger? _logger;
     private readonly string _modId;
 
     public AbyssalTearApi(
-        Func<long> getGlobalPlayerStatePtr, 
+        Func<long> getGlobalPlayerStatePtr,
+        SkillPotencyApi? skillPotencyApi = null,
         ILogger? logger = null, 
         string modId = "")
     {
         _getGlobalPlayerStatePtr = getGlobalPlayerStatePtr;
+        _skillPotencyApi = skillPotencyApi;
         _logger = logger;
         _modId = modId;
     }
@@ -77,13 +81,11 @@ public unsafe class AbyssalTearApi : IAbyssalTearApi
     #region Max Level
 
     /// <summary>
-    /// Get the maximum level from the game's stored value.
-    /// Falls back to DefaultMaxLevel (4) if not available.
+    /// Get the maximum level from the game via SkillPotencyApi.
     /// </summary>
     public int GetMaxLevel()
     {
-        byte stored = GetMaxLevelStored();
-        return stored > 0 ? stored : DefaultMaxLevel;
+        return _skillPotencyApi?.AbyssalTearMaxLevel ?? DefaultMaxLevel;
     }
 
     /// <summary>

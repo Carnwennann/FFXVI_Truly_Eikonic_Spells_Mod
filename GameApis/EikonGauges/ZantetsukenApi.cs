@@ -11,10 +11,12 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// - 1500 units = 1 Level
 /// - Level range is 1-5 (game displays 1-based levels)
 /// - 0 units = Level 1, 1500 units = Level 2, etc.
-/// - Max 7500 units = Level 5
+/// - Max level from SkillPotencyApi (Skill::GetPotencyParameter(0x31))
 /// </summary>
 public unsafe class ZantetsukenApi : IZantetsukenApi
 {
+    #region Constants
+    
     /// <summary>
     /// Units required per Zantetsuken level.
     /// </summary>
@@ -26,32 +28,41 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
     public const int MinLevel = 1;
     
     /// <summary>
-    /// Maximum Zantetsuken level.
+    /// Default maximum Zantetsuken level.
     /// </summary>
-    public const int MaxLevel = 5;
+    public const int DefaultMaxLevel = 5;
     
-    /// <summary>
-    /// Maximum gauge units ((MaxLevel - 1) * UnitsPerLevel = 6000 to reach level 5).
-    /// At 0 units you're at level 1, at 6000 units you're at level 5.
-    /// </summary>
-    public const int MaxUnits = 6000;
+    #endregion
+    
+    #region Fields
 
     private readonly Func<long> _getGlobalPlayerStatePtr;
     private readonly Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> _getIsSummonModeActive;
+    private readonly SkillPotencyApi? _skillPotencyApi;
     private readonly ILogger? _logger;
     private readonly string _modId;
 
+    #endregion
+    
+    #region Constructor
+    
     public ZantetsukenApi(
         Func<long> getGlobalPlayerStatePtr, 
-        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive, 
+        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive,
+        SkillPotencyApi? skillPotencyApi = null,
         ILogger? logger = null, 
         string modId = "")
     {
         _getGlobalPlayerStatePtr = getGlobalPlayerStatePtr;
         _getIsSummonModeActive = getIsSummonModeActive;
+        _skillPotencyApi = skillPotencyApi;
         _logger = logger;
         _modId = modId;
     }
+    
+    #endregion
+    
+    #region Availability
 
     /// <summary>
     /// Gets the pointer to the Odin-specific Eikon structure.
@@ -76,17 +87,17 @@ public unsafe class ZantetsukenApi : IZantetsukenApi
     /// </summary>
     public bool IsOdinActive => GetOdinEikonPointer() != 0;
 
+    #endregion
+    
     #region Max Level
 
     /// <summary>
-    /// Get the maximum level from the game.
-    /// TODO: Hook Skill::GetPotencyParameter to get actual value.
-    /// Currently returns MaxLevel constant (5).
+    /// Get the maximum level from the game via Skill::GetPotencyParameter(0x31).
+    /// Returns value from centralized SkillPotencyApi, or default if not available.
     /// </summary>
     public int GetMaxLevel()
     {
-        // TODO: Get from game via hook
-        return MaxLevel;
+        return _skillPotencyApi?.ZantetsukenMaxLevel + 1 ?? DefaultMaxLevel;
     }
 
     /// <summary>

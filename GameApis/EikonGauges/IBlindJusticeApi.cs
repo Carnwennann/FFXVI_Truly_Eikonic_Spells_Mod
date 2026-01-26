@@ -1,7 +1,3 @@
-using Reloaded.Hooks.Definitions;
-using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
-using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
-
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
 /// <summary>
@@ -9,21 +5,12 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// 
 /// Blind Justice System:
 /// - Units = stack count (1-6 by default)
-/// - Max stacks from Skill::GetPotencyParameter(skill_29)
+/// - Max stacks from Skill::GetPotencyParameter(skill_29 = 0x1D)
 /// - Blind Justice mode = PlayerMode 74
 /// - No levels - this is a discrete counter gauge
 /// </summary>
 public interface IBlindJusticeApi
 {
-    #region Setup
-
-    /// <summary>
-    /// Set up signature scans and hooks for Blind Justice functions.
-    /// </summary>
-    void SetupScans(IStartupScanner scans, IReloadedHooks hooks);
-
-    #endregion
-
     #region Availability
 
     /// <summary>
@@ -42,7 +29,7 @@ public interface IBlindJusticeApi
     #region Max Units
 
     /// <summary>
-    /// Gets the maximum units from the game (Skill::GetPotencyParameter).
+    /// Gets the maximum units from the game via SkillPotencyApi.
     /// Base ability gives 3, mastered gives 6.
     /// </summary>
     int GetMaxUnits();

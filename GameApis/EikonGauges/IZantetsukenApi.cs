@@ -29,8 +29,8 @@ public interface IZantetsukenApi
     #region Max Level
 
     /// <summary>
-    /// Get the maximum level from the game.
-    /// Typically 5.
+    /// Get the maximum level from the game via Skill::GetPotencyParameter(0x31).
+    /// Default is 5 (base ability), may vary if skill is upgraded.
     /// </summary>
     int GetMaxLevel();
 

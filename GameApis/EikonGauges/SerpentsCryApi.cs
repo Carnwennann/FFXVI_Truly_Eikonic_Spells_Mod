@@ -13,6 +13,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// - TidalUnitsUsed: 0-100 (or 0-150 if skill upgraded)
 /// - UI shows: percentage = 100 * TidalUnitsUsed / MaxTidalUnits
 /// - UnlimitedTidalSeconds: Timer for unlimited tidal mode
+/// - Max units from Skill::GetPotencyParameter(0x36)
 /// - Offsets: UnlimitedTidalSeconds (0x1C0C), TidalUnitsUsed (0x1C18), etc.
 /// </summary>
 public unsafe class SerpentsCryApi : ISerpentsCryApi
@@ -21,30 +22,33 @@ public unsafe class SerpentsCryApi : ISerpentsCryApi
     
     /// <summary>
     /// Base max tidal units for Serpent's Cry.
-    /// Actual max comes from Skill::GetPotencyParameter(0x36).
     /// </summary>
     public const int BaseTidalMax = 100;
     
     /// <summary>
-    /// Upgraded max tidal units for Serpent's Cry.
+    /// Default max tidal units for Serpent's Cry (upgraded value).
+    /// Actual max comes from Skill::GetPotencyParameter(0x36).
     /// </summary>
-    public const int UpgradedTidalMax = 150;
+    public const int DefaultMaxUnits = 150;
     
     #endregion
 
     private readonly Func<long> _getGlobalPlayerStatePtr;
     private readonly Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> _getIsSummonModeActive;
+    private readonly SkillPotencyApi? _skillPotencyApi;
     private readonly ILogger? _logger;
     private readonly string _modId;
 
     public SerpentsCryApi(
         Func<long> getGlobalPlayerStatePtr, 
-        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive, 
+        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive,
+        SkillPotencyApi? skillPotencyApi = null,
         ILogger? logger = null, 
         string modId = "")
     {
         _getGlobalPlayerStatePtr = getGlobalPlayerStatePtr;
         _getIsSummonModeActive = getIsSummonModeActive;
+        _skillPotencyApi = skillPotencyApi;
         _logger = logger;
         _modId = modId;
     }
@@ -75,23 +79,12 @@ public unsafe class SerpentsCryApi : ISerpentsCryApi
     #region Gauge Units
 
     /// <summary>
-    /// Get the max tidal units from the game (stored at offset 0x1C1A).
-    /// Falls back to UpgradedTidalMax (150) if not available.
+    /// Get the max tidal units from the game via SkillPotencyApi.
+    /// Base is 100, upgraded is 150.
     /// </summary>
     public int GetMaxUnits()
     {
-        int stored = GetStoredMaxTidalUnitsInternal();
-        return stored > 0 ? stored : UpgradedTidalMax;
-    }
-    
-    /// <summary>
-    /// Internal: Get the max tidal units stored in memory (offset 0x1C1A).
-    /// </summary>
-    private int GetStoredMaxTidalUnitsInternal()
-    {
-        long leviathanPtr = GetLeviathanEikonPointer();
-        if (leviathanPtr == 0) return 0;
-        return *(ushort*)(leviathanPtr + LeviathanEikonOffsets.MaxTidalUnits);
+        return _skillPotencyApi?.SerpentsCryMaxUnits ?? DefaultMaxUnits;
     }
 
     /// <summary>

@@ -9,7 +9,7 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// 
 /// Megaflare Gauge System:
 /// - 4000 units = 1 Level
-/// - Max level depends on skill potency (typically 1-4)
+/// - Max level from Skill::GetPotencyParameter(0x32)
 /// - Wings activation state affects UI display
 /// </summary>
 public unsafe class MegaflareApi : IMegaflareApi
@@ -26,17 +26,20 @@ public unsafe class MegaflareApi : IMegaflareApi
 
     private readonly Func<long> _getGlobalPlayerStatePtr;
     private readonly Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> _getIsSummonModeActive;
+    private readonly SkillPotencyApi? _skillPotencyApi;
     private readonly ILogger? _logger;
     private readonly string _modId;
 
     public MegaflareApi(
         Func<long> getGlobalPlayerStatePtr, 
-        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive, 
+        Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive,
+        SkillPotencyApi? skillPotencyApi = null,
         ILogger? logger = null, 
         string modId = "")
     {
         _getGlobalPlayerStatePtr = getGlobalPlayerStatePtr;
         _getIsSummonModeActive = getIsSummonModeActive;
+        _skillPotencyApi = skillPotencyApi;
         _logger = logger;
         _modId = modId;
     }
@@ -67,14 +70,11 @@ public unsafe class MegaflareApi : IMegaflareApi
     #region Max Level
 
     /// <summary>
-    /// Get the maximum level from the game.
-    /// TODO: Hook Skill::GetPotencyParameter to get actual value.
-    /// Currently returns DefaultMaxLevel (4).
+    /// Get the maximum level from the game via SkillPotencyApi.
     /// </summary>
     public int GetMaxLevel()
     {
-        // TODO: Get from game via hook
-        return DefaultMaxLevel;
+        return _skillPotencyApi?.MegaflareMaxLevel ?? DefaultMaxLevel;
     }
 
     /// <summary>

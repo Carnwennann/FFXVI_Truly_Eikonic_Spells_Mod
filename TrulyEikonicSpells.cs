@@ -100,6 +100,7 @@ public class TrulyEikonicSpellsMod : ModBase
     private PhysicsApi _physicsApi;
     private ActorApi _actorApi;
     private MagicApiV2 _magicApiV2;
+    private SkillPotencyApi _skillPotencyApi;
     private ZantetsukenApi _zantetsukenApi;
     private MegaflareApi _megaflareApi;
     private AbyssalTearApi _abyssalTearApi;
@@ -218,30 +219,38 @@ public class TrulyEikonicSpellsMod : ModBase
     {   
         // Initialize systems with configuration
 
-        // Initialize APIs
+        // Initialize SkillPotencyApi FIRST - centralized hook for all skill potencies
+        _skillPotencyApi = new SkillPotencyApi(_logger, _modConfig.ModId);
+        _skillPotencyApi.SetupScans(_startupScanner, _hooks);
+
+        // Initialize Eikon Gauge APIs (all use SkillPotencyApi for max values)
         _zantetsukenApi = new ZantetsukenApi(
             () => _globalPlayerStatePtr, 
-            () => _isSummonModeActive, 
+            () => _isSummonModeActive,
+            _skillPotencyApi,
             _logger, 
             _modConfig.ModId
         );
 
         _megaflareApi = new MegaflareApi(
             () => _globalPlayerStatePtr, 
-            () => _isSummonModeActive, 
+            () => _isSummonModeActive,
+            _skillPotencyApi,
             _logger, 
             _modConfig.ModId
         );
 
         _abyssalTearApi = new AbyssalTearApi(
-            () => _globalPlayerStatePtr, 
+            () => _globalPlayerStatePtr,
+            _skillPotencyApi,
             _logger, 
             _modConfig.ModId
         );
 
         _serpentsCryApi = new SerpentsCryApi(
             () => _globalPlayerStatePtr, 
-            () => _isSummonModeActive, 
+            () => _isSummonModeActive,
+            _skillPotencyApi,
             _logger, 
             _modConfig.ModId
         );
@@ -250,10 +259,10 @@ public class TrulyEikonicSpellsMod : ModBase
             () => _globalPlayerStatePtr, 
             () => _isSummonModeActive, 
             _actorApi,
+            _skillPotencyApi,
             _logger, 
             _modConfig.ModId
         );
-        _blindJusticeApi.SetupScans(_startupScanner, _hooks);
 
         // DIA SYSTEM
         _diaSystem = new DiaSystem(

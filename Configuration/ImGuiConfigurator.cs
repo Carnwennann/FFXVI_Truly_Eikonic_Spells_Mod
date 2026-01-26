@@ -796,12 +796,14 @@ public class ImGuiConfigurator : IImGuiComponent
                 bool isActive = zk.IsOdinActive;
                 int currentUnits = zk.GetUnits();
                 int currentLevel = zk.GetLevel();
+                int maxUnits = zk.GetMaxUnits();
+                int maxLevel = zk.GetMaxLevel();
                 
                 _imgui.TextColored(
                     isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
                     $"Odin Active: {isActive}");
                 _imgui.SameLine();
-                _imgui.Text($"| Units: {currentUnits}/{ZantetsukenApi.MaxUnits} | Level: {currentLevel}/{ZantetsukenApi.MaxLevel}");
+                _imgui.Text($"| Units: {currentUnits}/{maxUnits} | Level: {currentLevel}/{maxLevel}");
                 
                 _imgui.Separator();
                 
@@ -831,7 +833,7 @@ public class ImGuiConfigurator : IImGuiComponent
                 }
                 
                 // Level input
-                _imgui.Text($"Level ({ZantetsukenApi.MinLevel}-{ZantetsukenApi.MaxLevel}):");
+                _imgui.Text($"Level ({ZantetsukenApi.MinLevel}-{maxLevel}):");;
                 _imgui.InputInt("Level##zk", ref _apiTestZantetsukenLevel);
                 _imgui.SameLine();
                 if (_imgui.Button("Set##zklevel"))
@@ -853,10 +855,10 @@ public class ImGuiConfigurator : IImGuiComponent
                 }
                 
                 // Quick buttons
-                if (_imgui.Button($"Fill (Lvl {ZantetsukenApi.MaxLevel})##zk"))
+                if (_imgui.Button($"Fill##zk"))
                 {
                     zk.FillGauge();
-                    _apiTestLastResult = $"Zantetsuken filled to Level {ZantetsukenApi.MaxLevel}";
+                    _apiTestLastResult = $"Zantetsuken filled to Level {maxLevel}";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("Empty##zk"))
@@ -883,12 +885,14 @@ public class ImGuiConfigurator : IImGuiComponent
                 bool isActive = mf.IsBahamutActive;
                 int currentUnits = mf.GetUnits();
                 int currentLevel = mf.GetLevel();
+                int maxLevel = mf.GetMaxLevel();
+                int maxUnits = mf.GetMaxUnits();
                 
                 _imgui.TextColored(
                     isActive ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
                     $"Bahamut Active: {isActive}");
                 _imgui.SameLine();
-                _imgui.Text($"| Units: {currentUnits}/16000 | Level: {currentLevel}/4");
+                _imgui.Text($"| Units: {currentUnits}/{maxUnits} | Level: {currentLevel}/{maxLevel}");
                 
                 _imgui.Separator();
                 
@@ -918,7 +922,7 @@ public class ImGuiConfigurator : IImGuiComponent
                 }
                 
                 // Level input
-                _imgui.Text("Level (0-4):");
+                _imgui.Text($"Level (0-{maxLevel}):");
                 _imgui.InputInt("Level##mf", ref _apiTestMegaflareLevel);
                 _imgui.SameLine();
                 if (_imgui.Button("Set##mflevel"))
@@ -940,10 +944,10 @@ public class ImGuiConfigurator : IImGuiComponent
                 }
                 
                 // Quick buttons
-                if (_imgui.Button("Fill (Lvl 4)##mf"))
+                if (_imgui.Button($"Fill##mf"))
                 {
                     mf.FillGauge();
-                    _apiTestLastResult = "Megaflare filled to Level 4";
+                    _apiTestLastResult = $"Megaflare filled to Level {maxLevel}";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("Empty##mf"))
@@ -968,11 +972,12 @@ public class ImGuiConfigurator : IImGuiComponent
             {
                 // Status
                 bool available = at.IsAvailable;
+                int atMaxLevel = at.GetMaxLevel();
                 _imgui.TextColored(
                     available ? new Vector4(0.4f, 1.0f, 0.4f, 1.0f) : new Vector4(0.6f, 0.6f, 0.6f, 1.0f),
                     $"Available: {available}");
                 _imgui.SameLine();
-                _imgui.Text($"| Units: {at.GetUnits()} | Level: {at.GetLevel()}/{AbyssalTearApi.DefaultMaxLevel}");
+                _imgui.Text($"| Units: {at.GetUnits()} | Level: {at.GetLevel()}/{atMaxLevel}");
                 
                 _imgui.Separator();
                 
@@ -987,7 +992,7 @@ public class ImGuiConfigurator : IImGuiComponent
                 }
                 
                 // Level input - second, with +1/-1 on same row
-                _imgui.Text($"Level ({AbyssalTearApi.MinLevel}-{AbyssalTearApi.DefaultMaxLevel}):");
+                _imgui.Text($"Level ({AbyssalTearApi.MinLevel}-{atMaxLevel}):");
                 _imgui.InputInt("Level##at", ref _apiTestAbyssalTearLevel);
                 _imgui.SameLine();
                 if (_imgui.Button("Set##atlevel"))
@@ -1012,7 +1017,7 @@ public class ImGuiConfigurator : IImGuiComponent
                 if (_imgui.Button("Fill##at"))
                 {
                     at.FillGauge();
-                    _apiTestLastResult = $"Abyssal Tear filled to max level ({AbyssalTearApi.DefaultMaxLevel})";
+                    _apiTestLastResult = $"Abyssal Tear filled to max level ({atMaxLevel})";
                 }
                 _imgui.SameLine();
                 if (_imgui.Button("Empty##at"))

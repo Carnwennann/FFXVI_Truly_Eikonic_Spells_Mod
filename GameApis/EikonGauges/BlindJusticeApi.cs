@@ -1,12 +1,7 @@
-using System.Diagnostics;
 using ff16.gameplay.truly_eikonic_spells.Utils;
 using ff16.gameplay.truly_eikonic_spells.GameStructs;
 using ff16.gameplay.truly_eikonic_spells.GameApis.Actor;
 using Reloaded.Mod.Interfaces;
-using Reloaded.Hooks.Definitions;
-using Reloaded.Hooks.Definitions.X64;
-using Reloaded.Memory.SigScan.ReloadedII.Interfaces;
-using IReloadedHooks = Reloaded.Hooks.ReloadedII.Interfaces.IReloadedHooks;
 
 namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 
@@ -15,32 +10,15 @@ namespace ff16.gameplay.truly_eikonic_spells.GameApis.EikonGauges;
 /// 
 /// Blind Justice System (from IDA analysis):
 /// - Stack count stored at ActorData35Entry + 0xE0 (224 decimal) as int
-/// - Max stacks from Skill::GetPotencyParameter(skill_29)
+/// - Max stacks from Skill::GetPotencyParameter(skill_29 = 0x1D)
 /// - Blind Justice mode = PlayerMode 74
 /// - Checked via IsBlindJusticeActive() before UI update
-/// 
-/// Signature Patterns:
-/// - GetBlindJusticeMaxGaugeMaxLevel: 48 89 5C 24 ?? 57 48 83 EC ?? ... 84 C0 74 71
-///   Returns max number of locked-on projectiles (skill_29 potency)
 /// 
 /// Unlike other Eikon gauges, this is stored in ActorData35Entry,
 /// not in the Eikon summon structure.
 /// </summary>
 public unsafe class BlindJusticeApi : IBlindJusticeApi
 {
-    #region Signatures
-    
-    /// <summary>
-    /// Signature for GetBlindJusticeMaxGaugeMaxLevel function.
-    /// Distinguished by "jz short 0x71" at byte 59 (84 C0 74 71).
-    /// </summary>
-    private const string SIG_GET_MAX_LEVEL = 
-        "48 89 5C 24 ?? 57 48 83 EC ?? 48 8B 05 ?? ?? ?? ?? 48 8D 54 24 ?? " +
-        "48 8B 0D ?? ?? ?? ?? 44 8B 80 ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8D 4C 24 ?? " +
-        "E8 ?? ?? ?? ?? 48 8B 5C 24 ?? 84 C0 74 71";
-    
-    #endregion
-    
     #region Constants
     
     /// <summary>
@@ -61,28 +39,14 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
     
     #endregion
     
-    #region Delegates
-    
-    /// <summary>
-    /// Delegate for GetBlindJusticeMaxGaugeMaxLevel function.
-    /// Returns the maximum number of locked-on projectiles.
-    /// </summary>
-    [Function(CallingConventions.Microsoft)]
-    private delegate long GetBlindJusticeMaxGaugeMaxLevelDelegate();
-    
-    #endregion
-    
     #region Fields
     
     private readonly Func<long> _getGlobalPlayerStatePtr;
     private readonly Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> _getIsSummonModeActive;
     private readonly IActorApi? _actorApi;
+    private readonly SkillPotencyApi? _skillPotencyApi;
     private readonly ILogger? _logger;
     private readonly string _modId;
-    
-    // Hook for getting max level from game
-    private IHook<GetBlindJusticeMaxGaugeMaxLevelDelegate>? _getMaxLevelHook;
-    private nint _baseAddress;
     
     #endregion
     
@@ -94,54 +58,23 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
     /// <param name="getGlobalPlayerStatePtr">Function to get global player state pointer</param>
     /// <param name="getIsSummonModeActive">Function to get IsSummonModeActive delegate</param>
     /// <param name="actorApi">ActorApi for accessing ActorData35Entry (required for lock count)</param>
+    /// <param name="skillPotencyApi">Centralized SkillPotencyApi for max stacks</param>
     /// <param name="logger">Logger for debug output</param>
     /// <param name="modId">Mod ID for log prefixes</param>
     public BlindJusticeApi(
         Func<long> getGlobalPlayerStatePtr, 
         Func<TrulyEikonicSpellsMod.IsSummonModeActiveDelegate?> getIsSummonModeActive,
         IActorApi? actorApi = null,
+        SkillPotencyApi? skillPotencyApi = null,
         ILogger? logger = null, 
         string modId = "")
     {
         _getGlobalPlayerStatePtr = getGlobalPlayerStatePtr;
         _getIsSummonModeActive = getIsSummonModeActive;
         _actorApi = actorApi;
+        _skillPotencyApi = skillPotencyApi;
         _logger = logger;
         _modId = modId;
-        _baseAddress = Process.GetCurrentProcess().MainModule!.BaseAddress;
-    }
-    
-    #endregion
-    
-    #region Setup
-    
-    /// <summary>
-    /// Set up signature scans and hooks for Blind Justice functions.
-    /// </summary>
-    public void SetupScans(IStartupScanner scans, IReloadedHooks hooks)
-    {
-        // Hook GetBlindJusticeMaxGaugeMaxLevel to allow overriding max level
-        scans.AddMainModuleScan(SIG_GET_MAX_LEVEL, result =>
-        {
-            if (!result.Found)
-            {
-                _logger?.WriteLine($"[{_modId}] [BlindJustice] FAILED to find GetBlindJusticeMaxGaugeMaxLevel", _logger.ColorRed);
-                return;
-            }
-            var addr = (nint)(_baseAddress + result.Offset);
-            _getMaxLevelHook = hooks.CreateHook<GetBlindJusticeMaxGaugeMaxLevelDelegate>(GetMaxLevelImpl, addr).Activate();
-            _logger?.WriteLine($"[{_modId}] [BlindJustice] Hooked GetBlindJusticeMaxGaugeMaxLevel at 0x{addr:X}", _logger.ColorGreen);
-        });
-    }
-    
-    /// <summary>
-    /// Hook implementation for GetBlindJusticeMaxGaugeMaxLevel.
-    /// Just calls the original function (hook kept for potential future use).
-    /// </summary>
-    private long GetMaxLevelImpl()
-    {
-        // Call the original function to get the game's max value
-        return _getMaxLevelHook!.OriginalFunction();
     }
     
     #endregion
@@ -149,19 +82,12 @@ public unsafe class BlindJusticeApi : IBlindJusticeApi
     #region Max Units
     
     /// <summary>
-    /// Gets the maximum units from the game (Skill::GetPotencyParameter).
+    /// Gets the maximum units from the game via SkillPotencyApi.
     /// Base ability gives 3, mastered gives 6.
     /// </summary>
     public int GetMaxUnits()
     {
-        // If hook is active, call original to get vanilla value
-        if (_getMaxLevelHook != null)
-        {
-            return (int)_getMaxLevelHook.OriginalFunction();
-        }
-        
-        // Fallback to default
-        return DefaultMaxStacks;
+        return _skillPotencyApi?.BlindJusticeMaxStacks ?? DefaultMaxStacks;
     }
     
     #endregion
